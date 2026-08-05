@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aetheria.ai | Yapay Zeka Tabanlı Yazılım Fikri ve Mimari Keşif Platformu</title>
+    <meta name="description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Animated Ambient Background Blobs -->
+    <div class="bg-glow-container">
+        <div class="bg-blob bg-blob-1"></div>
+        <div class="bg-blob bg-blob-2"></div>
+        <div class="bg-blob bg-blob-3"></div>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="header">
+            <a href="#" class="brand-logo" id="brandLogo">
+                <div class="logo-icon-wrapper">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="brand-name">Aetheria<span>.ai</span></div>
+            </a>
+
+            <div class="header-right-badges" id="headerRightBadges">
+                <!-- Gemini API Settings Indicator -->
+                <div id="btnFeature2Notice" class="feature2-pending-badge" title="Gemini Live API Ayarları">
+                    <span>⚡ Gemini API Ayarları</span>
+                </div>
+
+                <!-- Shared Community Project Pool Button -->
+                <button id="btnSavedProjects" class="header-action-btn" title="Ortak Proje Havuzu">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+                    </svg>
+                    <span>Ortak Proje Havuzu</span>
+                    <span id="savedCountBadge" class="saved-count-badge">0</span>
+                </button>
+
+                <div class="ai-status-badge">
+                    <div class="pulse-dot"></div>
+                    <span>AI Agent Active</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <main>
+            <section class="hero-section">
+                <div class="hero-badge">
+                    <span>✨ Otonom Sektörel Analiz Ajanı</span>
+                </div>
+                <h1 class="hero-title">
+                    Geleceğin Yazılım Projesini ve <br>
+                    <span class="gradient-text">Pazar Açığını Keşfet</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Yapay zeka ajanı sektörel problemleri, doymuş pazarları ve çözülmemiş ihtiyaçları analiz ederek ortak topluluk havuzuna sunar.
+                </p>
+
+                <!-- Category & Domain Filter Bar -->
+                <div class="filter-bar-container" id="filterBar">
+                    <button class="filter-btn active" data-category="all">🌐 Tüm Kategoriler</button>
+                    <button class="filter-btn" data-category="health-ai">🩺 Sağlık & AI</button>
+                    <button class="filter-btn" data-category="web3">🔗 Web3 & Güvenlik</button>
+                    <button class="filter-btn" data-category="infrastructure">☁️ Altyapı & Cloud</button>
+                    <button class="filter-btn" data-category="edtech">🎓 EdTech & AI</button>
+                    <button class="filter-btn" data-category="sustainability">🌱 Sürdürülebilirlik</button>
+                </div>
+
+                <!-- Primary Action Button -->
+                <div class="action-wrapper">
+                    <button id="btnGenerateProject" class="btn-generate-main">
+                        <span class="btn-icon-sparkle">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2z"/>
+                            </svg>
+                        </span>
+                        <span>PROJE BUL</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Agent Terminal Simulation Container -->
+            <div id="terminalContainer" class="terminal-container">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <span class="dot dot-red"></span>
+                        <span class="dot dot-yellow"></span>
+                        <span class="dot dot-green"></span>
+                    </div>
+                    <div class="terminal-title" id="terminalTitle">Aetheria AI Agent — Terminal v2.4</div>
+                    <div style="width: 52px;"></div>
+                </div>
+                <div id="terminalBody" class="terminal-body">
+                    <!-- Logs injected via JS -->
+                </div>
+            </div>
+
+            <!-- Results Output Area -->
+            <div id="resultsWrapper" class="results-wrapper">
+
+                <!-- STEP 1: Project Header & Overview -->
+                <div class="glass-card project-header-card">
+                    <div class="project-meta-top">
+                        <span class="card-header-badge badge-step1">Aşama 1: Proje Bulundu</span>
+                        <span id="projectCategory" class="project-category">Kategori</span>
+                        
+                        <div class="header-card-actions">
+                            <!-- SAVE TO SHARED POOL BUTTON -->
+                            <button id="btnSaveProject" class="btn-save-project">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                                </svg>
+                                <span>Ortak Havuza Ekle</span>
+                            </button>
+
+                            <!-- EXPORT BLUEPRINT BUTTON -->
+                            <button id="btnExportBlueprint" class="btn-export-blueprint">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                </svg>
+                                <span>Raporu İndir (.md)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <h2 id="projectTitle" class="project-title">Proje Yükleniyor...</h2>
+                    <p id="projectTagline" class="project-tagline">Proje Sloganı</p>
+
+                    <!-- Metadata Metrics Grid Badges -->
+                    <div class="metrics-grid-container" id="metricsGrid">
+                        <div class="metric-card-pill">
+                            <span class="metric-label">📊 Fırsat Skoru</span>
+                            <span id="metricOpportunity" class="metric-value score-highlight">%96 Fırsat Skoru</span>
+                        </div>
+                        <div class="metric-card-pill">
+                            <span class="metric-label">⚡ Zorluk Düzeyi</span>
+                            <span id="metricDifficulty" class="metric-value">İleri Düzey</span>
+                        </div>
+                        <div class="metric-card-pill">
+                            <span class="metric-label">⏱️ Tahmini MVP Süresi</span>
+                            <span id="metricMvpTime" class="metric-value">6-8 Hafta</span>
+                        </div>
+                        <div class="metric-card-pill">
+                            <span class="metric-label">💰 Gelir Modeli</span>
+                            <span id="metricMonetization" class="metric-value">B2B SaaS</span>
+                        </div>
+                    </div>
+
+                    <div id="projectTags" class="tech-tags">
+                        <!-- Tech tags added dynamically -->
+                    </div>
+                </div>
+
+                <!-- STEP 1: Market Gap Card -->
+                <div class="glass-card">
+                    <div class="card-section-title">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <span>Alandaki Açık (Pazar Problemi & Fırsat)</span>
+                    </div>
+                    <div id="marketGapContent" class="gap-highlight-box">
+                        <!-- Content typed dynamically -->
+                    </div>
+                </div>
+
+                <!-- STEP 1: Detailed Description Card -->
+                <div class="glass-card">
+                    <div class="card-section-title">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                        </svg>
+                        <span>Detaylı Proje Açıklaması & Özellikler</span>
+                    </div>
+                    <div id="descriptionContent" class="markdown-formatted-body description-content">
+                        <!-- Detailed description injected here -->
+                    </div>
+                </div>
+
+                <!-- STEP 2 TRIGGER BUTTON -->
+                <div class="step2-trigger-wrapper">
+                    <button id="btnTriggerStep2" class="btn-trigger-step2">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                        <span>Teknik Mimarayı ve Güvenlik Çözümünü Oluştur</span>
+                    </button>
+                </div>
+
+                <!-- STEP 2: Architecture & Security Container -->
+                <div id="step2Container" class="step2-container">
+                    
+                    <!-- Code Architecture Card -->
+                    <div class="glass-card">
+                        <div class="project-meta-top">
+                            <span class="card-header-badge badge-step2">Aşama 2: Teknik Çözümleme</span>
+                        </div>
+                        
+                        <!-- Interactive Visual System Architecture Flow Graph -->
+                        <div class="architecture-diagram-wrapper">
+                            <div class="diagram-header-title">
+                                <span>📐 INTERACTIVE SYSTEM ARCHITECTURE NODES</span>
+                            </div>
+                            <div id="architectureDiagramNodes" class="node-flow-container">
+                                <!-- Nodes rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="card-section-title">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M19 15v4H5v-4h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM19 5v4H5V5h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 8.5c-.83 0-1.5-.67-1.5-1.5S6.17 5.5 7 5.5s1.5.67 1.5 1.5S7.83 8.5 7 8.5z"/>
+                            </svg>
+                            <span>Kod Mimarisi, Katmanlar & Veritabanı Tasarımı</span>
+                        </div>
+                        <div id="architectureContent" class="markdown-formatted-body">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Security Considerations Card -->
+                    <div class="glass-card">
+                        <div class="card-section-title">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8s0 0 0 0z"/>
+                            </svg>
+                            <span>Güvenlik Yapısı & Risk Önleme Tedbirleri</span>
+                        </div>
+                        <div id="securityContent" class="markdown-formatted-body">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- SHARED COMMUNITY PROJECT POOL SIDE DRAWER -->
+        <div id="savedDrawerOverlay" class="drawer-overlay">
+            <div class="drawer-card">
+                <div class="drawer-header">
+                    <h3>🌐 Ortak Proje Havuzu (Community Pool)</h3>
+                    <button id="btnCloseDrawer" class="btn-icon-close">✕</button>
+                </div>
+                <div id="savedProjectsList" class="saved-projects-list">
+                    <!-- Shared community cards rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Gemini API Key & Settings Modal -->
+        <div id="feature2Modal" class="modal-overlay">
+            <div class="modal-card">
+                <h3 class="modal-title">⚡ Gemini Live API Ayarları</h3>
+                <p class="modal-desc">
+                    Google AI Studio'dan aldığınız <strong>ücretsiz Gemini API Key</strong> ile Aetheria.ai ajanı sınırsız sayıda canlı ve %100 özgün proje üretebilir.
+                </p>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="geminiApiKey">Gemini API Key</label>
+                    <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;">
+                    <small style="color: var(--accent-cyan); display: block; margin-top: 0.4rem;">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">👉 Ücretsiz Gemini API Key Al (Google AI Studio)</a>
+                    </small>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; background: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm);">
+                    <span style="font-size: 0.9rem; font-weight: 600;">Canlı Gemini Modunu Kullan</span>
+                    <input type="checkbox" id="useGeminiApiToggle" style="width: 18px; height: 18px; cursor: pointer;">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button id="btnCloseModal" class="btn-close-modal" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">İptal</button>
+                    <button id="btnSaveGeminiKey" class="btn-close-modal" style="background: var(--gradient-glow);">Kaydet & Başlat</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>© 2026 <strong>Aetheria.ai</strong> — Yapay Zeka Ajanlı Yazılım Mimarisi ve Fikir Üretici</p>
+        </footer>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="projects-data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
