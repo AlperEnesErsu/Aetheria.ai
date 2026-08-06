@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const terminalBody = document.getElementById('terminalBody');
     const resultsWrapper = document.getElementById('resultsWrapper');
     const step2Container = document.getElementById('step2Container');
+    const step2TriggerWrapper = document.getElementById('step2TriggerWrapper');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -237,7 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projId = e.target.getAttribute('data-id');
                 const found = communityPool.find(p => p.id === projId);
                 if (found) {
-                    loadProjectIntoView(found);
+                    // Pooled projects are already "known", so show the full report immediately
+                    loadProjectIntoView(found, true);
                     savedDrawerOverlay.style.display = 'none';
                 }
             });
@@ -263,8 +265,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Load any project directly into view
-    function loadProjectIntoView(proj) {
+    // Render the Aşama 2 payload (diagram + architecture + security) for the active project
+    function renderStep2Content() {
+        if (!currentProject || !currentProject.step2) return;
+        renderArchitectureDiagram(currentProject.diagramNodes);
+        architectureContent.innerHTML = parseMarkdown(currentProject.step2.architecture);
+        securityContent.innerHTML = parseMarkdown(currentProject.step2.security);
+    }
+
+    // Toggle visibility of the "Aşama 2" section and its trigger button.
+    // Step 2 stays hidden after a fresh generation so the two-stage flow is preserved;
+    // it is revealed only on explicit user action or when re-opening a pooled project.
+    function setStep2Visibility(revealed) {
+        const hasStep2 = Boolean(currentProject && currentProject.step2);
+
+        step2Container.style.display = revealed ? 'block' : 'none';
+        step2Container.classList.toggle('visible', revealed);
+        step2TriggerWrapper.style.display = (hasStep2 && !revealed) ? 'block' : 'none';
+    }
+
+    // Load any project directly into view.
+    // `revealStep2` is opt-in: the generate flow leaves it false so the user still has to
+    // trigger the architecture/security stage themselves.
+    function loadProjectIntoView(proj, revealStep2 = false) {
         currentProject = proj;
         
         projectCategory.textContent = currentProject.category;
@@ -290,16 +313,10 @@ document.addEventListener('DOMContentLoaded', () => {
         marketGapContent.innerHTML = parseMarkdown(currentProject.step1 ? currentProject.step1.marketGap : '');
         descriptionContent.innerHTML = parseMarkdown(currentProject.step1 ? currentProject.step1.description : '');
 
-        if (currentProject.step2) {
-            renderArchitectureDiagram(currentProject.diagramNodes);
-            architectureContent.innerHTML = parseMarkdown(currentProject.step2.architecture);
-            securityContent.innerHTML = parseMarkdown(currentProject.step2.security);
-            step2Container.style.display = 'block';
-            step2Container.classList.add('visible');
-        } else {
-            step2Container.style.display = 'none';
-            step2Container.classList.remove('visible');
+        if (currentProject.step2 && revealStep2) {
+            renderStep2Content();
         }
+        setStep2Visibility(Boolean(currentProject.step2) && revealStep2);
 
         updateSaveButtonUI();
         resultsWrapper.classList.add('visible');
@@ -527,6 +544,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         resultsWrapper.classList.remove('visible');
         step2Container.classList.remove('visible');
         step2Container.style.display = 'none';
+        step2TriggerWrapper.style.display = 'none';
 
         terminalContainer.style.display = 'block';
         terminalBody.innerHTML = '';
@@ -618,13 +636,10 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
         terminalContainer.style.display = 'none';
 
-        renderArchitectureDiagram(currentProject.diagramNodes);
-        architectureContent.innerHTML = parseMarkdown(currentProject.step2 ? currentProject.step2.architecture : '');
-        securityContent.innerHTML = parseMarkdown(currentProject.step2 ? currentProject.step2.security : '');
+        renderStep2Content();
+        setStep2Visibility(true);
 
-        step2Container.style.display = 'block';
         setTimeout(() => {
-            step2Container.classList.add('visible');
             step2Container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
 
