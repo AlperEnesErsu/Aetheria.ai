@@ -1,0 +1,26 @@
+{
+  "name": "aetheria-ai",
+  "version": "1.0.0",
+  "description": "Yapay zeka ajanlı yazılım mimarisi ve pazar açığı keşif platformu",
+  "private": true,
+  "license": "MIT",
+  "author": "Alper Enes Ersü",
+  "homepage": "https://github.com/AlperEnesErsu/Aetheria.ai#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlperEnesErsu/Aetheria.ai.git"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "start": "python -m http.server 3000",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
