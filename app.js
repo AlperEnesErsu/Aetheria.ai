@@ -65,6 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECURITY & RATE LIMITING STATE (Open-Source Protection)
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
     const MAX_CALLS_PER_HOUR = 15; // Max 15 Gemini API calls per hour per browser
+
+    // Gemini request configuration
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']; // primary, then fallback
+    const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
+    const GEMINI_TIMEOUT_MS = 45000;
+
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
 
@@ -344,7 +350,71 @@ document.addEventListener('DOMContentLoaded', () => {
         return projects[randomIndex];
     }
 
-    // GEMINI 2.5 FLASH LIVE API CALL WITH RATE LIMIT & TOKEN CAP GUARDRAILS
+    // Validate the shape of a project object coming from an untrusted source (Gemini,
+    // or a hand-edited localStorage pool) before it reaches the renderer.
+    function validateProjectShape(obj) {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return 'Yanıt bir proje nesnesi değil';
+        }
+        for (const field of ['title', 'tagline', 'category']) {
+            if (typeof obj[field] !== 'string' || !obj[field].trim()) {
+                return `Zorunlu alan eksik veya boş: ${field}`;
+            }
+        }
+        if (!obj.step1 || typeof obj.step1 !== 'object') return 'step1 bloğu eksik';
+        for (const field of ['marketGap', 'description']) {
+            if (typeof obj.step1[field] !== 'string' || !obj.step1[field].trim()) {
+                return `Zorunlu alan eksik veya boş: step1.${field}`;
+            }
+        }
+        return null;
+    }
+
+    // Fill in the optional parts of a validated project so the renderer never sees
+    // half-built objects, and guarantee a unique id for pool de-duplication.
+    function normalizeProject(obj) {
+        const p = { ...obj };
+        p.id = (typeof p.id === 'string' && p.id.trim()) ? p.id.trim() : `gemini-${Date.now()}`;
+        p.categoryKey = typeof p.categoryKey === 'string' ? p.categoryKey : activeCategoryFilter;
+        p.meta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
+        p.diagramNodes = Array.isArray(p.diagramNodes)
+            ? p.diagramNodes.filter(n => n && typeof n === 'object' && typeof n.name === 'string')
+            : [];
+        p.step1.tags = Array.isArray(p.step1.tags)
+            ? p.step1.tags.filter(tag => typeof tag === 'string')
+            : [];
+
+        // step2 is optional: drop it entirely unless both halves are present, so the
+        // two-stage flow does not offer an empty report.
+        const s2 = p.step2;
+        const hasStep2 = s2 && typeof s2 === 'object'
+            && typeof s2.architecture === 'string' && s2.architecture.trim()
+            && typeof s2.security === 'string' && s2.security.trim();
+        if (!hasStep2) delete p.step2;
+
+        return p;
+    }
+
+    // Read a fetch error body defensively — Gemini returns JSON for API errors but
+    // proxies and gateways happily return HTML, which would mask the real failure.
+    async function describeHttpError(response) {
+        let detail = '';
+        try {
+            const raw = await response.text();
+            try {
+                const parsed = JSON.parse(raw);
+                detail = parsed && parsed.error && parsed.error.message ? parsed.error.message : raw;
+            } catch {
+                detail = raw;
+            }
+        } catch {
+            detail = '';
+        }
+        detail = String(detail).replace(/\s+/g, ' ').trim().slice(0, 200);
+        return `HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
+    }
+
+    // GEMINI LIVE API CALL WITH RATE LIMIT & TOKEN CAP GUARDRAILS
     async function generateProjectViaGeminiApi() {
         if (!geminiApiKey) throw new Error('API Key girilmedi');
 
@@ -354,8 +424,10 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error(limitCheck.reason);
         }
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`;
-        const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey.trim()}`;
+        // Count the attempt *before* firing it. Recording only successful calls meant a
+        // rejected key or a 429 storm consumed neither the cooldown nor the hourly
+        // budget, which let a broken configuration hammer the endpoint unthrottled.
+        recordGeminiCall();
 
         const promptText = `Sen Aetheria.ai adında otonom bir yazılım mimarı yapay zeka ajanıısın. Kullanıcı için son derece özgün, yenilikçi ve derinlemesine hazırlanmış bir yazılım projesi üret. Kategori tercihi: ${activeCategoryFilter}.
 Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam olarak şu şekilde olmalı:
@@ -389,42 +461,96 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
   }
 }`;
 
-        // SECURITY GUARDRAIL: Strict Token Limit Cap (max 1000 tokens output to preserve quota)
+        // QUOTA GUARDRAIL: the output cap has to fit the whole JSON blueprint above.
+        // 1000 tokens truncated every single response mid-JSON, so live mode could
+        // never succeed. Thinking is disabled explicitly because on 2.5 models
+        // reasoning tokens are billed against maxOutputTokens too.
         const requestBody = {
             contents: [{ parts: [{ text: promptText }] }],
             generationConfig: {
-                responseMimeType: "application/json",
-                maxOutputTokens: 1000,
-                temperature: 0.7
+                responseMimeType: 'application/json',
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                temperature: 0.7,
+                thinkingConfig: { thinkingBudget: 0 }
             }
         };
 
-        let response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
+        const data = await requestGeminiCompletion(requestBody);
 
-        if (!response.ok) {
-            response = await fetch(fallbackEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
+        const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
+        if (!candidate) {
+            const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
+            throw new Error(blockReason
+                ? `İstek güvenlik filtresine takıldı (${blockReason})`
+                : 'Gemini boş yanıt döndürdü');
+        }
+        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+            throw new Error(`Yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
         }
 
-        if (!response.ok) {
-            const errJson = await response.json();
-            throw new Error(errJson.error ? errJson.error.message : 'Gemini API Hatası');
+        const parts = candidate.content && Array.isArray(candidate.content.parts)
+            ? candidate.content.parts
+            : [];
+        const jsonText = parts.map(part => (part && typeof part.text === 'string' ? part.text : '')).join('');
+        if (!jsonText.trim()) throw new Error('Gemini yanıtında metin bulunamadı');
+
+        let projectObj;
+        try {
+            projectObj = JSON.parse(jsonText);
+        } catch {
+            throw new Error('Gemini geçerli JSON döndürmedi');
         }
 
-        // Record successful call for rate limiting
-        recordGeminiCall();
+        const shapeError = validateProjectShape(projectObj);
+        if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
 
-        const data = await response.json();
-        const jsonText = data.candidates[0].content.parts[0].text;
-        const projectObj = JSON.parse(jsonText);
-        return projectObj;
+        return normalizeProject(projectObj);
+    }
+
+    // POST to Gemini, walking the model list until one answers. The API key travels in
+    // the x-goog-api-key header rather than the query string so it does not end up in
+    // browser history, referrers or proxy logs.
+    async function requestGeminiCompletion(requestBody) {
+        let lastError = null;
+
+        for (const model of GEMINI_MODELS) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': geminiApiKey.trim()
+                        },
+                        body: JSON.stringify(requestBody),
+                        signal: controller.signal
+                    }
+                );
+
+                if (response.ok) return await response.json();
+
+                lastError = new Error(`${model}: ${await describeHttpError(response)}`);
+
+                // 4xx other than 429 means the request itself is wrong (bad key, bad
+                // body); retrying another model would fail identically.
+                if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                    throw lastError;
+                }
+            } catch (err) {
+                if (err === lastError) throw err;
+                lastError = err.name === 'AbortError'
+                    ? new Error(`${model}: istek zaman aşımına uğradı (${GEMINI_TIMEOUT_MS / 1000}s)`)
+                    : new Error(`${model}: ${err.message}`);
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        throw lastError || new Error('Gemini API Hatası');
     }
 
     // Render Visual Architecture Flow Graph

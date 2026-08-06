@@ -23,7 +23,7 @@ Aetheria.ai, sektördeki çözülmemiş problemleri, doymuşluk oranlarını ve 
 
 - **Frontend / Core**: HTML5, Vanilla JavaScript (ES6+ SPA Architecture)
 - **Styling**: Modern Vanilla CSS3 (Custom Design System, Glassmorphism, HSL Design Tokens, CSS Grid/Flexbox)
-- **AI Integration**: Google Gemini 2.5 Flash & 1.5 Flash REST API
+- **AI Integration**: Google Gemini 2.5 Flash REST API (yedek: Gemini 2.5 Flash Lite)
 - **Typography**: Google Fonts (*Outfit* & *Fira Code*)
 - **Icons & Graphics**: Inline SVG & CSS Micro-animations
 
