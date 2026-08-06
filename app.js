@@ -71,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
     const GEMINI_TIMEOUT_MS = 45000;
 
+    // Diagram node types that have a matching .node-* rule in style.css
+    const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
+
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
 
@@ -90,15 +93,29 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGeminiBadgeStatus();
     updateSavedBadge();
 
-    // Helper: Simple Markdown Formatter
+    // Helper: escape every HTML-significant character so untrusted text can never
+    // introduce markup when it is later assigned to innerHTML.
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Helper: Simple Markdown Formatter.
+    // Project content is untrusted — it comes from the Gemini API or from a
+    // localStorage pool that anyone with devtools access can edit. The input is
+    // escaped first, so the only tags in the output are the ones produced below.
     function parseMarkdown(text) {
         if (!text) return '';
-        let html = text
+        let html = escapeHtml(text)
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/^### (.*$)/gm, '<h3>$1</h3>')
             .replace(/^## (.*$)/gm, '<h2>$1</h2>')
             .replace(/^[•\*] (.*$)/gm, '<li>$1</li>');
-        
+
         html = html.replace(/(<li>[\s\S]*?<\/li>)/g, (match) => `<ul>${match}</ul>`);
         html = html.replace(/<\/ul>\s*<ul>/g, '');
         return html;
@@ -125,7 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
             statusTag += ` <span class="status-info">[SCAN]</span>`;
         }
 
-        line.innerHTML = `${statusTag} <span>${message}</span>`;
+        // `message` can carry a raw upstream error body (see describeHttpError), so it
+        // is escaped before it becomes markup.
+        line.innerHTML = `${statusTag} <span>${escapeHtml(message)}</span>`;
         terminalBody.appendChild(line);
         terminalBody.scrollTop = terminalBody.scrollHeight;
     }
@@ -223,18 +242,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Built with DOM APIs rather than an innerHTML template: pool entries are
+        // untrusted (Gemini output, or hand-edited localStorage) and interpolating
+        // proj.title / proj.category into markup was directly injectable.
         communityPool.forEach(proj => {
             const card = document.createElement('div');
             card.className = 'saved-card-item';
-            card.innerHTML = `
-                <div class="saved-item-cat">${proj.category}</div>
-                <div class="saved-item-title">${proj.title}</div>
-                <div class="saved-item-actions">
-                    <button class="btn-saved-action btn-inspect" data-id="${proj.id}">İncele</button>
-                    <button class="btn-saved-action btn-download" data-id="${proj.id}">.MD İndir</button>
-                    <button class="btn-saved-action btn-delete" data-id="${proj.id}">Havuzdan Çıkar</button>
-                </div>
-            `;
+
+            const cat = document.createElement('div');
+            cat.className = 'saved-item-cat';
+            cat.textContent = proj.category;
+
+            const title = document.createElement('div');
+            title.className = 'saved-item-title';
+            title.textContent = proj.title;
+
+            const actions = document.createElement('div');
+            actions.className = 'saved-item-actions';
+
+            [
+                { cls: 'btn-inspect', label: 'İncele' },
+                { cls: 'btn-download', label: '.MD İndir' },
+                { cls: 'btn-delete', label: 'Havuzdan Çıkar' }
+            ].forEach(({ cls, label }) => {
+                const btn = document.createElement('button');
+                btn.className = `btn-saved-action ${cls}`;
+                btn.dataset.id = proj.id;
+                btn.textContent = label;
+                actions.appendChild(btn);
+            });
+
+            card.append(cat, title, actions);
             savedProjectsList.appendChild(card);
         });
 
@@ -560,11 +598,19 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
         nodes.forEach((node, idx) => {
             const card = document.createElement('div');
-            card.className = `diagram-node-card node-${node.type || 'service'}`;
-            card.innerHTML = `
-                <div class="node-name">${node.name}</div>
-                <div class="node-sub">${node.sub || ''}</div>
-            `;
+            // node.type lands in a class name, so restrict it to the known palette
+            const type = NODE_TYPES.includes(node.type) ? node.type : 'service';
+            card.className = `diagram-node-card node-${type}`;
+
+            const name = document.createElement('div');
+            name.className = 'node-name';
+            name.textContent = node.name;
+
+            const sub = document.createElement('div');
+            sub.className = 'node-sub';
+            sub.textContent = node.sub || '';
+
+            card.append(name, sub);
             architectureDiagramNodes.appendChild(card);
 
             if (idx < nodes.length - 1) {

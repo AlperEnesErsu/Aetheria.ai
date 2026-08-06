@@ -3,6 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- frame-ancestors / X-Frame-Options cannot be set from a meta tag; add them at
+         the server or host level when deploying. -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src https://fonts.gstatic.com;
+        img-src 'self' data:;
+        connect-src https://generativelanguage.googleapis.com;
+        base-uri 'none';
+        form-action 'none'">
     <title>Aetheria.ai | Yapay Zeka Tabanlı Yazılım Fikri ve Mimari Keşif Platformu</title>
     <meta name="description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
     <link rel="stylesheet" href="style.css">
@@ -271,7 +282,11 @@
                     <label for="geminiApiKey">Gemini API Key</label>
                     <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;">
                     <small style="color: var(--accent-cyan); display: block; margin-top: 0.4rem;">
-                        <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">👉 Ücretsiz Gemini API Key Al (Google AI Studio)</a>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">👉 Ücretsiz Gemini API Key Al (Google AI Studio)</a>
+                    </small>
+                    <small class="key-storage-warning">
+                        🔒 Anahtar yalnızca bu tarayıcıda saklanır, hiçbir sunucuya gönderilmez.
+                        Ortak kullanılan bir bilgisayardaysanız işiniz bittiğinde alanı boşaltıp tekrar kaydedin.
                     </small>
                 </div>
 

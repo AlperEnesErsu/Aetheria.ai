@@ -1101,6 +1101,14 @@ body {
     gap: 0.4rem;
 }
 
+.key-storage-warning {
+    display: block;
+    margin-top: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
 .form-group label {
     font-size: 0.85rem;
     color: var(--text-muted);
