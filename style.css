@@ -982,6 +982,13 @@ body {
     color: var(--accent-rose);
 }
 
+.drawer-note {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
 .saved-projects-list {
     flex: 1;
     overflow-y: auto;

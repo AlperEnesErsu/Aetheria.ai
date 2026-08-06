@@ -12,7 +12,7 @@ Aetheria.ai, sektördeki çözülmemiş problemleri, doymuşluk oranlarını ve 
 - **🤖 Otonom Ajan Terminal Simülasyonu**: Pazar taraması ve anomali tespit süreçlerini canlı komut satırı logları ile görselleştirir.
 - **⚡ Canlı Gemini 2.5 Flash API Entegrasyonu**: Google AI Studio'dan alınan ücretsiz API Key ile sınırsız, anlık ve %100 özgün proje üretimi.
 - **📐 Görsel Sistem Mimarisi Akış Diyagramı (Interactive Diagram Nodes)**: Mikroservis katmanlarını ve veri akışını gösteren interaktif neon düğüm kartları (`Client -> Gateway -> AI Engine -> Storage`).
-- **🌐 Ortak Proje Havuzu (Community Project Pool)**: Üretilen projelerin tüm kullanıcılar tarafından ortak erişilebildiği ve paylaşılabildiği kütüphane.
+- **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
 - **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve pazar analizlerini tek tıkla Markdown raporu olarak indirme.
 - **🛡️ Açık Kaynak Güvenlik Korumaları**: İstemci tarafı Cooldown (20s), Saatlik Sorgu Limiti (15/saat) ve Max Output Token sınırlamaları ile kota koruması.
 - **🎯 Kategori & Teknoloji Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech ve Sürdürülebilirlik alanlarında özel aramalar.

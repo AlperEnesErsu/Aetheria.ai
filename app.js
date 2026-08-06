@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Application State
     let currentProject = null;
-    let lastProjectIndex = -1;
+    let lastProjectId = null;
     let activeCategoryFilter = 'all';
 
     // SECURITY & RATE LIMITING STATE (Open-Source Protection)
@@ -124,8 +124,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper: Sleep Delay
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+    // Helper: single place that owns the disabled/opacity pair, so no early return can
+    // leave a button stuck in its busy state
+    function setButtonBusy(button, busy) {
+        button.disabled = busy;
+        button.style.opacity = busy ? '0.7' : '1';
+        button.setAttribute('aria-busy', busy ? 'true' : 'false');
+    }
+
     // Terminal Log Writer
-    async function writeTerminalLog(message, type = 'info') {
+    function writeTerminalLog(message, type = 'info') {
         const line = document.createElement('div');
         line.className = 'terminal-line';
         
@@ -214,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSaveProject.querySelector('span').textContent = '✓ Havuzda Kayıtlı';
         } else {
             btnSaveProject.classList.remove('is-saved');
-            btnSaveProject.querySelector('span').textContent = 'Ortak Havuza Ekle';
+            btnSaveProject.querySelector('span').textContent = 'Havuzuma Ekle';
         }
     }
 
@@ -300,6 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
         savedProjectsList.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const projId = e.target.getAttribute('data-id');
+                const target = communityPool.find(p => p.id === projId);
+                // Removal is permanent — the pool lives only in this browser
+                if (!window.confirm(`"${target ? target.title : projId}" havuzdan kalıcı olarak çıkarılsın mı?`)) return;
+
                 communityPool = communityPool.filter(p => p.id !== projId);
                 localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
                 updateSavedBadge();
@@ -374,18 +386,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter);
     }
 
-    // Pick random project from built-in database
+    // Pick random project from built-in database.
+    // De-duplication tracks the project id rather than an index: indices belong to the
+    // *filtered* list, so after a filter change the remembered index pointed at an
+    // unrelated project and suppressed the wrong result.
     function getRandomProject() {
         const projects = getFilteredProjects();
         if (projects.length === 0) return null;
 
-        let randomIndex;
-        do {
-            randomIndex = Math.floor(Math.random() * projects.length);
-        } while (randomIndex === lastProjectIndex && projects.length > 1);
+        const pickable = projects.length > 1
+            ? projects.filter(p => p.id !== lastProjectId)
+            : projects;
 
-        lastProjectIndex = randomIndex;
-        return projects[randomIndex];
+        const picked = pickable[Math.floor(Math.random() * pickable.length)];
+        lastProjectId = picked.id;
+        return picked;
     }
 
     // Validate the shape of a project object coming from an untrusted source (Gemini,
@@ -658,6 +673,9 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        // The blob stays alive for the whole document lifetime unless revoked, so every
+        // export leaked its payload. Deferred one tick so the download has started.
+        setTimeout(() => URL.revokeObjectURL(url), 0);
     }
 
     // Category Filter Handlers
@@ -710,9 +728,20 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
     // STEP 1: GENERATE PROJECT IDEA & MARKET GAP
     // ==========================================
     async function startStep1Simulation() {
-        btnGenerateProject.disabled = true;
-        btnGenerateProject.style.opacity = '0.7';
-        
+        setButtonBusy(btnGenerateProject, true);
+        try {
+            await runStep1();
+        } catch (err) {
+            // Any unexpected failure used to leave the button permanently disabled,
+            // making the app look frozen with no way to retry.
+            console.error('Aetheria: proje üretimi başarısız', err);
+            writeTerminalLog(`Beklenmeyen hata: ${err.message || err}. Lütfen tekrar deneyin.`, 'warning');
+        } finally {
+            setButtonBusy(btnGenerateProject, false);
+        }
+    }
+
+    async function runStep1() {
         resultsWrapper.classList.remove('visible');
         step2Container.classList.remove('visible');
         step2Container.style.display = 'none';
@@ -721,7 +750,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         terminalContainer.style.display = 'block';
         terminalBody.innerHTML = '';
 
-        await writeTerminalLog('Aetheria AI Agent v2.4 başlatılıyor...', 'agent');
+        writeTerminalLog('Aetheria AI Agent v2.4 başlatılıyor...', 'agent');
         await sleep(300);
 
         let projectToRender = null;
@@ -729,56 +758,51 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         // Try Gemini Live API if enabled
         if (useGeminiLiveMode && geminiApiKey) {
             try {
-                await writeTerminalLog('Gemini 2.5 Flash API bağlandı. Canlı yapay zeka pazar taraması yapılıyor...', 'agent');
+                writeTerminalLog('Gemini 2.5 Flash API bağlandı. Canlı yapay zeka pazar taraması yapılıyor...', 'agent');
                 await sleep(400);
-                await writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
+                writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
                 await sleep(500);
 
                 projectToRender = await generateProjectViaGeminiApi();
-                await writeTerminalLog('Gemini AI canlı proje mimarisi başarıyla oluşturuldu!', 'success');
+                writeTerminalLog('Gemini AI canlı proje mimarisi başarıyla oluşturuldu!', 'success');
                 await sleep(300);
             } catch (err) {
                 console.warn('Gemini API Security Notice:', err);
-                await writeTerminalLog(`Güvenlik & Kota Koruması: ${err.message || 'Limit aşıldı'}.`, 'warning');
-                await writeTerminalLog('Kota korundu. Dahili Ajan veritabanına geçiş yapılıyor...', 'info');
+                writeTerminalLog(`Güvenlik & Kota Koruması: ${err.message || 'Limit aşıldı'}.`, 'warning');
+                writeTerminalLog('Kota korundu. Dahili Ajan veritabanına geçiş yapılıyor...', 'info');
                 await sleep(400);
             }
         }
 
         // Fallback to Built-in Database
         if (!projectToRender) {
-            await writeTerminalLog('Küresel SaaS & GitHub Trend Veritabanı bağlandı.', 'info');
+            writeTerminalLog('Küresel SaaS & GitHub Trend Veritabanı bağlandı.', 'info');
             await sleep(400);
-            await writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
+            writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
             await sleep(400);
             
             projectToRender = getRandomProject();
 
             if (!projectToRender) {
-                await writeTerminalLog('Bu kategoride henüz proje bulunamadı.', 'info');
-                btnGenerateProject.disabled = false;
-                btnGenerateProject.style.opacity = '1';
+                writeTerminalLog('Bu kategoride henüz proje bulunamadı.', 'info');
                 return;
             }
 
-            await writeTerminalLog(`Sektör Tespit Edildi: "${projectToRender.category}"`, 'info');
+            writeTerminalLog(`Sektör Tespit Edildi: "${projectToRender.category}"`, 'info');
             await sleep(400);
-            await writeTerminalLog('Rekabet doyum oranı ve kullanıcı şikayetleri analiz ediliyor...', 'info');
+            writeTerminalLog('Rekabet doyum oranı ve kullanıcı şikayetleri analiz ediliyor...', 'info');
             await sleep(400);
-            await writeTerminalLog('Çözülmemiş yüksek potansiyelli proje fırsatı yakalandı!', 'success');
+            writeTerminalLog('Çözülmemiş yüksek potansiyelli proje fırsatı yakalandı!', 'success');
             await sleep(300);
         }
 
-        await writeTerminalLog(`Proje Adı: "${projectToRender.title}" oluşturuluyor...`, 'agent');
+        writeTerminalLog(`Proje Adı: "${projectToRender.title}" oluşturuluyor...`, 'agent');
         await sleep(400);
 
         terminalContainer.style.display = 'none';
         
         // Populate & Render Step 1
         loadProjectIntoView(projectToRender);
-
-        btnGenerateProject.disabled = false;
-        btnGenerateProject.style.opacity = '1';
     }
 
     // ==========================================
@@ -787,23 +811,32 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
     async function startStep2Simulation() {
         if (!currentProject) return;
 
-        btnTriggerStep2.disabled = true;
-        btnTriggerStep2.style.opacity = '0.7';
+        setButtonBusy(btnTriggerStep2, true);
+        try {
+            await runStep2();
+        } catch (err) {
+            console.error('Aetheria: mimari üretimi başarısız', err);
+            writeTerminalLog(`Beklenmeyen hata: ${err.message || err}. Lütfen tekrar deneyin.`, 'warning');
+        } finally {
+            setButtonBusy(btnTriggerStep2, false);
+        }
+    }
 
+    async function runStep2() {
         terminalContainer.style.display = 'block';
         terminalBody.innerHTML = '';
 
-        await writeTerminalLog(`"${currentProject.title}" için Derin Mimari Scanner çalıştırılıyor...`, 'agent');
+        writeTerminalLog(`"${currentProject.title}" için Derin Mimari Scanner çalıştırılıyor...`, 'agent');
         await sleep(350);
-        await writeTerminalLog('Clean Architecture katmanları ve mikroservis sınırları çiziliyor...', 'info');
+        writeTerminalLog('Clean Architecture katmanları ve mikroservis sınırları çiziliyor...', 'info');
         await sleep(400);
-        await writeTerminalLog('Sistem akış diyagramı düğümleri (Interactive Diagram Nodes) oluşturuluyor...', 'info');
+        writeTerminalLog('Sistem akış diyagramı düğümleri (Interactive Diagram Nodes) oluşturuluyor...', 'info');
         await sleep(400);
-        await writeTerminalLog('Veritabanı varlık ilişkileri ve storage katmanları optimizasyonu...', 'info');
+        writeTerminalLog('Veritabanı varlık ilişkileri ve storage katmanları optimizasyonu...', 'info');
         await sleep(400);
-        await writeTerminalLog('Tehdit Modellemesi (OWASP Top 10 & Zero-Trust) yürütülüyor...', 'info');
+        writeTerminalLog('Tehdit Modellemesi (OWASP Top 10 & Zero-Trust) yürütülüyor...', 'info');
         await sleep(400);
-        await writeTerminalLog('Mimari ve Güvenlik Çözüm Raporu Başarıyla Tamamlandı!', 'success');
+        writeTerminalLog('Mimari ve Güvenlik Çözüm Raporu Başarıyla Tamamlandı!', 'success');
         await sleep(300);
 
         terminalContainer.style.display = 'none';
@@ -814,9 +847,6 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         setTimeout(() => {
             step2Container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
-
-        btnTriggerStep2.disabled = false;
-        btnTriggerStep2.style.opacity = '1';
     }
 
     // Event Listeners
