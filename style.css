@@ -23,7 +23,8 @@
 
     --text-main: #f1f5f9;
     --text-muted: #94a3b8;
-    --text-dark: #64748b;
+    /* was #64748b — below WCAG AA (3.6:1) on --bg-primary; this clears 4.5:1 */
+    --text-dark: #8b9bb0;
 
     --gradient-glow: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
     --gradient-emerald: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
@@ -51,6 +52,31 @@
 
 html {
     scroll-behavior: smooth;
+}
+
+/* The default focus ring disappears against the dark glass surfaces */
+:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Respect users who ask the OS to reduce motion: the ambient blobs, the
+   spinning sparkle and the pulsing dot animate forever otherwise. */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .bg-blob {
+        display: none;
+    }
 }
 
 body {
@@ -234,7 +260,9 @@ body {
 }
 
 /* Feature 2 Pending Indicator */
+/* Now a <button> (it has a click handler): reset the UA button styling */
 .feature2-pending-badge {
+    font-family: inherit;
     display: flex;
     align-items: center;
     gap: 0.4rem;
