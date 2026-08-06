@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ProjemiBul.ai - Extended Stylesheet with Saved Drawer & Auth Modal
+   Aetheria.ai - Stylesheet
    ========================================================================== */
 
 /* Fonts are loaded from index.html with preconnect; an @import here would block
@@ -263,15 +263,6 @@ body {
     padding: 0.1rem 0.45rem;
     border-radius: 10px;
     margin-left: 0.2rem;
-}
-
-.btn-auth {
-    background: linear-gradient(135deg, rgba(127, 0, 255, 0.2), rgba(0, 242, 254, 0.2));
-    border-color: rgba(127, 0, 255, 0.4);
-}
-
-.btn-auth:hover {
-    box-shadow: 0 0 15px rgba(127, 0, 255, 0.4);
 }
 
 /* Feature 2 Pending Indicator */
@@ -1101,50 +1092,6 @@ body {
     color: #ffffff;
 }
 
-/* AUTH LOGIN / REGISTER MODAL */
-.auth-modal-card {
-    max-width: 420px;
-    text-align: left;
-}
-
-.auth-tabs {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--card-border);
-    padding-bottom: 1rem;
-    margin-bottom: 1.5rem;
-    position: relative;
-}
-
-.auth-tab-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-family: var(--font-sans);
-    font-size: 1.05rem;
-    font-weight: 700;
-    cursor: pointer;
-    padding: 0.3rem 0.8rem;
-    border-radius: var(--radius-sm);
-}
-
-.auth-tab-btn.active {
-    color: var(--accent-cyan);
-    background: rgba(0, 242, 254, 0.1);
-}
-
-.tab-close {
-    position: absolute;
-    right: 0;
-    top: 0;
-}
-
-.auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
 .form-group {
     display: flex;
     flex-direction: column;
@@ -1179,54 +1126,6 @@ body {
 
 .form-group input:focus {
     border-color: var(--accent-cyan);
-}
-
-.btn-auth-submit {
-    background: var(--gradient-glow);
-    color: #ffffff;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 700;
-    padding: 0.8rem;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    margin-top: 0.5rem;
-    transition: opacity 0.2s ease;
-}
-
-.btn-auth-submit:hover {
-    opacity: 0.9;
-}
-
-.auth-divider {
-    text-align: center;
-    color: var(--text-dark);
-    font-size: 0.8rem;
-    margin: 1.25rem 0;
-    position: relative;
-}
-
-.social-login-grid {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.btn-social {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--text-main);
-    padding: 0.6rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.btn-social:hover {
-    background: rgba(255, 255, 255, 0.12);
 }
 
 /* Footer */
@@ -1300,7 +1199,38 @@ body {
 }
 
 /* Media Queries for Mobile Responsiveness */
+/* Tablet: the header and the metrics grid were only handled below 768px, so
+   they overflowed awkwardly through the whole tablet range. */
+@media (max-width: 1024px) {
+    .header {
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .header-right-badges {
+        justify-content: center;
+    }
+
+    .metrics-grid-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .header-card-actions {
+        flex-wrap: wrap;
+    }
+}
+
 @media (max-width: 768px) {
+    .metrics-grid-container {
+        grid-template-columns: 1fr;
+    }
+
+    .project-meta-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .header {
         padding: 1rem 1.25rem;
     }

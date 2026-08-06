@@ -1,16 +1,25 @@
 /* ==========================================================================
-   Aetheria.ai - Application Logic & AI Agent Simulation
-   Features Implemented:
-   - 1: Visual Architecture Diagram Nodes
-   - 2: FREE Gemini 2.5 Flash Live API Integration (with strict client-side rate limits & token caps)
-   - 3: Export Project Blueprint (.md)
-   - 4: Category & Domain Filters
-   - 5: Metadata Metrics Grid
-   - NEW: Shared Community Project Pool
-   - SECURITY: Rate Limiter & Token Cap Guardrail (Open Source Protection)
+   Aetheria.ai — Application Logic & AI Agent Simulation
+
+   Wiring layer: DOM rendering, event handling, localStorage and the Gemini
+   request/response cycle. Pure logic (escaping, markdown, validation,
+   selection, rate-limit decisions, blueprint text) lives in core.js, which is
+   unit-tested under Node by test/core.test.js.
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Pure logic lives in core.js so it can be unit-tested under Node without a DOM
+    const {
+        escapeHtml,
+        parseMarkdown,
+        validateProjectShape,
+        normalizeProject,
+        safeNodeType,
+        pickRandomProject,
+        evaluateRateLimit,
+        buildBlueprintMarkdown
+    } = window.AetheriaCore;
+
     // DOM Elements
     const btnGenerateProject = document.getElementById('btnGenerateProject');
     const btnTriggerStep2 = document.getElementById('btnTriggerStep2');
@@ -71,9 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
     const GEMINI_TIMEOUT_MS = 45000;
 
-    // Diagram node types that have a matching .node-* rule in style.css
-    const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
-
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
 
@@ -92,34 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
     updateGeminiBadgeStatus();
     updateSavedBadge();
-
-    // Helper: escape every HTML-significant character so untrusted text can never
-    // introduce markup when it is later assigned to innerHTML.
-    function escapeHtml(text) {
-        return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    // Helper: Simple Markdown Formatter.
-    // Project content is untrusted — it comes from the Gemini API or from a
-    // localStorage pool that anyone with devtools access can edit. The input is
-    // escaped first, so the only tags in the output are the ones produced below.
-    function parseMarkdown(text) {
-        if (!text) return '';
-        let html = escapeHtml(text)
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-            .replace(/^[•\*] (.*$)/gm, '<li>$1</li>');
-
-        html = html.replace(/(<li>[\s\S]*?<\/li>)/g, (match) => `<ul>${match}</ul>`);
-        html = html.replace(/<\/ul>\s*<ul>/g, '');
-        return html;
-    }
 
     // Helper: Sleep Delay
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -157,27 +135,18 @@ document.addEventListener('DOMContentLoaded', () => {
         terminalBody.scrollTop = terminalBody.scrollHeight;
     }
 
-    // Rate Limiter Enforcement Check
+    // Rate Limiter Enforcement Check — the decision itself is pure (core.js);
+    // this wrapper supplies the clock and persists the pruned history.
     function checkRateLimits() {
-        const now = Date.now();
-        const timeSinceLastCall = now - lastGeminiCallTimestamp;
+        const verdict = evaluateRateLimit(Date.now(), lastGeminiCallTimestamp, hourlyCallHistory, {
+            cooldownMs: RATE_LIMIT_COOLDOWN_MS,
+            maxPerHour: MAX_CALLS_PER_HOUR
+        });
 
-        // 1. Cooldown Check (20 seconds minimum interval)
-        if (timeSinceLastCall < RATE_LIMIT_COOLDOWN_MS) {
-            const secondsLeft = Math.ceil((RATE_LIMIT_COOLDOWN_MS - timeSinceLastCall) / 1000);
-            return { allowed: false, reason: `Güvenlik & Kota Koruması: Lütfen ${secondsLeft} saniye bekleyin.` };
-        }
-
-        // 2. Hourly Limit Check (Max 15 per hour)
-        const oneHourAgo = now - 3600000;
-        hourlyCallHistory = hourlyCallHistory.filter(ts => ts > oneHourAgo);
+        hourlyCallHistory = verdict.history;
         localStorage.setItem('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
 
-        if (hourlyCallHistory.length >= MAX_CALLS_PER_HOUR) {
-            return { allowed: false, reason: `Saatlik Gemini API limitine (15 sorgu/saat) ulaşıldı. Otomatik dahili motora geçiliyor.` };
-        }
-
-        return { allowed: true };
+        return verdict;
     }
 
     // Record Gemini Call Timestamp for rate limiting
@@ -388,66 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter);
     }
 
-    // Pick random project from built-in database.
-    // De-duplication tracks the project id rather than an index: indices belong to the
-    // *filtered* list, so after a filter change the remembered index pointed at an
-    // unrelated project and suppressed the wrong result.
+    // Pick random project from built-in database (selection logic lives in core.js)
     function getRandomProject() {
-        const projects = getFilteredProjects();
-        if (projects.length === 0) return null;
-
-        const pickable = projects.length > 1
-            ? projects.filter(p => p.id !== lastProjectId)
-            : projects;
-
-        const picked = pickable[Math.floor(Math.random() * pickable.length)];
-        lastProjectId = picked.id;
+        const picked = pickRandomProject(getFilteredProjects(), lastProjectId);
+        if (picked) lastProjectId = picked.id;
         return picked;
-    }
-
-    // Validate the shape of a project object coming from an untrusted source (Gemini,
-    // or a hand-edited localStorage pool) before it reaches the renderer.
-    function validateProjectShape(obj) {
-        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-            return 'Yanıt bir proje nesnesi değil';
-        }
-        for (const field of ['title', 'tagline', 'category']) {
-            if (typeof obj[field] !== 'string' || !obj[field].trim()) {
-                return `Zorunlu alan eksik veya boş: ${field}`;
-            }
-        }
-        if (!obj.step1 || typeof obj.step1 !== 'object') return 'step1 bloğu eksik';
-        for (const field of ['marketGap', 'description']) {
-            if (typeof obj.step1[field] !== 'string' || !obj.step1[field].trim()) {
-                return `Zorunlu alan eksik veya boş: step1.${field}`;
-            }
-        }
-        return null;
-    }
-
-    // Fill in the optional parts of a validated project so the renderer never sees
-    // half-built objects, and guarantee a unique id for pool de-duplication.
-    function normalizeProject(obj) {
-        const p = { ...obj };
-        p.id = (typeof p.id === 'string' && p.id.trim()) ? p.id.trim() : `gemini-${Date.now()}`;
-        p.categoryKey = typeof p.categoryKey === 'string' ? p.categoryKey : activeCategoryFilter;
-        p.meta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
-        p.diagramNodes = Array.isArray(p.diagramNodes)
-            ? p.diagramNodes.filter(n => n && typeof n === 'object' && typeof n.name === 'string')
-            : [];
-        p.step1.tags = Array.isArray(p.step1.tags)
-            ? p.step1.tags.filter(tag => typeof tag === 'string')
-            : [];
-
-        // step2 is optional: drop it entirely unless both halves are present, so the
-        // two-stage flow does not offer an empty report.
-        const s2 = p.step2;
-        const hasStep2 = s2 && typeof s2 === 'object'
-            && typeof s2.architecture === 'string' && s2.architecture.trim()
-            && typeof s2.security === 'string' && s2.security.trim();
-        if (!hasStep2) delete p.step2;
-
-        return p;
     }
 
     // Read a fetch error body defensively — Gemini returns JSON for API errors but
@@ -559,7 +473,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         const shapeError = validateProjectShape(projectObj);
         if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
 
-        return normalizeProject(projectObj);
+        return normalizeProject(projectObj, activeCategoryFilter);
     }
 
     // POST to Gemini, walking the model list until one answers. The API key travels in
@@ -616,7 +530,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         nodes.forEach((node, idx) => {
             const card = document.createElement('div');
             // node.type lands in a class name, so restrict it to the known palette
-            const type = NODE_TYPES.includes(node.type) ? node.type : 'service';
+            const type = safeNodeType(node.type);
             card.className = `diagram-node-card node-${type}`;
 
             const name = document.createElement('div');
@@ -644,30 +558,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         const p = projToExport || currentProject;
         if (!p) return;
 
-        const meta = p.meta || {};
-        
-        let markdownDoc = `# ${p.title} — Technical Blueprint & Market Analysis\n\n`;
-        markdownDoc += `> **Slogan**: ${p.tagline}\n`;
-        markdownDoc += `> **Kategori**: ${p.category}\n`;
-        markdownDoc += `> **Fırsat Skoru**: ${meta.opportunityScore || 'N/A'}\n`;
-        markdownDoc += `> **Zorluk Düzeyi**: ${meta.difficulty || 'N/A'}\n`;
-        markdownDoc += `> **Tahmini MVP Süresi**: ${meta.mvpTime || 'N/A'}\n`;
-        markdownDoc += `> **Gelir Modeli**: ${meta.monetization || 'N/A'}\n\n`;
-        markdownDoc += `---\n\n`;
-        markdownDoc += `## 1. ALANDAKİ AÇIK (Pazar Problemi & Fırsat)\n\n${p.step1 ? p.step1.marketGap : ''}\n\n`;
-        markdownDoc += `---\n\n`;
-        markdownDoc += `## 2. DETAYLI PROJE AÇIKLAMASI & ÖZELLİKLER\n\n${p.step1 ? p.step1.description : ''}\n\n`;
-        markdownDoc += `---\n\n`;
-        
-        if (p.step2) {
-            markdownDoc += `## 3. KOD MİMARİSİ VE SİSTEM KATMANLARI\n\n${p.step2.architecture}\n\n`;
-            markdownDoc += `---\n\n`;
-            markdownDoc += `## 4. GÜVENLİK YAPISI & RISK ÖNLEME TEDBİRLERİ\n\n${p.step2.security}\n\n`;
-        }
-
-        markdownDoc += `---\n*Generated by Aetheria.ai (Aetheria Agent)*\n`;
-
-        const blob = new Blob([markdownDoc], { type: 'text/markdown;charset=utf-8;' });
+        const blob = new Blob([buildBlueprintMarkdown(p)], { type: 'text/markdown;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);

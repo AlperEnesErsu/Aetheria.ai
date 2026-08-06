@@ -49,6 +49,21 @@ Herhangi bir karmaşık paket kurulumuna (npm/node_modules) gerek yoktur.
 
 ---
 
+## 🧪 Geliştirme
+
+Uygulama bağımlılıksız çalışır; Node yalnızca lint ve testler için gerekir.
+
+```bash
+npm install      # sadece geliştirme araçları (ESLint)
+npm run check    # lint + birim testleri
+```
+
+Saf mantık (escaping, markdown, doğrulama, seçim, rate-limit kararı) `core.js` içindedir ve `test/core.test.js` tarafından `node:test` ile test edilir. `app.js` yalnızca bunları DOM'a bağlar.
+
+Ayrıntılar için [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
 ## 📄 Lisans
 
 Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
