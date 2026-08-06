@@ -6,6 +6,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir.
 ## [Yayınlanmamış]
 
 ### Eklendi
+- **12 yeni proje**: veritabanı 6 → 18 projeye çıktı; her kategoride artık en az 3 proje var
+  - Sağlık & AI: PharmaGuard AI, MindPulse RPM
+  - Web3 & Güvenlik: ChainProof, KeyWard
+  - Altyapı & Cloud: FinOps Copilot, EdgeMesh
+  - EdTech: SkillForge, LabSim XR
+  - Sürdürülebilirlik: GridBalance, ReLoop
+  - DevOps: DriftSentry, Postmortem AI
+- `test/projects-data.test.js` — veritabanı bütünlüğü için 15 test (kategori başına asgari proje sayısı, filtre kapsamı, düğüm tipleri, içerik derinliği)
 - `core.js` — saf mantık katmanı ve `node:test` ile 25 birim testi
 - ESLint yapılandırması, `package.json` script'leri ve GitHub Actions CI
 - `favicon.svg`, Open Graph / Twitter kartları ve üretilmiş `og-image.png`
