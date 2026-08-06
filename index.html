@@ -34,7 +34,7 @@
         <header class="header">
             <a href="#" class="brand-logo" id="brandLogo">
                 <div class="logo-icon-wrapper">
-                    <svg viewBox="0 0 24 24">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
                 </div>
@@ -43,13 +43,15 @@
 
             <div class="header-right-badges" id="headerRightBadges">
                 <!-- Gemini API Settings Indicator -->
-                <div id="btnFeature2Notice" class="feature2-pending-badge" title="Gemini Live API Ayarları">
+                <button type="button" id="btnFeature2Notice" class="feature2-pending-badge"
+                        title="Gemini Live API Ayarları" aria-haspopup="dialog" aria-expanded="false">
                     <span>⚡ Gemini API Ayarları</span>
-                </div>
+                </button>
 
                 <!-- Shared Community Project Pool Button -->
-                <button id="btnSavedProjects" class="header-action-btn" title="Proje Havuzum">
-                    <svg viewBox="0 0 24 24">
+                <button type="button" id="btnSavedProjects" class="header-action-btn" title="Proje Havuzum"
+                        aria-haspopup="dialog" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
                     </svg>
                     <span>Proje Havuzum</span>
@@ -78,7 +80,7 @@
                 </p>
 
                 <!-- Category & Domain Filter Bar -->
-                <div class="filter-bar-container" id="filterBar">
+                <div class="filter-bar-container" id="filterBar" role="group" aria-label="Kategori filtresi">
                     <button class="filter-btn active" data-category="all">🌐 Tüm Kategoriler</button>
                     <button class="filter-btn" data-category="health-ai">🩺 Sağlık & AI</button>
                     <button class="filter-btn" data-category="web3">🔗 Web3 & Güvenlik</button>
@@ -92,7 +94,7 @@
                 <div class="action-wrapper">
                     <button id="btnGenerateProject" class="btn-generate-main">
                         <span class="btn-icon-sparkle">
-                            <svg viewBox="0 0 24 24">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2z"/>
                             </svg>
                         </span>
@@ -112,7 +114,7 @@
                     <div class="terminal-title" id="terminalTitle">Aetheria AI Agent — Terminal v2.4</div>
                     <div style="width: 52px;"></div>
                 </div>
-                <div id="terminalBody" class="terminal-body">
+                <div id="terminalBody" class="terminal-body" role="log" aria-live="polite" aria-label="Ajan işlem günlüğü">
                     <!-- Logs injected via JS -->
                 </div>
             </div>
@@ -129,7 +131,7 @@
                         <div class="header-card-actions">
                             <!-- SAVE TO SHARED POOL BUTTON -->
                             <button id="btnSaveProject" class="btn-save-project">
-                                <svg viewBox="0 0 24 24">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
                                 </svg>
                                 <span>Havuzuma Ekle</span>
@@ -137,7 +139,7 @@
 
                             <!-- EXPORT BLUEPRINT BUTTON -->
                             <button id="btnExportBlueprint" class="btn-export-blueprint">
-                                <svg viewBox="0 0 24 24">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                                 </svg>
                                 <span>Raporu İndir (.md)</span>
@@ -176,7 +178,7 @@
                 <!-- STEP 1: Market Gap Card -->
                 <div class="glass-card">
                     <div class="card-section-title">
-                        <svg viewBox="0 0 24 24">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                         </svg>
                         <span>Alandaki Açık (Pazar Problemi & Fırsat)</span>
@@ -189,7 +191,7 @@
                 <!-- STEP 1: Detailed Description Card -->
                 <div class="glass-card">
                     <div class="card-section-title">
-                        <svg viewBox="0 0 24 24">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                         </svg>
                         <span>Detaylı Proje Açıklaması & Özellikler</span>
@@ -202,7 +204,7 @@
                 <!-- STEP 2 TRIGGER BUTTON -->
                 <div class="step2-trigger-wrapper" id="step2TriggerWrapper">
                     <button id="btnTriggerStep2" class="btn-trigger-step2">
-                        <svg viewBox="0 0 24 24">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
                         </svg>
                         <span>Teknik Mimarayı ve Güvenlik Çözümünü Oluştur</span>
@@ -229,7 +231,7 @@
                         </div>
 
                         <div class="card-section-title">
-                            <svg viewBox="0 0 24 24">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M19 15v4H5v-4h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM19 5v4H5V5h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 8.5c-.83 0-1.5-.67-1.5-1.5S6.17 5.5 7 5.5s1.5.67 1.5 1.5S7.83 8.5 7 8.5z"/>
                             </svg>
                             <span>Kod Mimarisi, Katmanlar & Veritabanı Tasarımı</span>
@@ -242,7 +244,7 @@
                     <!-- Security Considerations Card -->
                     <div class="glass-card">
                         <div class="card-section-title">
-                            <svg viewBox="0 0 24 24">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8s0 0 0 0z"/>
                             </svg>
                             <span>Güvenlik Yapısı & Risk Önleme Tedbirleri</span>
@@ -260,10 +262,10 @@
 
         <!-- SHARED COMMUNITY PROJECT POOL SIDE DRAWER -->
         <div id="savedDrawerOverlay" class="drawer-overlay">
-            <div class="drawer-card">
+            <div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
                 <div class="drawer-header">
-                    <h3>🗂️ Proje Havuzum</h3>
-                    <button id="btnCloseDrawer" class="btn-icon-close">✕</button>
+                    <h3 id="drawerTitle">🗂️ Proje Havuzum</h3>
+                    <button type="button" id="btnCloseDrawer" class="btn-icon-close" aria-label="Havuzu kapat">✕</button>
                 </div>
                 <p class="drawer-note">
                     Havuz yalnızca bu tarayıcıda saklanır; tarayıcı verilerini temizlerseniz silinir.
@@ -277,8 +279,8 @@
 
         <!-- Gemini API Key & Settings Modal -->
         <div id="feature2Modal" class="modal-overlay">
-            <div class="modal-card">
-                <h3 class="modal-title">⚡ Gemini Live API Ayarları</h3>
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+                <h3 class="modal-title" id="modalTitle">⚡ Gemini Live API Ayarları</h3>
                 <p class="modal-desc">
                     Google AI Studio'dan aldığınız <strong>ücretsiz Gemini API Key</strong> ile Aetheria.ai ajanı sınırsız sayıda canlı ve %100 özgün proje üretebilir.
                 </p>

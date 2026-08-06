@@ -206,6 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update Shared Community Counter Badge
     function updateSavedBadge() {
         savedCountBadge.textContent = communityPool.length;
+        // Otherwise a screen reader just announces a bare number
+        savedCountBadge.setAttribute('aria-label', `${communityPool.length} kayıtlı proje`);
     }
 
     // Check if project exists in Shared Pool
@@ -292,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (found) {
                     // Pooled projects are already "known", so show the full report immediately
                     loadProjectIntoView(found, true);
-                    savedDrawerOverlay.style.display = 'none';
+                    closeDialogOverlay();
                 }
             });
         });
@@ -680,33 +682,99 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
     // Category Filter Handlers
     filterBar.addEventListener('click', (e) => {
-        if (e.target.classList.contains('filter-btn')) {
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            activeCategoryFilter = e.target.getAttribute('data-category');
+        if (!e.target.classList.contains('filter-btn')) return;
+
+        // .active alone is invisible to assistive tech; aria-pressed makes the
+        // selected filter announceable as a toggle button.
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            const isActive = btn === e.target;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+        activeCategoryFilter = e.target.getAttribute('data-category');
+    });
+
+    // Reflect the initial filter state for assistive tech on load
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.setAttribute('type', 'button');
+        btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+    });
+
+    // ==========================================
+    // DIALOG PLUMBING (drawer + settings modal)
+    // Both were plain divs toggled with style.display: no Escape, no focus
+    // management, and keyboard users could tab straight into the page behind them.
+    // ==========================================
+    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+    let openDialog = null;          // { overlay, trigger }
+
+    function openDialogOverlay(overlay, trigger, displayMode) {
+        overlay.style.display = displayMode;
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        openDialog = { overlay, trigger };
+
+        const first = overlay.querySelector(FOCUSABLE);
+        if (first) first.focus();
+    }
+
+    function closeDialogOverlay() {
+        if (!openDialog) return;
+        const { overlay, trigger } = openDialog;
+        overlay.style.display = 'none';
+        openDialog = null;
+
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.focus();   // return focus to where the user left off
+        }
+    }
+
+    // Escape closes, Tab is trapped inside the open dialog
+    document.addEventListener('keydown', (e) => {
+        if (!openDialog) return;
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeDialogOverlay();
+            return;
+        }
+
+        if (e.key !== 'Tab') return;
+
+        const items = [...openDialog.overlay.querySelectorAll(FOCUSABLE)]
+            .filter(el => el.offsetParent !== null);
+        if (items.length === 0) return;
+
+        const first = items[0];
+        const last = items[items.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
         }
     });
 
     // Drawer Open / Close Handlers
     btnSavedProjects.addEventListener('click', () => {
         renderSavedProjectsList();
-        savedDrawerOverlay.style.display = 'flex';
+        openDialogOverlay(savedDrawerOverlay, btnSavedProjects, 'flex');
     });
-    btnCloseDrawer.addEventListener('click', () => {
-        savedDrawerOverlay.style.display = 'none';
-    });
+    btnCloseDrawer.addEventListener('click', closeDialogOverlay);
     savedDrawerOverlay.addEventListener('click', (e) => {
-        if (e.target === savedDrawerOverlay) savedDrawerOverlay.style.display = 'none';
+        if (e.target === savedDrawerOverlay) closeDialogOverlay();
     });
 
     // Save Project Button Handler
     btnSaveProject.addEventListener('click', toggleSaveCurrentProject);
 
     // Gemini API Modal Handlers
-    btnFeature2Notice.addEventListener('click', () => feature2Modal.style.display = 'flex');
-    btnCloseModal.addEventListener('click', () => feature2Modal.style.display = 'none');
+    btnFeature2Notice.addEventListener('click', () => openDialogOverlay(feature2Modal, btnFeature2Notice, 'flex'));
+    btnCloseModal.addEventListener('click', closeDialogOverlay);
     feature2Modal.addEventListener('click', (e) => {
-        if (e.target === feature2Modal) feature2Modal.style.display = 'none';
+        if (e.target === feature2Modal) closeDialogOverlay();
     });
 
     // Save Gemini Key & Mode Setting
@@ -718,7 +786,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         localStorage.setItem('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
         
         updateGeminiBadgeStatus();
-        feature2Modal.style.display = 'none';
+        closeDialogOverlay();
     });
 
     // Export Blueprint Handler
