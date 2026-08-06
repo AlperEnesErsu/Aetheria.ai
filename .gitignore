@@ -14,6 +14,9 @@ Thumbs.db
 .env
 .env.*
 
+# Prototype run output (contains full research text and source URLs)
+.prototype-output/
+
 # Temp files & logs
 *.log
 npm-debug.log*
