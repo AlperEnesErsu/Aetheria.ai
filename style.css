@@ -2,7 +2,8 @@
    ProjemiBul.ai - Extended Stylesheet with Saved Drawer & Auth Modal
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+/* Fonts are loaded from index.html with preconnect; an @import here would block
+   rendering until this stylesheet had been fetched and parsed. */
 
 :root {
     /* Color Palette */
@@ -87,6 +88,20 @@ body {
     overflow-x: hidden;
     line-height: 1.6;
     position: relative;
+}
+
+.noscript-banner {
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+    margin: 1.5rem auto;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 183, 3, 0.1);
+    border: 1px solid rgba(255, 183, 3, 0.35);
+    border-radius: var(--radius-md);
+    color: var(--accent-amber);
+    font-size: 0.95rem;
+    line-height: 1.6;
 }
 
 /* Background Animated Gradient Blobs */

@@ -16,9 +16,48 @@
         form-action 'none'">
     <title>Aetheria.ai | Yapay Zeka Tabanlı Yazılım Fikri ve Mimari Keşif Platformu</title>
     <meta name="description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <link rel="canonical" href="https://alperenesersu.github.io/Aetheria.ai/">
+    <meta name="theme-color" content="#07090e">
+    <meta name="color-scheme" content="dark">
+
+    <!-- Icons -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="tr_TR">
+    <meta property="og:site_name" content="Aetheria.ai">
+    <meta property="og:url" content="https://alperenesersu.github.io/Aetheria.ai/">
+    <meta property="og:title" content="Aetheria.ai | Pazar Açığını ve Yazılım Mimarisini Keşfet">
+    <meta property="og:description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <meta property="og:image" content="https://alperenesersu.github.io/Aetheria.ai/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Aetheria.ai — Pazar Açığını ve Yazılım Mimarisini Keşfet">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Aetheria.ai | Pazar Açığını ve Yazılım Mimarisini Keşfet">
+    <meta name="twitter:description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <meta name="twitter:image" content="https://alperenesersu.github.io/Aetheria.ai/og-image.png">
+
+    <!-- Fonts: preconnect + <link> instead of a render-blocking @import inside style.css -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap">
+
     <link rel="stylesheet" href="style.css">
+
+    <script src="projects-data.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
+
+    <noscript>
+        <div class="noscript-banner">
+            <strong>Aetheria.ai çalışmak için JavaScript gerektiriyor.</strong>
+            Proje üretimi, mimari analizi ve havuz tamamen tarayıcıda çalıştığı için
+            lütfen JavaScript'i etkinleştirip sayfayı yenileyin.
+        </div>
+    </noscript>
 
     <!-- Animated Ambient Background Blobs -->
     <div class="bg-glow-container">
@@ -316,8 +355,20 @@
 
     </div>
 
-    <!-- Scripts -->
-    <script src="projects-data.js"></script>
-    <script src="app.js"></script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Aetheria.ai",
+        "url": "https://alperenesersu.github.io/Aetheria.ai/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any",
+        "inLanguage": "tr",
+        "description": "Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TRY" },
+        "author": { "@type": "Person", "name": "Alper Enes Ersü" },
+        "license": "https://opensource.org/licenses/MIT"
+    }
+    </script>
 </body>
 </html>
