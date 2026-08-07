@@ -21,6 +21,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const core = require('../core.js');
 
+// Anahtar ortam değişkeninden ya da .env dosyasından okunur. .env gitignore'da;
+// bu, anahtarı her terminal oturumunda yeniden tanımlamadan çalışmayı sağlar.
+function loadEnvFile() {
+    const envPath = path.join(__dirname, '..', '.env');
+    if (!fs.existsSync(envPath)) return;
+
+    for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const eq = trimmed.indexOf('=');
+        if (eq === -1) continue;
+
+        const key = trimmed.slice(0, eq).trim();
+        // Değeri saran tırnakları at; kopyala-yapıştırda sık oluyor
+        const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+        if (key && !process.env[key]) process.env[key] = value;
+    }
+}
+loadEnvFile();
+
 const API_KEY = process.env.GEMINI_API_KEY;
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -50,10 +71,17 @@ async function post(model, body) {
     });
     const raw = await res.text();
     if (!res.ok) {
+        // 400 "invalid argument" genelde hangi alanın reddedildiğini error.details
+        // içinde söyler; mesajı kırpmak o bilgiyi kaybettiriyordu.
         let detail = raw;
-        try { detail = JSON.parse(raw).error.message; } catch { /* düz metin */ }
-        const hint = res.status === 404 ? '  → node scripts/gemini-lab.js --list-models' : '';
-        throw new Error(`HTTP ${res.status} — ${String(detail).slice(0, 200)}${hint}`);
+        try {
+            const err = JSON.parse(raw).error;
+            detail = err.message;
+            if (err.details) detail += '\n           detay: ' + JSON.stringify(err.details);
+        } catch { /* düz metin */ }
+        const hint = res.status === 404 ? '  → node scripts/gemini-lab.js --list-models'
+            : res.status === 400 ? '\n           → node scripts/gemini-lab.js --probe-config' : '';
+        throw new Error(`HTTP ${res.status} — ${detail}${hint}`);
     }
     return { data: JSON.parse(raw), ms: Date.now() - started };
 }
@@ -107,6 +135,55 @@ async function diagnose() {
         console.log(`  ${model.padEnd(26)} ${plain.padEnd(22)} ${ground}`);
     }
     console.log('');
+}
+
+// ------------------------------------------------------------ --probe-config
+
+// Bir 400 "invalid argument" aldığımızda hangi generationConfig alanının
+// reddedildiğini tahmin etmek yerine ölçüyoruz: alanlar tek tek eklenerek
+// hangisinde kırıldığı bulunur. Model aileleri bu alanları farklı adlandırıyor
+// (thinkingBudget vs thinkingLevel), bu yüzden sabit varsayım yapılamaz.
+async function probeConfig() {
+    const base = { contents: [{ parts: [{ text: 'Tek kelimeyle merhaba de.' }] }] };
+
+    const variants = [
+        ['generationConfig yok', {}],
+        ['maxOutputTokens', { maxOutputTokens: 64 }],
+        ['+ temperature', { maxOutputTokens: 64, temperature: 1.0 }],
+        ['+ responseMimeType', { maxOutputTokens: 64, temperature: 1.0, responseMimeType: 'application/json' }],
+        ['+ thinkingConfig.thinkingBudget:0', { maxOutputTokens: 64, temperature: 1.0, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }],
+        ['thinkingConfig.thinkingLevel:low', { maxOutputTokens: 64, temperature: 1.0, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }],
+        ['thinkingConfig.thinkingLevel:minimal', { maxOutputTokens: 64, temperature: 1.0, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } }],
+        ['thinkingConfig boş', { maxOutputTokens: 64, temperature: 1.0, responseMimeType: 'application/json', thinkingConfig: {} }]
+    ];
+
+    console.log(`\n  Model: ${MODEL}\n`);
+    console.log(`  ${'YAPILANDIRMA'.padEnd(38)} SONUÇ`);
+    console.log(`  ${'─'.repeat(38)} ${'─'.repeat(30)}`);
+
+    const working = [];
+    for (const [label, generationConfig] of variants) {
+        const body = Object.keys(generationConfig).length ? { ...base, generationConfig } : base;
+        try {
+            await post(MODEL, body);
+            console.log(`  ${label.padEnd(38)} ✓ kabul edildi`);
+            working.push(label);
+        } catch (err) {
+            const first = err.message.split('\n')[0];
+            console.log(`  ${label.padEnd(38)} ✗ ${first.slice(0, 60)}`);
+        }
+        await new Promise(r => setTimeout(r, 1200));
+    }
+
+    console.log('');
+    if (working.length === variants.length) {
+        console.log('  Tüm alanlar kabul edildi — 400 başka bir yerden geliyor.\n');
+    } else if (working.length === 0) {
+        console.log('  Hiçbiri çalışmadı — sorun generationConfig\'de değil (model/anahtar?).\n');
+    } else {
+        console.log(`  Çalışanlar: ${working.join(' · ')}`);
+        console.log('  → İlk ✗ satırı, uygulamadan çıkarılması gereken alanı gösteriyor.\n');
+    }
 }
 
 // --------------------------------------------------------------- --diversity
@@ -245,7 +322,10 @@ async function diversity() {
 
 async function main() {
     if (!API_KEY) {
-        fail('GEMINI_API_KEY ortam değişkeni tanımlı değil.\n\n' +
+        fail('GEMINI_API_KEY bulunamadı.\n\n' +
+             '  En kolayı proje kökünde bir .env dosyası (gitignore\'da, repoya girmez):\n' +
+             '    GEMINI_API_KEY=AIza...\n\n' +
+             '  Ya da ortam değişkeni olarak:\n' +
              '    $env:GEMINI_API_KEY = "AIza..."     # PowerShell\n' +
              '    export GEMINI_API_KEY="AIza..."     # bash\n\n' +
              '  Ücretsiz anahtar: https://aistudio.google.com/app/apikey');
@@ -253,11 +333,13 @@ async function main() {
 
     if (args.includes('--list-models')) return listModels();
     if (args.includes('--diagnose')) return diagnose();
+    if (args.includes('--probe-config')) return probeConfig();
     if (args.includes('--diversity')) return diversity();
 
     console.log('\n  Mod seçilmedi. Kullanılabilir modlar:\n');
     console.log('    node scripts/gemini-lab.js --list-models');
     console.log('    node scripts/gemini-lab.js --diagnose');
+    console.log('    node scripts/gemini-lab.js --probe-config');
     console.log('    node scripts/gemini-lab.js --diversity --category health-ai --rounds 5\n');
 }
 
