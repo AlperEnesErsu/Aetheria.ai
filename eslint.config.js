@@ -59,7 +59,8 @@ module.exports = [
                 console: 'readonly',
                 process: 'readonly',
                 fetch: 'readonly',
-                URL: 'readonly'
+                URL: 'readonly',
+                setTimeout: 'readonly'
             }
         }
     }
