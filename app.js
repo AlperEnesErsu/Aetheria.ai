@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         validateProjectShape,
         normalizeProject,
         safeNodeType,
-        pickRandomProject,
+        pickUnseenProject,
         evaluateRateLimit,
         buildBlueprintMarkdown
     } = window.AetheriaCore;
@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsWrapper = document.getElementById('resultsWrapper');
     const step2Container = document.getElementById('step2Container');
     const step2TriggerWrapper = document.getElementById('step2TriggerWrapper');
+    const originBadge = document.getElementById('originBadge');
+    const exampleNotice = document.getElementById('exampleNotice');
+    const btnNoticeSetKey = document.getElementById('btnNoticeSetKey');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -68,8 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Application State
     let currentProject = null;
-    let lastProjectId = null;
     let activeCategoryFilter = 'all';
+
+    // Ids already shown to this user. Persisted so variety survives a reload —
+    // without it, every refresh started the example rotation from scratch.
+    let seenProjectIds = JSON.parse(localStorage.getItem('aetheria_seen_projects') || '[]');
 
     // SECURITY & RATE LIMITING STATE (Open-Source Protection)
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
@@ -305,6 +311,16 @@ document.addEventListener('DOMContentLoaded', () => {
         securityContent.innerHTML = parseMarkdown(currentProject.step2.security);
     }
 
+    // Say where the project came from. An example pulled from the bundled list is
+    // not an AI-generated project, and presenting it as one was the central
+    // dishonesty in the old flow.
+    function setOriginBadge(isExample) {
+        originBadge.textContent = isExample ? '📁 Örnek Proje' : '✨ Yapay Zeka Üretimi';
+        originBadge.classList.toggle('badge-example', isExample);
+        originBadge.classList.toggle('badge-step1', !isExample);
+        exampleNotice.style.display = isExample && !(useGeminiLiveMode && geminiApiKey) ? 'flex' : 'none';
+    }
+
     // Toggle visibility of the "Aşama 2" section and its trigger button.
     // Step 2 stays hidden after a fresh generation so the two-stage flow is preserved;
     // it is revealed only on explicit user action or when re-opening a pooled project.
@@ -319,8 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load any project directly into view.
     // `revealStep2` is opt-in: the generate flow leaves it false so the user still has to
     // trigger the architecture/security stage themselves.
-    function loadProjectIntoView(proj, revealStep2 = false) {
+    function loadProjectIntoView(proj, revealStep2 = false, isExample = false) {
         currentProject = proj;
+        setOriginBadge(isExample);
         
         projectCategory.textContent = currentProject.category;
         projectTitle.textContent = currentProject.title;
@@ -362,11 +379,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter);
     }
 
-    // Pick random project from built-in database (selection logic lives in core.js)
-    function getRandomProject() {
-        const picked = pickRandomProject(getFilteredProjects(), lastProjectId);
-        if (picked) lastProjectId = picked.id;
-        return picked;
+    // Pick an example the user has not seen yet (selection logic lives in core.js).
+    // Returns { project, exhausted } so the caller can say when a cycle restarted.
+    function getUnseenExample() {
+        const result = pickUnseenProject(getFilteredProjects(), seenProjectIds);
+
+        seenProjectIds = result.seen;
+        try {
+            localStorage.setItem('aetheria_seen_projects', JSON.stringify(seenProjectIds));
+        } catch {
+            // Quota or private-mode failure: variety degrades this session but the
+            // app keeps working, so this is not worth interrupting the user for.
+        }
+
+        return result;
     }
 
     // Read a fetch error body defensively — Gemini returns JSON for API errors but
@@ -478,7 +504,13 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         const shapeError = validateProjectShape(projectObj);
         if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
 
-        return normalizeProject(projectObj, activeCategoryFilter);
+        // The model that answered and its token count are reported in the terminal,
+        // so they travel back with the project rather than being guessed at.
+        return {
+            project: normalizeProject(projectObj, activeCategoryFilter),
+            model: data.__model,
+            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
+        };
     }
 
     // POST to Gemini, walking the model list until one answers. The API key travels in
@@ -505,7 +537,13 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
                     }
                 );
 
-                if (response.ok) return await response.json();
+                if (response.ok) {
+                    // Tag the payload with the model that actually served it — with a
+                    // fallback list, that is not always GEMINI_MODELS[0].
+                    const payload = await response.json();
+                    payload.__model = model;
+                    return payload;
+                }
 
                 lastError = new Error(`${model}: ${await describeHttpError(response)}`);
 
@@ -671,6 +709,7 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
     // Gemini API Modal Handlers
     btnFeature2Notice.addEventListener('click', () => openDialogOverlay(feature2Modal, btnFeature2Notice, 'flex'));
+    btnNoticeSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnNoticeSetKey, 'flex'));
     btnCloseModal.addEventListener('click', closeDialogOverlay);
     feature2Modal.addEventListener('click', (e) => {
         if (e.target === feature2Modal) closeDialogOverlay();
@@ -717,59 +756,59 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         terminalContainer.style.display = 'block';
         terminalBody.innerHTML = '';
 
-        writeTerminalLog('Aetheria AI Agent v2.4 başlatılıyor...', 'agent');
-        await sleep(300);
-
+        // Every line below reports something that actually happened. The previous
+        // script announced a "Küresel SaaS & GitHub Trend Veritabanı" connection and
+        // a competition-saturation analysis, neither of which exists — the terminal
+        // was theatre dressed as telemetry.
         let projectToRender = null;
+        let isExample = false;
 
-        // Try Gemini Live API if enabled
         if (useGeminiLiveMode && geminiApiKey) {
-            try {
-                writeTerminalLog('Gemini 2.5 Flash API bağlandı. Canlı yapay zeka pazar taraması yapılıyor...', 'agent');
-                await sleep(400);
-                writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
-                await sleep(500);
+            const started = Date.now();
+            writeTerminalLog(`Gemini API çağrısı hazırlanıyor · model: ${GEMINI_MODELS[0]}`, 'agent');
 
-                projectToRender = await generateProjectViaGeminiApi();
-                writeTerminalLog('Gemini AI canlı proje mimarisi başarıyla oluşturuldu!', 'success');
-                await sleep(300);
+            try {
+                const generated = await generateProjectViaGeminiApi();
+                projectToRender = generated.project;
+
+                writeTerminalLog(
+                    `Yanıt alındı · ${generated.model} · ${generated.tokens} token · ` +
+                    `${((Date.now() - started) / 1000).toFixed(1)} sn`, 'info');
+                writeTerminalLog('Şema doğrulandı, proje oluşturuldu.', 'success');
             } catch (err) {
-                console.warn('Gemini API Security Notice:', err);
-                writeTerminalLog(`Güvenlik & Kota Koruması: ${err.message || 'Limit aşıldı'}.`, 'warning');
-                writeTerminalLog('Kota korundu. Dahili Ajan veritabanına geçiş yapılıyor...', 'info');
-                await sleep(400);
+                console.warn('Gemini üretimi başarısız:', err);
+                writeTerminalLog(`Üretim başarısız: ${err.message}`, 'warning');
+                writeTerminalLog('Örnek projelere geçiliyor.', 'info');
             }
         }
 
-        // Fallback to Built-in Database
+        // Examples are a fallback, and the log says so plainly rather than dressing
+        // a lookup up as generation.
         if (!projectToRender) {
-            writeTerminalLog('Küresel SaaS & GitHub Trend Veritabanı bağlandı.', 'info');
-            await sleep(400);
-            writeTerminalLog(`Filtre Katmanı: "${activeCategoryFilter.toUpperCase()}" taranıyor...`, 'info');
-            await sleep(400);
-            
-            projectToRender = getRandomProject();
+            isExample = true;
 
-            if (!projectToRender) {
-                writeTerminalLog('Bu kategoride henüz proje bulunamadı.', 'info');
+            if (!useGeminiLiveMode || !geminiApiKey) {
+                writeTerminalLog('API anahtarı tanımlı değil — örnek projeler gösteriliyor.', 'info');
+            }
+
+            const { project, exhausted } = getUnseenExample();
+
+            if (!project) {
+                writeTerminalLog('Bu kategoride örnek proje bulunmuyor.', 'info');
                 return;
             }
+            if (exhausted) {
+                writeTerminalLog('Bu kategorideki tüm örnekler gösterildi, baştan başlanıyor.', 'info');
+            }
 
-            writeTerminalLog(`Sektör Tespit Edildi: "${projectToRender.category}"`, 'info');
-            await sleep(400);
-            writeTerminalLog('Rekabet doyum oranı ve kullanıcı şikayetleri analiz ediliyor...', 'info');
-            await sleep(400);
-            writeTerminalLog('Çözülmemiş yüksek potansiyelli proje fırsatı yakalandı!', 'success');
-            await sleep(300);
+            projectToRender = project;
+            writeTerminalLog(`Örnek seçildi: "${project.title}" (${seenProjectIds.length} örnek görüldü)`, 'info');
         }
 
-        writeTerminalLog(`Proje Adı: "${projectToRender.title}" oluşturuluyor...`, 'agent');
-        await sleep(400);
-
+        await sleep(250);   // the log is otherwise gone before it can be read
         terminalContainer.style.display = 'none';
-        
-        // Populate & Render Step 1
-        loadProjectIntoView(projectToRender);
+
+        loadProjectIntoView(projectToRender, false, isExample);
     }
 
     // ==========================================

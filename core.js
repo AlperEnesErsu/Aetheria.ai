@@ -117,6 +117,42 @@
         return pickable[Math.floor(rng() * pickable.length)];
     }
 
+    // Pick a project the user has not been shown yet.
+    //
+    // Skipping only the immediately previous project meant a category with three
+    // entries still felt like it was cycling through the same two. Tracking the
+    // whole seen set instead turns N examples into N distinct results before
+    // anything repeats.
+    //
+    // Returns { project, exhausted, seen }:
+    //   exhausted — every candidate had been seen, so the set was cleared and the
+    //               pick is from a fresh cycle. The caller can tell the user.
+    //   seen      — the updated set, for the caller to persist.
+    function pickUnseenProject(projects, seenIds, random) {
+        if (!Array.isArray(projects) || projects.length === 0) {
+            return { project: null, exhausted: false, seen: seenIds || [] };
+        }
+        const rng = typeof random === 'function' ? random : Math.random;
+        const seen = new Set(Array.isArray(seenIds) ? seenIds : []);
+
+        let candidates = projects.filter(p => !seen.has(p.id));
+        let exhausted = false;
+
+        if (candidates.length === 0) {
+            // Everything in this filter has been shown — start a new cycle, but keep
+            // ids from other categories so their history is not lost.
+            exhausted = true;
+            const inThisSet = new Set(projects.map(p => p.id));
+            for (const id of [...seen]) if (inThisSet.has(id)) seen.delete(id);
+            candidates = projects;
+        }
+
+        const project = candidates[Math.floor(rng() * candidates.length)];
+        seen.add(project.id);
+
+        return { project, exhausted, seen: [...seen] };
+    }
+
     // Decide whether a Gemini call may proceed. Pure: callers pass the clock and
     // the recorded history, and get back both the verdict and the pruned history.
     function evaluateRateLimit(now, lastCallTimestamp, callHistory, options) {
@@ -184,6 +220,7 @@
         normalizeProject,
         safeNodeType,
         pickRandomProject,
+        pickUnseenProject,
         evaluateRateLimit,
         buildBlueprintMarkdown
     };
