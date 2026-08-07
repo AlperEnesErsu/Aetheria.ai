@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
         normalizeProject,
         safeNodeType,
         pickUnseenProject,
+        pickConstraintCombo,
+        selectFreshIdea,
         evaluateRateLimit,
         buildBlueprintMarkdown
     } = window.AetheriaCore;
@@ -88,8 +90,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // repointed by Google as models are retired, which keeps this list from
     // expiring again.
     const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']; // primary, then fallback
-    const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
+    const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON
     const GEMINI_TIMEOUT_MS = 45000;
+
+    // Pass 1 asks for a batch of one-liners; eight gives the local filter room to
+    // discard repeats without needing a second round trip.
+    const IDEA_BATCH_SIZE = 8;
+    const IDEA_MAX_TOKENS = 1024;
+
+    // Human-readable domain for the prompt — the filter keys are not descriptive
+    // enough on their own ("web3" tells the model much less than the full phrase).
+    const CATEGORY_LABELS = {
+        all: 'herhangi bir yazılım',
+        'health-ai': 'sağlık teknolojileri ve tıbbi yapay zeka',
+        web3: 'Web3, blokzincir ve kripto güvenliği',
+        infrastructure: 'bulut altyapısı, dağıtık sistemler ve performans',
+        edtech: 'eğitim teknolojileri',
+        sustainability: 'sürdürülebilirlik, enerji ve endüstriyel IoT',
+        devops: 'DevOps ve yazılım geliştirme araçları'
+    };
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
@@ -414,103 +433,220 @@ document.addEventListener('DOMContentLoaded', () => {
         return `HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
     }
 
-    // GEMINI LIVE API CALL WITH RATE LIMIT & TOKEN CAP GUARDRAILS
-    async function generateProjectViaGeminiApi() {
+    // Two-pass generation.
+    //
+    // Asking for one complete project in a single call meant the model returned
+    // variations on a handful of favourite ideas. Instead it is asked for several
+    // one-line ideas first, the ones the user has already seen are dropped locally,
+    // and only the survivor is expanded. Filtering one-liners is cheaper and more
+    // accurate than comparing finished blueprints, and a repeat costs nothing to
+    // discard.
+    async function generateProjectViaGeminiApi(onProgress = () => {}) {
         if (!geminiApiKey) throw new Error('API Key girilmedi');
 
-        // Check Rate Limiter
         const limitCheck = checkRateLimits();
-        if (!limitCheck.allowed) {
-            throw new Error(limitCheck.reason);
-        }
+        if (!limitCheck.allowed) throw new Error(limitCheck.reason);
 
-        // Count the attempt *before* firing it. Recording only successful calls meant a
-        // rejected key or a 429 storm consumed neither the cooldown nor the hourly
+        // Count the attempt *before* firing it. Recording only successful calls meant
+        // a rejected key or a 429 storm consumed neither the cooldown nor the hourly
         // budget, which let a broken configuration hammer the endpoint unthrottled.
+        // One generation is one unit even though it now costs two API calls — the
+        // limiter paces the user, it does not meter Google's quota.
         recordGeminiCall();
 
-        const promptText = `Sen Aetheria.ai adında otonom bir yazılım mimarı yapay zeka ajanıısın. Kullanıcı için son derece özgün, yenilikçi ve derinlemesine hazırlanmış bir yazılım projesi üret. Kategori tercihi: ${activeCategoryFilter}.
-Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam olarak şu şekilde olmalı:
+        const combo = pickConstraintCombo();
+        const categoryLabel = CATEGORY_LABELS[activeCategoryFilter] || 'yazılım';
+
+        onProgress({ phase: 'ideate', combo });
+        const ideation = await requestIdeas(categoryLabel, combo);
+
+        const { idea, freshCount, exhausted } = selectFreshIdea(ideation.ideas, knownIdeaTitles());
+        if (!idea) throw new Error('Model kullanılabilir fikir döndürmedi');
+
+        onProgress({
+            phase: 'selected',
+            total: ideation.ideas.length,
+            freshCount,
+            exhausted,
+            title: idea.title,
+            model: ideation.model,
+            tokens: ideation.tokens
+        });
+
+        onProgress({ phase: 'expand' });
+        const expansion = await expandIdea(idea, categoryLabel, combo);
+
+        return {
+            project: expansion.project,
+            model: expansion.model,
+            tokens: ideation.tokens + expansion.tokens,
+            ideaCount: ideation.ideas.length,
+            freshCount
+        };
+    }
+
+    // Titles the user has already met, so the model can be told to avoid them.
+    // Capped because the whole list travels in the prompt on every call.
+    function knownIdeaTitles() {
+        const fromPool = communityPool.map(p => p.title);
+        const fromExamples = (typeof PROJECTS_DATABASE !== 'undefined' ? PROJECTS_DATABASE : [])
+            .filter(p => seenProjectIds.includes(p.id))
+            .map(p => p.title);
+
+        let fromGenerated = [];
+        try {
+            fromGenerated = JSON.parse(localStorage.getItem('aetheria_seen_titles') || '[]');
+        } catch {
+            fromGenerated = [];
+        }
+
+        return [...new Set([...fromGenerated, ...fromPool, ...fromExamples])].slice(-40);
+    }
+
+    function rememberIdeaTitle(title) {
+        try {
+            const titles = JSON.parse(localStorage.getItem('aetheria_seen_titles') || '[]');
+            titles.push(title);
+            localStorage.setItem('aetheria_seen_titles', JSON.stringify(titles.slice(-60)));
+        } catch {
+            // Quota or private mode: variety degrades, the app keeps working.
+        }
+    }
+
+    // PASS 1 — a short list of one-line ideas. Small output, so this is cheap.
+    async function requestIdeas(categoryLabel, combo) {
+        const avoid = knownIdeaTitles();
+        const avoidBlock = avoid.length
+            ? '\n\nBu fikirler kullanıcıya zaten gösterildi. Bunlardan ve varyasyonlarından KAÇIN:\n'
+              + avoid.map(t => '- ' + t).join('\n')
+            : '';
+
+        const prompt = `${categoryLabel} alanında ${IDEA_BATCH_SIZE} farklı yazılım projesi fikri üret.
+
+Her fikir şu kısıtlara uysun:
+- Problem kaynağı: ${combo.problemSource}
+- Hedef kullanıcı: ${combo.audience}
+- Teknik yaklaşım: ${combo.technical}
+- Gelir modeli: ${combo.revenue}
+
+Kısıtlardan biri bu alana zorlama geliyorsa onu yumuşat, ama tamamen yok sayma.
+Fikirler birbirinden belirgin şekilde farklı problemleri çözsün; aynı problemin
+varyasyonlarını yazma.${avoidBlock}
+
+Yanıtı şu JSON şemasında ver:
+{ "ideas": [ { "title": "Kısa proje adı", "summary": "Tek cümlelik açıklama" } ] }`;
+
+        const data = await requestGeminiCompletion({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                maxOutputTokens: IDEA_MAX_TOKENS,
+                temperature: 1.0,   // higher than the expansion pass: this call exists to explore
+                thinkingConfig: { thinkingBudget: 0 }
+            }
+        });
+
+        const parsed = readJsonCandidate(data, 'Fikir listesi');
+        const ideas = Array.isArray(parsed.ideas) ? parsed.ideas : [];
+        if (ideas.length === 0) throw new Error('Fikir listesi boş döndü');
+
+        return {
+            ideas,
+            model: data.__model,
+            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
+        };
+    }
+
+    // PASS 2 — expand the chosen one-liner into the full project schema.
+    async function expandIdea(idea, categoryLabel, combo) {
+        const prompt = `Aşağıdaki proje fikrini eksiksiz bir proje önerisine dönüştür.
+
+FİKİR: ${idea.title}
+AÇIKLAMA: ${idea.summary || ''}
+ALAN: ${categoryLabel}
+BAĞLAM: ${combo.problemSource} · ${combo.audience} · ${combo.technical} · ${combo.revenue}
+
+Yanıtı tam olarak şu JSON şemasında ver:
 {
-  "id": "gemini-${Date.now()}",
-  "title": "Proje Adı",
-  "tagline": "Etkileyici Proje Sloganı",
-  "category": "Kategori İsmi",
+  "title": "${idea.title}",
+  "tagline": "Etkileyici tek cümlelik slogan",
+  "category": "${categoryLabel}",
   "categoryKey": "${activeCategoryFilter}",
   "meta": {
-     "difficulty": "İleri Düzey veya Orta Düzey",
-     "mvpTime": "6 Hafta",
-     "monetization": "B2B SaaS / Usage-Based",
-     "opportunityScore": "%97 Fırsat Skoru"
+     "difficulty": "Orta Düzey veya İleri Düzey",
+     "mvpTime": "örn. 6 Hafta",
+     "monetization": "Gelir modeli",
+     "opportunityScore": "örn. %92 Fırsat Skoru"
   },
   "diagramNodes": [
-     { "id": 1, "name": "Bileşen 1", "type": "source", "sub": "Açıklama" },
-     { "id": 2, "name": "Bileşen 2", "type": "service", "sub": "Açıklama" },
-     { "id": 3, "name": "Bileşen 3", "type": "ai", "sub": "Açıklama" },
-     { "id": 4, "name": "Bileşen 4", "type": "storage", "sub": "Açıklama" },
-     { "id": 5, "name": "Bileşen 5", "type": "client", "sub": "Açıklama" }
+     { "id": 1, "name": "Bileşen", "type": "source", "sub": "Kısa açıklama" },
+     { "id": 2, "name": "Bileşen", "type": "service", "sub": "Kısa açıklama" },
+     { "id": 3, "name": "Bileşen", "type": "ai", "sub": "Kısa açıklama" },
+     { "id": 4, "name": "Bileşen", "type": "storage", "sub": "Kısa açıklama" },
+     { "id": 5, "name": "Bileşen", "type": "client", "sub": "Kısa açıklama" }
   ],
   "step1": {
-     "marketGap": "Alandaki açık (detaylı pazar problemi, mevcut çözümlerin eksikleri, fırsat)",
-     "description": "Detaylı proje açıklaması ve maddeler halinde özellikler",
-     "tags": ["Python", "React", "AI", "Cloud"]
+     "marketGap": "Problemi, mevcut çözümlerin nerede yetersiz kaldığını ve fırsatı anlat",
+     "description": "Detaylı proje açıklaması ve madde madde özellikler",
+     "tags": ["Teknoloji1", "Teknoloji2", "Teknoloji3"]
   },
   "step2": {
      "architecture": "Sistem mimarisi, Clean Architecture katmanları, veritabanı tasarımı",
-     "security": "Güvenlik önlemleri, OWASP standartları, şifreleme ve yetkilendirme"
+     "security": "Güvenlik önlemleri, tehdit modeli, şifreleme ve yetkilendirme"
   }
-}`;
+}
 
-        // QUOTA GUARDRAIL: the output cap has to fit the whole JSON blueprint above.
-        // 1000 tokens truncated every single response mid-JSON, so live mode could
-        // never succeed. Thinking is disabled explicitly because on 2.5 models
-        // reasoning tokens are billed against maxOutputTokens too.
-        const requestBody = {
-            contents: [{ parts: [{ text: promptText }] }],
+"type" alanı yalnızca şunlardan biri olabilir: source, service, ai, storage, client.`;
+
+        const data = await requestGeminiCompletion({
+            contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 responseMimeType: 'application/json',
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
                 temperature: 0.7,
                 thinkingConfig: { thinkingBudget: 0 }
             }
+        });
+
+        const projectObj = readJsonCandidate(data, 'Proje');
+
+        const shapeError = validateProjectShape(projectObj);
+        if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
+
+        rememberIdeaTitle(projectObj.title);
+
+        return {
+            project: normalizeProject(projectObj, activeCategoryFilter),
+            model: data.__model,
+            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
         };
+    }
 
-        const data = await requestGeminiCompletion(requestBody);
-
+    // Shared unwrapping for both passes: the API does not guarantee the shape the
+    // original code assumed, so every step that can be missing is checked.
+    function readJsonCandidate(data, label) {
         const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
         if (!candidate) {
             const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
             throw new Error(blockReason
-                ? `İstek güvenlik filtresine takıldı (${blockReason})`
-                : 'Gemini boş yanıt döndürdü');
+                ? `${label}: istek güvenlik filtresine takıldı (${blockReason})`
+                : `${label}: Gemini boş yanıt döndürdü`);
         }
         if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-            throw new Error(`Yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
+            throw new Error(`${label}: yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
         }
 
         const parts = candidate.content && Array.isArray(candidate.content.parts)
             ? candidate.content.parts
             : [];
         const jsonText = parts.map(part => (part && typeof part.text === 'string' ? part.text : '')).join('');
-        if (!jsonText.trim()) throw new Error('Gemini yanıtında metin bulunamadı');
+        if (!jsonText.trim()) throw new Error(`${label}: yanıtta metin bulunamadı`);
 
-        let projectObj;
         try {
-            projectObj = JSON.parse(jsonText);
+            return JSON.parse(jsonText);
         } catch {
-            throw new Error('Gemini geçerli JSON döndürmedi');
+            throw new Error(`${label}: geçerli JSON döndürmedi`);
         }
-
-        const shapeError = validateProjectShape(projectObj);
-        if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
-
-        // The model that answered and its token count are reported in the terminal,
-        // so they travel back with the project rather than being guessed at.
-        return {
-            project: normalizeProject(projectObj, activeCategoryFilter),
-            model: data.__model,
-            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
-        };
     }
 
     // POST to Gemini, walking the model list until one answers. The API key travels in
@@ -765,14 +901,34 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
         if (useGeminiLiveMode && geminiApiKey) {
             const started = Date.now();
-            writeTerminalLog(`Gemini API çağrısı hazırlanıyor · model: ${GEMINI_MODELS[0]}`, 'agent');
 
             try {
-                const generated = await generateProjectViaGeminiApi();
+                // Both passes report as they happen, so the log tracks real progress
+                // rather than replaying a fixed script.
+                const generated = await generateProjectViaGeminiApi((step) => {
+                    if (step.phase === 'ideate') {
+                        writeTerminalLog(
+                            `Fikir listesi isteniyor · ${IDEA_BATCH_SIZE} fikir · model: ${GEMINI_MODELS[0]}`, 'agent');
+                        writeTerminalLog(
+                            `Kısıtlar: ${step.combo.problemSource} · ${step.combo.audience} · ` +
+                            `${step.combo.technical} · ${step.combo.revenue}`, 'info');
+                    } else if (step.phase === 'selected') {
+                        writeTerminalLog(
+                            `${step.total} fikir alındı · ${step.freshCount} tanesi yeni · ` +
+                            `${step.tokens} token`, 'info');
+                        if (step.exhausted) {
+                            writeTerminalLog('Hepsi daha önce görülmüştü; en farklı olan seçildi.', 'warning');
+                        }
+                        writeTerminalLog(`Seçilen fikir: "${step.title}"`, 'agent');
+                    } else if (step.phase === 'expand') {
+                        writeTerminalLog('Fikir tam projeye genişletiliyor...', 'agent');
+                    }
+                });
+
                 projectToRender = generated.project;
 
                 writeTerminalLog(
-                    `Yanıt alındı · ${generated.model} · ${generated.tokens} token · ` +
+                    `Tamamlandı · ${generated.model} · ${generated.tokens} token (2 çağrı) · ` +
                     `${((Date.now() - started) / 1000).toFixed(1)} sn`, 'info');
                 writeTerminalLog('Şema doğrulandı, proje oluşturuldu.', 'success');
             } catch (err) {

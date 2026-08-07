@@ -206,6 +206,86 @@ test('pickUnseenProject returns the only project in a single-entry category', ()
     assert.strictEqual(r.exhausted, true);
 });
 
+test('CONSTRAINT_AXES gives the combination count the design relies on', () => {
+    const axes = Object.values(core.CONSTRAINT_AXES);
+    assert.strictEqual(axes.length, 4);
+    for (const values of axes) {
+        assert.ok(values.length >= 5, 'her eksende en az 5 değer olmalı');
+        assert.strictEqual(new Set(values).size, values.length, 'eksende yinelenen değer var');
+    }
+    const combos = axes.reduce((n, v) => n * v.length, 1);
+    assert.ok(combos >= 625, `beklenen >=625 kombinasyon, bulunan ${combos}`);
+});
+
+test('pickConstraintCombo draws one value per axis', () => {
+    const combo = core.pickConstraintCombo();
+    for (const [axis, values] of Object.entries(core.CONSTRAINT_AXES)) {
+        assert.ok(values.includes(combo[axis]), `${axis} ekseninden geçersiz değer`);
+    }
+});
+
+test('pickConstraintCombo actually varies', () => {
+    const seen = new Set();
+    for (let i = 0; i < 300; i++) seen.add(JSON.stringify(core.pickConstraintCombo()));
+    assert.ok(seen.size > 50, `yalnızca ${seen.size} farklı kombinasyon üretildi`);
+});
+
+test('normalizeTitle ignores case, punctuation and spacing', () => {
+    assert.strictEqual(core.normalizeTitle('AI-Destekli  Rapor!'), core.normalizeTitle('ai destekli rapor'));
+    assert.strictEqual(core.normalizeTitle(null), '');
+});
+
+test('titleOverlap scores near-duplicates high and unrelated titles low', () => {
+    assert.ok(core.titleOverlap('Akıllı Sulama Ağı', 'Akıllı Sulama Platformu') >= 0.5);
+    assert.strictEqual(core.titleOverlap('Akıllı Sulama Ağı', 'Akıllı Sulama Ağı'), 1);
+    assert.ok(core.titleOverlap('Akıllı Sulama Ağı', 'Blokzincir Denetim Motoru') < 0.3);
+});
+
+const ideas = [
+    { title: 'Akıllı Sulama Ağı', summary: 'a' },
+    { title: 'Blokzincir Denetim Motoru', summary: 'b' },
+    { title: 'Karbon Takip Paneli', summary: 'c' }
+];
+
+test('selectFreshIdea skips ideas the user has already seen', () => {
+    for (let i = 0; i < 50; i++) {
+        const r = core.selectFreshIdea(ideas, ['Akıllı Sulama Ağı']);
+        assert.notStrictEqual(r.idea.title, 'Akıllı Sulama Ağı');
+        assert.strictEqual(r.exhausted, false);
+        assert.strictEqual(r.freshCount, 2);
+    }
+});
+
+test('selectFreshIdea also catches near-duplicates, not just exact matches', () => {
+    const r = core.selectFreshIdea(ideas, ['Akıllı Sulama Platformu']);
+    assert.notStrictEqual(r.idea.title, 'Akıllı Sulama Ağı', 'benzer başlık elenmedi');
+    assert.strictEqual(r.freshCount, 2);
+});
+
+test('selectFreshIdea falls back to the least similar when all are known', () => {
+    const r = core.selectFreshIdea(ideas, ideas.map(i => i.title));
+    assert.strictEqual(r.exhausted, true);
+    assert.strictEqual(r.freshCount, 0);
+    assert.ok(r.idea, 'tükenmede bile bir fikir dönmeli');
+});
+
+test('selectFreshIdea reaches every fresh idea over many draws', () => {
+    const picked = new Set();
+    for (let i = 0; i < 300; i++) picked.add(core.selectFreshIdea(ideas, []).idea.title);
+    assert.strictEqual(picked.size, 3);
+});
+
+test('selectFreshIdea rejects malformed batches', () => {
+    assert.strictEqual(core.selectFreshIdea([], []).idea, null);
+    assert.strictEqual(core.selectFreshIdea(null, []).idea, null);
+    assert.strictEqual(core.selectFreshIdea([{ summary: 'başlıksız' }, null, 42], []).idea, null);
+});
+
+test('selectFreshIdea tolerates a corrupt known-title list', () => {
+    assert.ok(core.selectFreshIdea(ideas, null).idea);
+    assert.ok(core.selectFreshIdea(ideas, [null, 42, '']).idea);
+});
+
 const limits = { cooldownMs: 20000, maxPerHour: 15 };
 
 test('evaluateRateLimit enforces the cooldown', () => {
