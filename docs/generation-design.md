@@ -1,6 +1,6 @@
 # Aetheria.ai — Üretim Tasarımı (ücretsiz katman, açık kaynak)
 
-> **Durum:** Karar verildi, uygulanmayı bekliyor · **Tarih:** 7 Ağustos 2026
+> **Durum:** Uygulandı (8/8 madde) · **Tarih:** 7 Ağustos 2026
 > Kod içermez.
 
 ---
@@ -158,21 +158,22 @@ Açık kaynak bir projede doğru model bu: hedef kitle geliştirici, anahtar alm
 
 ## 7. Yapılacak işler
 
-| # | İş | Neden | Tahmin |
-|---|---|---|---|
-| 1 | Görülenleri ele (§4.3) | Anahtarsız kullanıcı için bile çeşitlilik | yarım gün |
-| 2 | Örnekleri dürüst etiketle (§5) | Asıl tezadı kapatır | yarım gün |
-| 3 | Terminal loglarını gerçekleştir (§3) | Uydurma adımları kaldırır | yarım gün |
-| 4 | Ürün dilini düzelt (hero, README) | "araştırıyor" → "fikir üretiyor" | yarım gün |
-| 5 | Fikir listele → genişlet akışı (§4.1) | Çeşitliliğin çekirdeği | 1-2 gün |
-| 6 | Kısıt ekseni döndürme (§4.2) | 625 kombinasyon | yarım gün |
-| 7 | Anahtar kurulum akışı (§6) | Anahtarsız kullanıcı ürünü hiç görmüyor | yarım gün |
-| 8 | `localStorage` kota hatası yakalama | Sessiz veri kaybı | 1 saat |
+| # | İş | Durum |
+|---|---|---|
+| 1 | Görülenleri ele (§4.3) | ✅ PR #11 |
+| 2 | Örnekleri dürüst etiketle (§5) | ✅ PR #11 |
+| 3 | Terminal loglarını gerçekleştir (§3) | ✅ PR #11 |
+| 4 | Ürün dilini düzelt (hero, README) | ✅ PR #11 |
+| 5 | Fikir listele → genişlet akışı (§4.1) | ✅ PR #12 |
+| 6 | Kısıt ekseni döndürme (§4.2) | ✅ PR #12 |
+| 7 | Anahtar kurulum akışı (§6) | ✅ PR #12 |
+| 8 | `localStorage` kota hatası yakalama | ✅ PR #12 |
 
-Toplam ~4 gün. Backend yok, ikinci API yok, sır yok.
+Backend yok, ikinci API yok, sır yok — planlandığı gibi.
 
-**Sıra:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8.
-İlk dördü risksiz ve anında görünür; 5 en büyük iş, zemin temizlendikten sonra.
+Yol boyunca planda olmayan üç düzeltme çıktı, üçü de dışarıdan gelen bozulmalardı:
+sabitlenmiş model adları emekliye ayrılmıştı (PR #10), `thinkingBudget` alanı
+mevcut modellerce reddediliyordu, ve `.env` okuması Windows BOM'unda kırılıyordu.
 
 ---
 
@@ -180,7 +181,7 @@ Toplam ~4 gün. Backend yok, ikinci API yok, sır yok.
 
 | # | Konu | Not |
 |---|---|---|
-| 1 | 8 fikrin kaçı gerçekten farklı olacak? | Ölçülmedi. Adım 1 uygulandığında prototiple sayılmalı. |
+| 1 | 8 fikrin kaçı gerçekten farklı olacak? | **Ölçüldü — cevap: hepsi.** 3 tur × 8 fikir = 24/24 benzersiz, 0 yakın-kopya, parti içi ortalama benzerlik %18. `node scripts/gemini-lab.js --diversity` |
 | 2 | Kısıt eksenleri saçma kombinasyon üretir mi? | "Kamu + pazaryeri + çevrimdışı öncelikli" zorlama olabilir; modele "uymuyorsa ekseni yumuşat" izni verilmeli. |
 | 3 | Ücretsiz katman günlük limiti | Ölçülmedi. Anahtar kullanıcının olduğu için kritik değil, ama limit mesajı anlaşılır olmalı. |
 | 4 | Eğitim verisi güncelliği | Model kesim tarihinden sonrasını bilmiyor. Ürün dili güncellik ima etmemeli. |

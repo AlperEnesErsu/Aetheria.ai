@@ -67,6 +67,13 @@
         <div class="bg-blob bg-blob-3"></div>
     </div>
 
+    <!-- Shown only when a write to localStorage fails (quota full, storage blocked) -->
+    <div id="storageWarning" class="storage-warning" role="alert">
+        <span aria-hidden="true">⚠️</span>
+        <span id="storageWarningText"></span>
+        <button type="button" id="btnCloseStorageWarning" class="btn-icon-close" aria-label="Uyarıyı kapat">✕</button>
+    </div>
+
     <!-- App Container -->
     <div class="app-container">
         
@@ -138,8 +145,15 @@
                                 <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2z"/>
                             </svg>
                         </span>
-                        <span>PROJE BUL</span>
+                        <span id="generateButtonLabel">PROJE BUL</span>
                     </button>
+
+                    <!-- Replaced by the live-mode hint once a key is configured -->
+                    <p id="keyHint" class="key-hint">
+                        Şu an <strong>örnek projeler</strong> gösteriliyor.
+                        <button type="button" id="btnHeroSetKey" class="link-button">Ücretsiz anahtarını ekle</button>
+                        — 30 saniye, kredi kartı gerekmez.
+                    </p>
                 </div>
             </section>
 

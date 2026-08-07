@@ -37,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const originBadge = document.getElementById('originBadge');
     const exampleNotice = document.getElementById('exampleNotice');
     const btnNoticeSetKey = document.getElementById('btnNoticeSetKey');
+    const storageWarning = document.getElementById('storageWarning');
+    const storageWarningText = document.getElementById('storageWarningText');
+    const btnCloseStorageWarning = document.getElementById('btnCloseStorageWarning');
+    const keyHint = document.getElementById('keyHint');
+    const btnHeroSetKey = document.getElementById('btnHeroSetKey');
+    const generateButtonLabel = document.getElementById('generateButtonLabel');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -79,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ids already shown to this user. Persisted so variety survives a reload —
     // without it, every refresh started the example rotation from scratch.
-    let seenProjectIds = JSON.parse(localStorage.getItem('aetheria_seen_projects') || '[]');
+    let seenProjectIds = readJson('aetheria_seen_projects', []);
 
     // SECURITY & RATE LIMITING STATE (Open-Source Protection)
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
@@ -109,13 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const THINKING_CONFIG = { thinkingLevel: 'low' };
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
-    let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
+    let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
 
     // Shared Community Pool State Management
-    let communityPool = JSON.parse(localStorage.getItem('aetheria_community_pool') || 'null');
+    let communityPool = readJson('aetheria_community_pool', null);
     if (!communityPool) {
         communityPool = (typeof PROJECTS_DATABASE !== 'undefined') ? [...PROJECTS_DATABASE.slice(0, 3)] : [];
-        localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+        persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
     }
 
     let geminiApiKey = localStorage.getItem('aetheria_gemini_key') || '';
@@ -125,10 +131,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (geminiApiKeyInput) geminiApiKeyInput.value = geminiApiKey;
     if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
     updateGeminiBadgeStatus();
+    updateKeyHint();
     updateSavedBadge();
 
     // Helper: Sleep Delay
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // A corrupt or hand-edited value used to throw straight out of JSON.parse during
+    // start-up, taking the whole app with it — a single bad character in storage left
+    // the user with a blank page and no way back.
+    function readJson(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw === null) return fallback;
+            const parsed = JSON.parse(raw);
+            // Shape matters as much as parseability: a stored object where an array is
+            // expected would fail later, further from the cause.
+            if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+            return parsed;
+        } catch (err) {
+            console.warn(`localStorage okunamadı (${key}), varsayılana dönülüyor:`, err);
+            return fallback;
+        }
+    }
+
+    // Every write went straight to localStorage, which throws once the origin's
+    // quota is full or when the browser is in a mode that blocks storage. That
+    // surfaced as a thrown exception mid-save — the pool looked updated on screen
+    // while nothing had persisted. Writes now report success so callers can decide
+    // whether the user needs to hear about it.
+    function persist(key, value) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (err) {
+            console.warn(`localStorage yazılamadı (${key}):`, err);
+            return false;
+        }
+    }
+
+    // Only for writes the user would notice losing. Background bookkeeping (seen
+    // ids, rate-limit counters) degrades quietly on purpose — an alert about a
+    // counter would be noise.
+    function persistOrWarn(key, value, whatWasLost) {
+        if (persist(key, value)) return true;
+        showStorageWarning(whatWasLost);
+        return false;
+    }
+
+    function showStorageWarning(whatWasLost) {
+        storageWarningText.textContent =
+            `${whatWasLost} kaydedilemedi — tarayıcı depolama alanı dolu veya engellenmiş olabilir. ` +
+            `Havuzdan birkaç projeyi çıkarmayı deneyin; raporu .md olarak indirmek her zaman çalışır.`;
+        storageWarning.classList.add('visible');
+    }
 
     // Helper: single place that owns the disabled/opacity pair, so no early return can
     // leave a button stuck in its busy state
@@ -172,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         hourlyCallHistory = verdict.history;
-        localStorage.setItem('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+        persist('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
 
         return verdict;
     }
@@ -183,8 +239,35 @@ document.addEventListener('DOMContentLoaded', () => {
         lastGeminiCallTimestamp = now;
         hourlyCallHistory.push(now);
 
-        localStorage.setItem('aetheria_last_gemini_call', now.toString());
-        localStorage.setItem('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+        persist('aetheria_last_gemini_call', now.toString());
+        persist('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+    }
+
+    // The key was only reachable through a small header badge, so a first-time
+    // visitor pressed the main button, got an example, and never learned that real
+    // generation was one free key away. The hint sits under that button and states
+    // which mode is active.
+    function updateKeyHint() {
+        const live = useGeminiLiveMode && geminiApiKey;
+
+        keyHint.classList.toggle('is-live', Boolean(live));
+        generateButtonLabel.textContent = live ? 'PROJE ÜRET' : 'PROJE BUL';
+
+        if (live) {
+            keyHint.innerHTML = '';
+            keyHint.append('Yapay zeka üretimi ', Object.assign(document.createElement('strong'), { textContent: 'açık' }), '.');
+            return;
+        }
+
+        // Rebuilt rather than toggled so the button keeps its listener
+        keyHint.innerHTML = '';
+        keyHint.append(
+            'Şu an ',
+            Object.assign(document.createElement('strong'), { textContent: 'örnek projeler' }),
+            ' gösteriliyor. '
+        );
+        keyHint.appendChild(btnHeroSetKey);
+        keyHint.append(' — 30 saniye, kredi kartı gerekmez.');
     }
 
     // Update Gemini Header Badge Status
@@ -235,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
             communityPool.push(currentProject);
         }
 
-        localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+        persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
         updateSavedBadge();
         updateSaveButtonUI();
         renderSavedProjectsList();
@@ -312,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!window.confirm(`"${target ? target.title : projId}" havuzdan kalıcı olarak çıkarılsın mı?`)) return;
 
                 communityPool = communityPool.filter(p => p.id !== projId);
-                localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+                persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
                 updateSavedBadge();
                 updateSaveButtonUI();
                 renderSavedProjectsList();
@@ -402,12 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = pickUnseenProject(getFilteredProjects(), seenProjectIds);
 
         seenProjectIds = result.seen;
-        try {
-            localStorage.setItem('aetheria_seen_projects', JSON.stringify(seenProjectIds));
-        } catch {
-            // Quota or private-mode failure: variety degrades this session but the
-            // app keeps working, so this is not worth interrupting the user for.
-        }
+        // Background bookkeeping: if this fails, variety degrades for the session
+        // but nothing the user asked for is lost, so no warning is raised.
+        persist('aetheria_seen_projects', JSON.stringify(seenProjectIds));
 
         return result;
     }
@@ -491,24 +571,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(p => seenProjectIds.includes(p.id))
             .map(p => p.title);
 
-        let fromGenerated = [];
-        try {
-            fromGenerated = JSON.parse(localStorage.getItem('aetheria_seen_titles') || '[]');
-        } catch {
-            fromGenerated = [];
-        }
+        const fromGenerated = readJson('aetheria_seen_titles', []);
 
         return [...new Set([...fromGenerated, ...fromPool, ...fromExamples])].slice(-40);
     }
 
     function rememberIdeaTitle(title) {
-        try {
-            const titles = JSON.parse(localStorage.getItem('aetheria_seen_titles') || '[]');
-            titles.push(title);
-            localStorage.setItem('aetheria_seen_titles', JSON.stringify(titles.slice(-60)));
-        } catch {
-            // Quota or private mode: variety degrades, the app keeps working.
-        }
+        const titles = readJson('aetheria_seen_titles', []);
+        titles.push(title);
+        persist('aetheria_seen_titles', JSON.stringify(titles.slice(-60)));
     }
 
     // PASS 1 — a short list of one-line ideas. Small output, so this is cheap.
@@ -851,6 +922,8 @@ Yanıtı tam olarak şu JSON şemasında ver:
     // Gemini API Modal Handlers
     btnFeature2Notice.addEventListener('click', () => openDialogOverlay(feature2Modal, btnFeature2Notice, 'flex'));
     btnNoticeSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnNoticeSetKey, 'flex'));
+    btnCloseStorageWarning.addEventListener('click', () => storageWarning.classList.remove('visible'));
+    btnHeroSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnHeroSetKey, 'flex'));
     btnCloseModal.addEventListener('click', closeDialogOverlay);
     feature2Modal.addEventListener('click', (e) => {
         if (e.target === feature2Modal) closeDialogOverlay();
@@ -861,10 +934,11 @@ Yanıtı tam olarak şu JSON şemasında ver:
         geminiApiKey = geminiApiKeyInput.value.trim();
         useGeminiLiveMode = useGeminiApiToggle.checked;
 
-        localStorage.setItem('aetheria_gemini_key', geminiApiKey);
-        localStorage.setItem('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
+        persistOrWarn('aetheria_gemini_key', geminiApiKey, 'API anahtarı');
+        persist('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
         
         updateGeminiBadgeStatus();
+        updateKeyHint();
         closeDialogOverlay();
     });
 
