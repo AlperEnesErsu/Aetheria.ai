@@ -19,6 +19,40 @@
     // Diagram node types that have a matching .node-* rule in style.css
     const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
 
+    // Asked the same question repeatedly, the model returns variations on a handful
+    // of favourite ideas. Rotating a constraint combination through the prompt
+    // pushes it into a different corner each time: 5^4 = 625 combinations.
+    const CONSTRAINT_AXES = {
+        problemSource: [
+            'regülasyon ve uyum baskısı',
+            'operasyonel maliyet baskısı',
+            'manuel iş yükü ve tekrar eden süreçler',
+            'birbirinden kopuk veri siloları',
+            'erişilebilirlik ve kapsayıcılık açığı'
+        ],
+        audience: [
+            'kurumsal ekipler',
+            'bağımsız profesyoneller ve küçük işletmeler',
+            'son kullanıcılar',
+            'araştırmacılar ve akademi',
+            'kamu kurumları ve STK\'lar'
+        ],
+        technical: [
+            'uçta (edge) çalışma',
+            'gizlilik korumalı işleme',
+            'gerçek zamanlı akış',
+            'çevrimdışı öncelikli tasarım',
+            'uçtan uca otomasyon'
+        ],
+        revenue: [
+            'B2B SaaS aboneliği',
+            'pazaryeri komisyonu',
+            'geliştirici API\'si',
+            'açık çekirdek (open core)',
+            'kullanım bazlı ücretlendirme'
+        ]
+    };
+
     // Escape every HTML-significant character so untrusted text can never
     // introduce markup when it is later assigned to innerHTML.
     function escapeHtml(text) {
@@ -101,6 +135,125 @@
     // up in a class attribute, so an arbitrary string is also an injection risk.
     function safeNodeType(type) {
         return NODE_TYPES.includes(type) ? type : 'service';
+    }
+
+    // Draw one value from each constraint axis. Returned as a plain object so the
+    // caller can both build a prompt from it and show it to the user.
+    function pickConstraintCombo(random) {
+        const rng = typeof random === 'function' ? random : Math.random;
+        const combo = {};
+        for (const [axis, values] of Object.entries(CONSTRAINT_AXES)) {
+            combo[axis] = values[Math.floor(rng() * values.length)];
+        }
+        return combo;
+    }
+
+    // Comparison key for titles: case, punctuation and spacing differences should
+    // not make "AI Destekli Rapor" and "ai-destekli rapor" look like separate ideas.
+    function normalizeTitle(text) {
+        return String(text || '')
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // How much two titles share, as a fraction of the shorter one. Catches the
+    // common near-duplicate ("Akıllı Sulama Ağı" vs "Akıllı Sulama Platformu")
+    // that an exact-match check would let through.
+    function titleOverlap(a, b) {
+        const words = t => new Set(normalizeTitle(t).split(' ').filter(w => w.length > 3));
+        const A = words(a);
+        const B = words(b);
+        if (A.size === 0 || B.size === 0) return 0;
+
+        let shared = 0;
+        for (const w of A) if (B.has(w)) shared++;
+        return shared / Math.min(A.size, B.size);
+    }
+
+    // Human-readable domain names for prompts — the filter keys are not descriptive
+    // enough on their own ("web3" tells the model far less than the full phrase).
+    const CATEGORY_LABELS = {
+        all: 'herhangi bir yazılım',
+        'health-ai': 'sağlık teknolojileri ve tıbbi yapay zeka',
+        web3: 'Web3, blokzincir ve kripto güvenliği',
+        infrastructure: 'bulut altyapısı, dağıtık sistemler ve performans',
+        edtech: 'eğitim teknolojileri',
+        sustainability: 'sürdürülebilirlik, enerji ve endüstriyel IoT',
+        devops: 'DevOps ve yazılım geliştirme araçları'
+    };
+
+    // The ideation prompt lives here rather than in app.js so the measurement script
+    // exercises the exact text the app sends. A separate copy would drift, and then
+    // the diversity numbers would describe a prompt nobody ships.
+    function buildIdeationPrompt(categoryLabel, count, combo, avoidTitles) {
+        const avoid = (Array.isArray(avoidTitles) ? avoidTitles : [])
+            .filter(t => typeof t === 'string' && t.trim());
+
+        const avoidBlock = avoid.length
+            ? '\n\nBu fikirler kullanıcıya zaten gösterildi. Bunlardan ve varyasyonlarından KAÇIN:\n'
+              + avoid.map(t => '- ' + t).join('\n')
+            : '';
+
+        return `${categoryLabel} alanında ${count} farklı yazılım projesi fikri üret.
+
+Her fikir şu kısıtlara uysun:
+- Problem kaynağı: ${combo.problemSource}
+- Hedef kullanıcı: ${combo.audience}
+- Teknik yaklaşım: ${combo.technical}
+- Gelir modeli: ${combo.revenue}
+
+Kısıtlardan biri bu alana zorlama geliyorsa onu yumuşat, ama tamamen yok sayma.
+Fikirler birbirinden belirgin şekilde farklı problemleri çözsün; aynı problemin
+varyasyonlarını yazma.${avoidBlock}
+
+Yanıtı şu JSON şemasında ver:
+{ "ideas": [ { "title": "Kısa proje adı", "summary": "Tek cümlelik açıklama" } ] }`;
+    }
+
+    // Choose an idea the user has not already been shown.
+    //
+    // The model is asked for several one-line ideas rather than one full project,
+    // because filtering one-liners is both cheaper and more accurate than comparing
+    // finished blueprints — and it means a repeat costs nothing to discard.
+    //
+    // Returns { idea, freshCount, exhausted }:
+    //   exhausted — every idea in the batch was already known, so the least similar
+    //               one is returned rather than spending another call.
+    function selectFreshIdea(ideas, knownTitles, random) {
+        const rng = typeof random === 'function' ? random : Math.random;
+
+        const usable = (Array.isArray(ideas) ? ideas : []).filter(
+            i => i && typeof i.title === 'string' && i.title.trim()
+        );
+        if (usable.length === 0) return { idea: null, freshCount: 0, exhausted: false };
+
+        const known = (Array.isArray(knownTitles) ? knownTitles : []).filter(
+            t => typeof t === 'string' && t.trim()
+        );
+
+        const SIMILAR = 0.6;
+        const fresh = usable.filter(
+            idea => !known.some(t => titleOverlap(idea.title, t) >= SIMILAR)
+        );
+
+        if (fresh.length > 0) {
+            return {
+                idea: fresh[Math.floor(rng() * fresh.length)],
+                freshCount: fresh.length,
+                exhausted: false
+            };
+        }
+
+        // Nothing new in this batch — fall back to whichever is least like anything
+        // already seen, so the user still gets a result.
+        const leastSimilar = usable.reduce((best, idea) => {
+            const worst = Math.max(0, ...known.map(t => titleOverlap(idea.title, t)));
+            return worst < best.score ? { idea, score: worst } : best;
+        }, { idea: usable[0], score: Infinity });
+
+        return { idea: leastSimilar.idea, freshCount: 0, exhausted: true };
     }
 
     // Pick a project at random, avoiding an immediate repeat.
@@ -214,6 +367,13 @@
 
     return {
         NODE_TYPES,
+        CONSTRAINT_AXES,
+        CATEGORY_LABELS,
+        buildIdeationPrompt,
+        pickConstraintCombo,
+        normalizeTitle,
+        titleOverlap,
+        selectFreshIdea,
         escapeHtml,
         parseMarkdown,
         validateProjectShape,

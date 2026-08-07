@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
         normalizeProject,
         safeNodeType,
         pickUnseenProject,
+        pickConstraintCombo,
+        selectFreshIdea,
+        buildIdeationPrompt,
+        CATEGORY_LABELS,
         evaluateRateLimit,
         buildBlueprintMarkdown
     } = window.AetheriaCore;
@@ -33,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const originBadge = document.getElementById('originBadge');
     const exampleNotice = document.getElementById('exampleNotice');
     const btnNoticeSetKey = document.getElementById('btnNoticeSetKey');
+    const storageWarning = document.getElementById('storageWarning');
+    const storageWarningText = document.getElementById('storageWarningText');
+    const btnCloseStorageWarning = document.getElementById('btnCloseStorageWarning');
+    const keyHint = document.getElementById('keyHint');
+    const btnHeroSetKey = document.getElementById('btnHeroSetKey');
+    const generateButtonLabel = document.getElementById('generateButtonLabel');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -75,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ids already shown to this user. Persisted so variety survives a reload —
     // without it, every refresh started the example rotation from scratch.
-    let seenProjectIds = JSON.parse(localStorage.getItem('aetheria_seen_projects') || '[]');
+    let seenProjectIds = readJson('aetheria_seen_projects', []);
 
     // SECURITY & RATE LIMITING STATE (Open-Source Protection)
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
@@ -88,17 +98,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // repointed by Google as models are retired, which keeps this list from
     // expiring again.
     const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']; // primary, then fallback
-    const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
+    const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON
     const GEMINI_TIMEOUT_MS = 45000;
 
+    // Pass 1 asks for a batch of one-liners; eight gives the local filter room to
+    // discard repeats without needing a second round trip.
+    const IDEA_BATCH_SIZE = 8;
+    const IDEA_MAX_TOKENS = 1024;
+
+    // Reasoning is kept short so it does not eat the output budget. The field name
+    // is generation-specific: 2.5 took thinkingConfig.thinkingBudget, the current
+    // flash models reject that with 400 and take thinkingLevel instead. Measured
+    // with `node scripts/gemini-lab.js --probe-config`. requestGeminiCompletion
+    // drops the whole block and retries if a future model rejects this spelling
+    // too — the field has now changed twice, so it will change again.
+    const THINKING_CONFIG = { thinkingLevel: 'low' };
+
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
-    let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
+    let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
 
     // Shared Community Pool State Management
-    let communityPool = JSON.parse(localStorage.getItem('aetheria_community_pool') || 'null');
+    let communityPool = readJson('aetheria_community_pool', null);
     if (!communityPool) {
         communityPool = (typeof PROJECTS_DATABASE !== 'undefined') ? [...PROJECTS_DATABASE.slice(0, 3)] : [];
-        localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+        persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
     }
 
     let geminiApiKey = localStorage.getItem('aetheria_gemini_key') || '';
@@ -108,10 +131,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (geminiApiKeyInput) geminiApiKeyInput.value = geminiApiKey;
     if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
     updateGeminiBadgeStatus();
+    updateKeyHint();
     updateSavedBadge();
 
     // Helper: Sleep Delay
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // A corrupt or hand-edited value used to throw straight out of JSON.parse during
+    // start-up, taking the whole app with it — a single bad character in storage left
+    // the user with a blank page and no way back.
+    function readJson(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw === null) return fallback;
+            const parsed = JSON.parse(raw);
+            // Shape matters as much as parseability: a stored object where an array is
+            // expected would fail later, further from the cause.
+            if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+            return parsed;
+        } catch (err) {
+            console.warn(`localStorage okunamadı (${key}), varsayılana dönülüyor:`, err);
+            return fallback;
+        }
+    }
+
+    // Every write went straight to localStorage, which throws once the origin's
+    // quota is full or when the browser is in a mode that blocks storage. That
+    // surfaced as a thrown exception mid-save — the pool looked updated on screen
+    // while nothing had persisted. Writes now report success so callers can decide
+    // whether the user needs to hear about it.
+    function persist(key, value) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (err) {
+            console.warn(`localStorage yazılamadı (${key}):`, err);
+            return false;
+        }
+    }
+
+    // Only for writes the user would notice losing. Background bookkeeping (seen
+    // ids, rate-limit counters) degrades quietly on purpose — an alert about a
+    // counter would be noise.
+    function persistOrWarn(key, value, whatWasLost) {
+        if (persist(key, value)) return true;
+        showStorageWarning(whatWasLost);
+        return false;
+    }
+
+    function showStorageWarning(whatWasLost) {
+        storageWarningText.textContent =
+            `${whatWasLost} kaydedilemedi — tarayıcı depolama alanı dolu veya engellenmiş olabilir. ` +
+            `Havuzdan birkaç projeyi çıkarmayı deneyin; raporu .md olarak indirmek her zaman çalışır.`;
+        storageWarning.classList.add('visible');
+    }
 
     // Helper: single place that owns the disabled/opacity pair, so no early return can
     // leave a button stuck in its busy state
@@ -155,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         hourlyCallHistory = verdict.history;
-        localStorage.setItem('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+        persist('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
 
         return verdict;
     }
@@ -166,8 +239,35 @@ document.addEventListener('DOMContentLoaded', () => {
         lastGeminiCallTimestamp = now;
         hourlyCallHistory.push(now);
 
-        localStorage.setItem('aetheria_last_gemini_call', now.toString());
-        localStorage.setItem('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+        persist('aetheria_last_gemini_call', now.toString());
+        persist('aetheria_gemini_call_history', JSON.stringify(hourlyCallHistory));
+    }
+
+    // The key was only reachable through a small header badge, so a first-time
+    // visitor pressed the main button, got an example, and never learned that real
+    // generation was one free key away. The hint sits under that button and states
+    // which mode is active.
+    function updateKeyHint() {
+        const live = useGeminiLiveMode && geminiApiKey;
+
+        keyHint.classList.toggle('is-live', Boolean(live));
+        generateButtonLabel.textContent = live ? 'PROJE ÜRET' : 'PROJE BUL';
+
+        if (live) {
+            keyHint.innerHTML = '';
+            keyHint.append('Yapay zeka üretimi ', Object.assign(document.createElement('strong'), { textContent: 'açık' }), '.');
+            return;
+        }
+
+        // Rebuilt rather than toggled so the button keeps its listener
+        keyHint.innerHTML = '';
+        keyHint.append(
+            'Şu an ',
+            Object.assign(document.createElement('strong'), { textContent: 'örnek projeler' }),
+            ' gösteriliyor. '
+        );
+        keyHint.appendChild(btnHeroSetKey);
+        keyHint.append(' — 30 saniye, kredi kartı gerekmez.');
     }
 
     // Update Gemini Header Badge Status
@@ -218,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
             communityPool.push(currentProject);
         }
 
-        localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+        persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
         updateSavedBadge();
         updateSaveButtonUI();
         renderSavedProjectsList();
@@ -295,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!window.confirm(`"${target ? target.title : projId}" havuzdan kalıcı olarak çıkarılsın mı?`)) return;
 
                 communityPool = communityPool.filter(p => p.id !== projId);
-                localStorage.setItem('aetheria_community_pool', JSON.stringify(communityPool));
+                persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
                 updateSavedBadge();
                 updateSaveButtonUI();
                 renderSavedProjectsList();
@@ -385,12 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = pickUnseenProject(getFilteredProjects(), seenProjectIds);
 
         seenProjectIds = result.seen;
-        try {
-            localStorage.setItem('aetheria_seen_projects', JSON.stringify(seenProjectIds));
-        } catch {
-            // Quota or private-mode failure: variety degrades this session but the
-            // app keeps working, so this is not worth interrupting the user for.
-        }
+        // Background bookkeeping: if this fails, variety degrades for the session
+        // but nothing the user asked for is lost, so no warning is raised.
+        persist('aetheria_seen_projects', JSON.stringify(seenProjectIds));
 
         return result;
     }
@@ -414,103 +511,205 @@ document.addEventListener('DOMContentLoaded', () => {
         return `HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
     }
 
-    // GEMINI LIVE API CALL WITH RATE LIMIT & TOKEN CAP GUARDRAILS
-    async function generateProjectViaGeminiApi() {
+    // Two-pass generation.
+    //
+    // Asking for one complete project in a single call meant the model returned
+    // variations on a handful of favourite ideas. Instead it is asked for several
+    // one-line ideas first, the ones the user has already seen are dropped locally,
+    // and only the survivor is expanded. Filtering one-liners is cheaper and more
+    // accurate than comparing finished blueprints, and a repeat costs nothing to
+    // discard.
+    async function generateProjectViaGeminiApi(onProgress = () => {}) {
         if (!geminiApiKey) throw new Error('API Key girilmedi');
 
-        // Check Rate Limiter
         const limitCheck = checkRateLimits();
-        if (!limitCheck.allowed) {
-            throw new Error(limitCheck.reason);
-        }
+        if (!limitCheck.allowed) throw new Error(limitCheck.reason);
 
-        // Count the attempt *before* firing it. Recording only successful calls meant a
-        // rejected key or a 429 storm consumed neither the cooldown nor the hourly
+        // Count the attempt *before* firing it. Recording only successful calls meant
+        // a rejected key or a 429 storm consumed neither the cooldown nor the hourly
         // budget, which let a broken configuration hammer the endpoint unthrottled.
+        // One generation is one unit even though it now costs two API calls — the
+        // limiter paces the user, it does not meter Google's quota.
         recordGeminiCall();
 
-        const promptText = `Sen Aetheria.ai adında otonom bir yazılım mimarı yapay zeka ajanıısın. Kullanıcı için son derece özgün, yenilikçi ve derinlemesine hazırlanmış bir yazılım projesi üret. Kategori tercihi: ${activeCategoryFilter}.
-Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam olarak şu şekilde olmalı:
+        const combo = pickConstraintCombo();
+        const categoryLabel = CATEGORY_LABELS[activeCategoryFilter] || 'yazılım';
+
+        onProgress({ phase: 'ideate', combo });
+        const ideation = await requestIdeas(categoryLabel, combo);
+
+        const { idea, freshCount, exhausted } = selectFreshIdea(ideation.ideas, knownIdeaTitles());
+        if (!idea) throw new Error('Model kullanılabilir fikir döndürmedi');
+
+        onProgress({
+            phase: 'selected',
+            total: ideation.ideas.length,
+            freshCount,
+            exhausted,
+            title: idea.title,
+            model: ideation.model,
+            tokens: ideation.tokens
+        });
+
+        onProgress({ phase: 'expand' });
+        const expansion = await expandIdea(idea, categoryLabel, combo);
+
+        return {
+            project: expansion.project,
+            model: expansion.model,
+            tokens: ideation.tokens + expansion.tokens,
+            ideaCount: ideation.ideas.length,
+            freshCount
+        };
+    }
+
+    // Titles the user has already met, so the model can be told to avoid them.
+    // Capped because the whole list travels in the prompt on every call.
+    function knownIdeaTitles() {
+        const fromPool = communityPool.map(p => p.title);
+        const fromExamples = (typeof PROJECTS_DATABASE !== 'undefined' ? PROJECTS_DATABASE : [])
+            .filter(p => seenProjectIds.includes(p.id))
+            .map(p => p.title);
+
+        const fromGenerated = readJson('aetheria_seen_titles', []);
+
+        return [...new Set([...fromGenerated, ...fromPool, ...fromExamples])].slice(-40);
+    }
+
+    function rememberIdeaTitle(title) {
+        const titles = readJson('aetheria_seen_titles', []);
+        titles.push(title);
+        persist('aetheria_seen_titles', JSON.stringify(titles.slice(-60)));
+    }
+
+    // PASS 1 — a short list of one-line ideas. Small output, so this is cheap.
+    async function requestIdeas(categoryLabel, combo) {
+        // Prompt text lives in core.js so scripts/gemini-lab.js measures the exact
+        // wording the app ships rather than a copy that can drift.
+        const prompt = buildIdeationPrompt(categoryLabel, IDEA_BATCH_SIZE, combo, knownIdeaTitles());
+
+        const data = await requestGeminiCompletion({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                maxOutputTokens: IDEA_MAX_TOKENS,
+                temperature: 1.0,   // higher than the expansion pass: this call exists to explore
+                thinkingConfig: THINKING_CONFIG
+            }
+        });
+
+        const parsed = readJsonCandidate(data, 'Fikir listesi');
+        const ideas = Array.isArray(parsed.ideas) ? parsed.ideas : [];
+        if (ideas.length === 0) throw new Error('Fikir listesi boş döndü');
+
+        return {
+            ideas,
+            model: data.__model,
+            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
+        };
+    }
+
+    // PASS 2 — expand the chosen one-liner into the full project schema.
+    async function expandIdea(idea, categoryLabel, combo) {
+        const prompt = `Aşağıdaki proje fikrini eksiksiz bir proje önerisine dönüştür.
+
+FİKİR: ${idea.title}
+AÇIKLAMA: ${idea.summary || ''}
+ALAN: ${categoryLabel}
+BAĞLAM: ${combo.problemSource} · ${combo.audience} · ${combo.technical} · ${combo.revenue}
+
+Yanıtı tam olarak şu JSON şemasında ver:
 {
-  "id": "gemini-${Date.now()}",
-  "title": "Proje Adı",
-  "tagline": "Etkileyici Proje Sloganı",
-  "category": "Kategori İsmi",
+  "title": "${idea.title}",
+  "tagline": "Etkileyici tek cümlelik slogan",
+  "category": "${categoryLabel}",
   "categoryKey": "${activeCategoryFilter}",
   "meta": {
-     "difficulty": "İleri Düzey veya Orta Düzey",
-     "mvpTime": "6 Hafta",
-     "monetization": "B2B SaaS / Usage-Based",
-     "opportunityScore": "%97 Fırsat Skoru"
+     "difficulty": "Orta Düzey veya İleri Düzey",
+     "mvpTime": "örn. 6 Hafta",
+     "monetization": "Gelir modeli",
+     "opportunityScore": "örn. %92 Fırsat Skoru"
   },
   "diagramNodes": [
-     { "id": 1, "name": "Bileşen 1", "type": "source", "sub": "Açıklama" },
-     { "id": 2, "name": "Bileşen 2", "type": "service", "sub": "Açıklama" },
-     { "id": 3, "name": "Bileşen 3", "type": "ai", "sub": "Açıklama" },
-     { "id": 4, "name": "Bileşen 4", "type": "storage", "sub": "Açıklama" },
-     { "id": 5, "name": "Bileşen 5", "type": "client", "sub": "Açıklama" }
+     { "id": 1, "name": "Bileşen", "type": "source", "sub": "Kısa açıklama" },
+     { "id": 2, "name": "Bileşen", "type": "service", "sub": "Kısa açıklama" },
+     { "id": 3, "name": "Bileşen", "type": "ai", "sub": "Kısa açıklama" },
+     { "id": 4, "name": "Bileşen", "type": "storage", "sub": "Kısa açıklama" },
+     { "id": 5, "name": "Bileşen", "type": "client", "sub": "Kısa açıklama" }
   ],
   "step1": {
-     "marketGap": "Alandaki açık (detaylı pazar problemi, mevcut çözümlerin eksikleri, fırsat)",
-     "description": "Detaylı proje açıklaması ve maddeler halinde özellikler",
-     "tags": ["Python", "React", "AI", "Cloud"]
+     "marketGap": "Problemi, mevcut çözümlerin nerede yetersiz kaldığını ve fırsatı anlat",
+     "description": "Detaylı proje açıklaması ve madde madde özellikler",
+     "tags": ["Teknoloji1", "Teknoloji2", "Teknoloji3"]
   },
   "step2": {
      "architecture": "Sistem mimarisi, Clean Architecture katmanları, veritabanı tasarımı",
-     "security": "Güvenlik önlemleri, OWASP standartları, şifreleme ve yetkilendirme"
+     "security": "Güvenlik önlemleri, tehdit modeli, şifreleme ve yetkilendirme"
   }
-}`;
+}
 
-        // QUOTA GUARDRAIL: the output cap has to fit the whole JSON blueprint above.
-        // 1000 tokens truncated every single response mid-JSON, so live mode could
-        // never succeed. Thinking is disabled explicitly because on 2.5 models
-        // reasoning tokens are billed against maxOutputTokens too.
-        const requestBody = {
-            contents: [{ parts: [{ text: promptText }] }],
+"type" alanı yalnızca şunlardan biri olabilir: source, service, ai, storage, client.`;
+
+        const data = await requestGeminiCompletion({
+            contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 responseMimeType: 'application/json',
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
                 temperature: 0.7,
-                thinkingConfig: { thinkingBudget: 0 }
+                thinkingConfig: THINKING_CONFIG
             }
+        });
+
+        const projectObj = readJsonCandidate(data, 'Proje');
+
+        const shapeError = validateProjectShape(projectObj);
+        if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
+
+        rememberIdeaTitle(projectObj.title);
+
+        return {
+            project: normalizeProject(projectObj, activeCategoryFilter),
+            model: data.__model,
+            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
         };
+    }
 
-        const data = await requestGeminiCompletion(requestBody);
+    // Surfaced in the log rather than swallowed: if this fires, THINKING_CONFIG needs
+    // updating, and silently degrading would hide that until someone read the code.
+    let thinkingConfigWarned = false;
+    function onThinkingConfigRejected() {
+        if (thinkingConfigWarned) return;
+        thinkingConfigWarned = true;
+        writeTerminalLog(
+            'Model thinkingConfig alanını reddetti; o alan olmadan tekrar deneniyor. ' +
+            '(node scripts/gemini-lab.js --probe-config ile doğrulanabilir)', 'warning');
+    }
 
+    // Shared unwrapping for both passes: the API does not guarantee the shape the
+    // original code assumed, so every step that can be missing is checked.
+    function readJsonCandidate(data, label) {
         const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
         if (!candidate) {
             const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
             throw new Error(blockReason
-                ? `İstek güvenlik filtresine takıldı (${blockReason})`
-                : 'Gemini boş yanıt döndürdü');
+                ? `${label}: istek güvenlik filtresine takıldı (${blockReason})`
+                : `${label}: Gemini boş yanıt döndürdü`);
         }
         if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-            throw new Error(`Yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
+            throw new Error(`${label}: yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
         }
 
         const parts = candidate.content && Array.isArray(candidate.content.parts)
             ? candidate.content.parts
             : [];
         const jsonText = parts.map(part => (part && typeof part.text === 'string' ? part.text : '')).join('');
-        if (!jsonText.trim()) throw new Error('Gemini yanıtında metin bulunamadı');
+        if (!jsonText.trim()) throw new Error(`${label}: yanıtta metin bulunamadı`);
 
-        let projectObj;
         try {
-            projectObj = JSON.parse(jsonText);
+            return JSON.parse(jsonText);
         } catch {
-            throw new Error('Gemini geçerli JSON döndürmedi');
+            throw new Error(`${label}: geçerli JSON döndürmedi`);
         }
-
-        const shapeError = validateProjectShape(projectObj);
-        if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
-
-        // The model that answered and its token count are reported in the terminal,
-        // so they travel back with the project rather than being guessed at.
-        return {
-            project: normalizeProject(projectObj, activeCategoryFilter),
-            model: data.__model,
-            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
-        };
     }
 
     // POST to Gemini, walking the model list until one answers. The API key travels in
@@ -546,6 +745,19 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
                 }
 
                 lastError = new Error(`${model}: ${await describeHttpError(response)}`);
+
+                // A 400 with thinkingConfig present is almost always this model
+                // rejecting that field's spelling — it has already changed once
+                // (thinkingBudget -> thinkingLevel) and broke live mode silently.
+                // Drop the block and retry the same model before giving up: a shorter
+                // reasoning budget is an optimisation, not a requirement.
+                if (response.status === 400 && requestBody.generationConfig
+                    && requestBody.generationConfig.thinkingConfig) {
+                    const { thinkingConfig, ...rest } = requestBody.generationConfig;
+                    void thinkingConfig;
+                    onThinkingConfigRejected();
+                    return requestGeminiCompletion({ ...requestBody, generationConfig: rest });
+                }
 
                 // 404 means this particular model is gone or gated for this key, and
                 // 429 is a quota answer for this model — both are exactly what the
@@ -710,6 +922,8 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
     // Gemini API Modal Handlers
     btnFeature2Notice.addEventListener('click', () => openDialogOverlay(feature2Modal, btnFeature2Notice, 'flex'));
     btnNoticeSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnNoticeSetKey, 'flex'));
+    btnCloseStorageWarning.addEventListener('click', () => storageWarning.classList.remove('visible'));
+    btnHeroSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnHeroSetKey, 'flex'));
     btnCloseModal.addEventListener('click', closeDialogOverlay);
     feature2Modal.addEventListener('click', (e) => {
         if (e.target === feature2Modal) closeDialogOverlay();
@@ -720,10 +934,11 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
         geminiApiKey = geminiApiKeyInput.value.trim();
         useGeminiLiveMode = useGeminiApiToggle.checked;
 
-        localStorage.setItem('aetheria_gemini_key', geminiApiKey);
-        localStorage.setItem('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
+        persistOrWarn('aetheria_gemini_key', geminiApiKey, 'API anahtarı');
+        persist('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
         
         updateGeminiBadgeStatus();
+        updateKeyHint();
         closeDialogOverlay();
     });
 
@@ -765,14 +980,34 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
         if (useGeminiLiveMode && geminiApiKey) {
             const started = Date.now();
-            writeTerminalLog(`Gemini API çağrısı hazırlanıyor · model: ${GEMINI_MODELS[0]}`, 'agent');
 
             try {
-                const generated = await generateProjectViaGeminiApi();
+                // Both passes report as they happen, so the log tracks real progress
+                // rather than replaying a fixed script.
+                const generated = await generateProjectViaGeminiApi((step) => {
+                    if (step.phase === 'ideate') {
+                        writeTerminalLog(
+                            `Fikir listesi isteniyor · ${IDEA_BATCH_SIZE} fikir · model: ${GEMINI_MODELS[0]}`, 'agent');
+                        writeTerminalLog(
+                            `Kısıtlar: ${step.combo.problemSource} · ${step.combo.audience} · ` +
+                            `${step.combo.technical} · ${step.combo.revenue}`, 'info');
+                    } else if (step.phase === 'selected') {
+                        writeTerminalLog(
+                            `${step.total} fikir alındı · ${step.freshCount} tanesi yeni · ` +
+                            `${step.tokens} token`, 'info');
+                        if (step.exhausted) {
+                            writeTerminalLog('Hepsi daha önce görülmüştü; en farklı olan seçildi.', 'warning');
+                        }
+                        writeTerminalLog(`Seçilen fikir: "${step.title}"`, 'agent');
+                    } else if (step.phase === 'expand') {
+                        writeTerminalLog('Fikir tam projeye genişletiliyor...', 'agent');
+                    }
+                });
+
                 projectToRender = generated.project;
 
                 writeTerminalLog(
-                    `Yanıt alındı · ${generated.model} · ${generated.tokens} token · ` +
+                    `Tamamlandı · ${generated.model} · ${generated.tokens} token (2 çağrı) · ` +
                     `${((Date.now() - started) / 1000).toFixed(1)} sn`, 'info');
                 writeTerminalLog('Şema doğrulandı, proje oluşturuldu.', 'success');
             } catch (err) {
