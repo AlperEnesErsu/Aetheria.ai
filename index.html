@@ -14,8 +14,8 @@
         connect-src https://generativelanguage.googleapis.com;
         base-uri 'none';
         form-action 'none'">
-    <title>Aetheria.ai | Yapay Zeka Tabanlı Yazılım Fikri ve Mimari Keşif Platformu</title>
-    <meta name="description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <title>Aetheria.ai | Yapay Zeka Destekli Yazılım Proje Fikri Üreteci</title>
+    <meta name="description" content="Kendi Gemini API anahtarınla özgün yazılım proje fikirleri üret; sistem mimarisi ve güvenlik tasarımıyla birlikte incele ve kaydet.">
     <link rel="canonical" href="https://alperenesersu.github.io/Aetheria.ai/">
     <meta name="theme-color" content="#07090e">
     <meta name="color-scheme" content="dark">
@@ -28,15 +28,15 @@
     <meta property="og:locale" content="tr_TR">
     <meta property="og:site_name" content="Aetheria.ai">
     <meta property="og:url" content="https://alperenesersu.github.io/Aetheria.ai/">
-    <meta property="og:title" content="Aetheria.ai | Pazar Açığını ve Yazılım Mimarisini Keşfet">
-    <meta property="og:description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <meta property="og:title" content="Aetheria.ai | Yazılım Proje Fikri Üreteci">
+    <meta property="og:description" content="Kendi Gemini API anahtarınla özgün yazılım proje fikirleri üret; sistem mimarisi ve güvenlik tasarımıyla birlikte incele ve kaydet.">
     <meta property="og:image" content="https://alperenesersu.github.io/Aetheria.ai/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Aetheria.ai — Pazar Açığını ve Yazılım Mimarisini Keşfet">
+    <meta property="og:image:alt" content="Aetheria.ai — Yapay Zeka Destekli Yazılım Proje Fikri Üreteci">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Aetheria.ai | Pazar Açığını ve Yazılım Mimarisini Keşfet">
-    <meta name="twitter:description" content="Yapay zeka ajanı ile sektördeki açıkları tespit edin, özgün yazılım fikirleri, sistem mimarisi ve güvenlik çözümleri keşfedin.">
+    <meta name="twitter:title" content="Aetheria.ai | Yazılım Proje Fikri Üreteci">
+    <meta name="twitter:description" content="Kendi Gemini API anahtarınla özgün yazılım proje fikirleri üret; sistem mimarisi ve güvenlik tasarımıyla birlikte incele ve kaydet.">
     <meta name="twitter:image" content="https://alperenesersu.github.io/Aetheria.ai/og-image.png">
 
     <!-- Fonts: preconnect + <link> instead of a render-blocking @import inside style.css -->
@@ -100,7 +100,7 @@
 
                 <div class="ai-status-badge">
                     <div class="pulse-dot"></div>
-                    <span>AI Agent Active</span>
+                    <span>Hazır</span>
                 </div>
             </div>
         </header>
@@ -109,14 +109,14 @@
         <main>
             <section class="hero-section">
                 <div class="hero-badge">
-                    <span>✨ Otonom Sektörel Analiz Ajanı</span>
+                    <span>✨ Yapay Zeka Destekli Proje Fikri Üreteci</span>
                 </div>
                 <h1 class="hero-title">
-                    Geleceğin Yazılım Projesini ve <br>
-                    <span class="gradient-text">Pazar Açığını Keşfet</span>
+                    Sıradaki Yazılım Projeni <br>
+                    <span class="gradient-text">Yapay Zeka ile Bul</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Yapay zeka ajanı sektörel problemleri, doymuş pazarları ve çözülmemiş ihtiyaçları analiz ederek önünüze getirir.
+                    Kendi Gemini anahtarınla, seçtiğin alanda özgün proje fikirleri üret; beğendiklerini teknik mimarisiyle birlikte kaydet.
                 </p>
 
                 <!-- Category & Domain Filter Bar -->
@@ -151,7 +151,7 @@
                         <span class="dot dot-yellow"></span>
                         <span class="dot dot-green"></span>
                     </div>
-                    <div class="terminal-title" id="terminalTitle">Aetheria AI Agent — Terminal v2.4</div>
+                    <div class="terminal-title" id="terminalTitle">Aetheria — İşlem Günlüğü</div>
                     <div style="width: 52px;"></div>
                 </div>
                 <div id="terminalBody" class="terminal-body" role="log" aria-live="polite" aria-label="Ajan işlem günlüğü">
@@ -162,10 +162,21 @@
             <!-- Results Output Area -->
             <div id="resultsWrapper" class="results-wrapper">
 
+                <!-- Shown when the result is a bundled example rather than AI output -->
+                <div id="exampleNotice" class="example-notice">
+                    <span class="example-notice-icon" aria-hidden="true">📁</span>
+                    <div class="example-notice-text">
+                        <strong>Bu bir örnek proje.</strong>
+                        Yapay zekanın sana özel fikir üretmesi için ücretsiz Gemini API anahtarını gir —
+                        30 saniye sürer, kredi kartı istemez.
+                    </div>
+                    <button type="button" id="btnNoticeSetKey" class="btn-notice-action">Anahtar Ekle</button>
+                </div>
+
                 <!-- STEP 1: Project Header & Overview -->
                 <div class="glass-card project-header-card">
                     <div class="project-meta-top">
-                        <span class="card-header-badge badge-step1">Aşama 1: Proje Bulundu</span>
+                        <span id="originBadge" class="card-header-badge badge-step1">Aşama 1: Proje Bulundu</span>
                         <span id="projectCategory" class="project-category">Kategori</span>
                         
                         <div class="header-card-actions">

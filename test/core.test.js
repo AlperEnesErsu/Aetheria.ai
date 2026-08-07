@@ -155,6 +155,57 @@ test('pickRandomProject de-duplicates by id, not by position', () => {
     }
 });
 
+test('pickUnseenProject never repeats until every project is seen', () => {
+    let seen = [];
+    const order = [];
+    for (let i = 0; i < db.length; i++) {
+        const r = core.pickUnseenProject(db, seen);
+        assert.strictEqual(r.exhausted, false, `tur ${i}: erken tükenme`);
+        order.push(r.project.id);
+        seen = r.seen;
+    }
+    assert.deepStrictEqual([...order].sort(), ['a', 'b', 'c']);
+    assert.strictEqual(new Set(order).size, db.length, 'aynı proje iki kez geldi');
+});
+
+test('pickUnseenProject reports exhaustion and starts a fresh cycle', () => {
+    const r = core.pickUnseenProject(db, ['a', 'b', 'c']);
+    assert.strictEqual(r.exhausted, true);
+    assert.ok(['a', 'b', 'c'].includes(r.project.id));
+    // The cycle restarts holding only the project just shown
+    assert.deepStrictEqual(r.seen, [r.project.id]);
+});
+
+test('pickUnseenProject keeps seen ids from other categories on reset', () => {
+    // 'x' belongs to another filter; exhausting this one must not erase its history
+    const r = core.pickUnseenProject(db, ['a', 'b', 'c', 'x']);
+    assert.strictEqual(r.exhausted, true);
+    assert.ok(r.seen.includes('x'), 'başka kategorinin geçmişi silindi');
+});
+
+test('pickUnseenProject accumulates the seen set', () => {
+    const first = core.pickUnseenProject(db, []);
+    assert.deepStrictEqual(first.seen, [first.project.id]);
+
+    const second = core.pickUnseenProject(db, first.seen);
+    assert.strictEqual(second.seen.length, 2);
+    assert.notStrictEqual(second.project.id, first.project.id);
+});
+
+test('pickUnseenProject handles empty and malformed input', () => {
+    assert.strictEqual(core.pickUnseenProject([], []).project, null);
+    assert.strictEqual(core.pickUnseenProject(null, null).project, null);
+    // A corrupt seen list must not crash the picker
+    assert.ok(core.pickUnseenProject(db, 'bozuk').project);
+});
+
+test('pickUnseenProject returns the only project in a single-entry category', () => {
+    const single = [{ id: 'only' }];
+    const r = core.pickUnseenProject(single, ['only']);
+    assert.strictEqual(r.project.id, 'only');
+    assert.strictEqual(r.exhausted, true);
+});
+
 const limits = { cooldownMs: 20000, maxPerHour: 15 };
 
 test('evaluateRateLimit enforces the cooldown', () => {

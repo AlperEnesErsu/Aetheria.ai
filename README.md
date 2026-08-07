@@ -1,21 +1,23 @@
 # Aetheria.ai 🚀
-> **Yapay Zeka Ajanlı Yazılım Mimarisi ve Pazar Açığı Keşif Platformu**
+> **Yapay Zeka Destekli Yazılım Proje Fikri Üreteci**
 
-Aetheria.ai, sektördeki çözülmemiş problemleri, doymuşluk oranlarını ve doymamış pazar açıklarını analiz ederek geliştiricilere ve girişimcilere 2 aşamalı özgün yazılım projeleri, sistem mimarileri (Clean Architecture) ve güvenlik analizleri sunan otonom bir yapay zeka platformudur.
+Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir proje fikri üreticisidir. Seçtiğin alanda bir proje önerir; beğenirsen ikinci aşamada sistem mimarisini (Clean Architecture) ve güvenlik tasarımını da üretir, kaydetmek istersen tarayıcına kaydeder.
 
-![Aetheria.ai Preview](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Flash-00f2fe?style=for-the-badge) ![License](https://img.shields.io/badge/License-MIT-7f00ff?style=for-the-badge) ![Status](https://img.shields.io/badge/Status-Active-00f5a0?style=for-the-badge)
+> **Ne yapar, ne yapmaz:** Yapay zeka fikirleri **kendi eğitim verisinden** üretir; web'de canlı araştırma yapmaz. (Google Search grounding ücretsiz Gemini katmanında kullanılamıyor — ölçüm ve gerekçe için [tasarım dokümanına](docs/generation-design.md) bakabilirsin.) API anahtarı girilmediğinde uygulama, **açıkça etiketlenmiş örnek projeler** gösterir.
+
+![Aetheria.ai Preview](https://img.shields.io/badge/AI_Engine-Gemini_Flash-00f2fe?style=for-the-badge) ![License](https://img.shields.io/badge/License-MIT-7f00ff?style=for-the-badge) ![Status](https://img.shields.io/badge/Status-Active-00f5a0?style=for-the-badge)
 
 ---
 
 ## ✨ Öne Çıkan Özellikler
 
-- **🤖 Otonom Ajan Terminal Simülasyonu**: Pazar taraması ve anomali tespit süreçlerini canlı komut satırı logları ile görselleştirir.
-- **⚡ Canlı Gemini 2.5 Flash API Entegrasyonu**: Google AI Studio'dan alınan ücretsiz API Key ile sınırsız, anlık ve %100 özgün proje üretimi.
+- **🖥️ İşlem Günlüğü**: Hangi modelin yanıt verdiğini, harcanan token sayısını ve geçen süreyi canlı olarak gösterir — süslemek için değil, ne olduğunu görmen için.
+- **⚡ Gemini API Entegrasyonu**: Google AI Studio'dan alınan ücretsiz API Key ile proje üretimi. Anahtar yalnızca senin tarayıcında saklanır, hiçbir sunucuya gönderilmez.
 - **📐 Görsel Sistem Mimarisi Akış Diyagramı (Interactive Diagram Nodes)**: Mikroservis katmanlarını ve veri akışını gösteren interaktif neon düğüm kartları (`Client -> Gateway -> AI Engine -> Storage`).
 - **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
-- **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve pazar analizlerini tek tıkla Markdown raporu olarak indirme.
+- **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve proje açıklamasını tek tıkla Markdown raporu olarak indirme.
 - **🛡️ Açık Kaynak Güvenlik Korumaları**: İstemci tarafı Cooldown (20s), Saatlik Sorgu Limiti (15/saat) ve Max Output Token sınırlamaları ile kota koruması.
-- **🎯 Kategori & Teknoloji Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech ve Sürdürülebilirlik alanlarında özel aramalar.
+- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik ve DevOps. Gördüğün projeler hatırlanır; aynı proje arka arkaya gelmez.
 
 ---
 
@@ -23,7 +25,7 @@ Aetheria.ai, sektördeki çözülmemiş problemleri, doymuşluk oranlarını ve 
 
 - **Frontend / Core**: HTML5, Vanilla JavaScript (ES6+ SPA Architecture)
 - **Styling**: Modern Vanilla CSS3 (Custom Design System, Glassmorphism, HSL Design Tokens, CSS Grid/Flexbox)
-- **AI Integration**: Google Gemini 2.5 Flash REST API (yedek: Gemini 2.5 Flash Lite)
+- **AI Integration**: Google Gemini REST API (`gemini-flash-latest`, yedek: `gemini-flash-lite-latest`)
 - **Typography**: Google Fonts (*Outfit* & *Fira Code*)
 - **Icons & Graphics**: Inline SVG & CSS Micro-animations
 
