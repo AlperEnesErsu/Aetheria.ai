@@ -75,8 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
     const MAX_CALLS_PER_HOUR = 15; // Max 15 Gemini API calls per hour per browser
 
-    // Gemini request configuration
-    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']; // primary, then fallback
+    // Gemini request configuration.
+    // Pinned model names go stale: gemini-2.5-flash now returns 404 ("no longer
+    // available to new users") and gemini-2.5-flash-lite is gone entirely, so live
+    // mode was dead for anyone with a recently issued key. The -latest aliases are
+    // repointed by Google as models are retired, which keeps this list from
+    // expiring again.
+    const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']; // primary, then fallback
     const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON (see requestBody below)
     const GEMINI_TIMEOUT_MS = 45000;
 
@@ -504,9 +509,12 @@ Yanıtını kesinlikle geçerli bir JSON formatında döndür. JSON yapısı tam
 
                 lastError = new Error(`${model}: ${await describeHttpError(response)}`);
 
-                // 4xx other than 429 means the request itself is wrong (bad key, bad
-                // body); retrying another model would fail identically.
-                if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                // 404 means this particular model is gone or gated for this key, and
+                // 429 is a quota answer for this model — both are exactly what the
+                // fallback list exists for, so keep walking it.
+                // Other 4xx (bad key, bad body) would fail identically on every model.
+                const worthRetrying = response.status === 404 || response.status === 429;
+                if (response.status >= 400 && response.status < 500 && !worthRetrying) {
                     throw lastError;
                 }
             } catch (err) {

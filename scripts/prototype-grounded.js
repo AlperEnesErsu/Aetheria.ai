@@ -58,13 +58,128 @@ function arg(name, fallback) {
 
 const CATEGORY_KEY = arg('category', 'health-ai');
 const RUNS = Number(arg('runs', 3));
-const MODEL = arg('model', 'gemini-2.5-flash');
+// gemini-2.5-flash ListModels çıktısında görünüyor ama generateContent'te
+// "no longer available to new users" diye 404 dönüyor — listeye güvenmek yetmiyor.
+const MODEL = arg('model', 'gemini-3.6-flash');
 
 const OUT_DIR = arg('out', path.join(__dirname, '..', '.prototype-output'));
 
 function fail(msg) {
     console.error(`\n  HATA: ${msg}\n`);
     process.exit(1);
+}
+
+// Model adları zamanla kullanımdan kalkıyor ve eski modeller yeni anahtarlara
+// kapatılıyor ("no longer available to new users"). Hangi modelin açık olduğunu
+// tahmin etmek yerine anahtara sorup öğreniyoruz.
+async function listModels() {
+    const res = await fetch(`${ENDPOINT}?pageSize=200`, {
+        headers: { 'x-goog-api-key': API_KEY }
+    });
+    const raw = await res.text();
+    if (!res.ok) {
+        let detail = raw;
+        try { detail = JSON.parse(raw).error.message; } catch { /* düz metin */ }
+        throw new Error(`Model listesi alınamadı: HTTP ${res.status} — ${String(detail).slice(0, 200)}`);
+    }
+
+    const models = (JSON.parse(raw).models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => ({
+            name: m.name.replace(/^models\//, ''),
+            display: m.displayName || '',
+            inputLimit: m.inputTokenLimit,
+            outputLimit: m.outputTokenLimit
+        }));
+
+    console.log(`\n  Anahtarınıza açık, generateContent destekleyen ${models.length} model:\n`);
+    for (const m of models) {
+        console.log(`    ${m.name.padEnd(42)} çıktı limiti: ${String(m.outputLimit || '?').padStart(6)}   ${m.display}`);
+    }
+
+    // Grounding + üretim için makul adaylar
+    const flash = models.filter(m => /flash/i.test(m.name) && !/lite|image|tts|live|native-audio|embedding/i.test(m.name));
+    if (flash.length) {
+        console.log(`\n  Bu prototip için önerilen adaylar (flash ailesi):`);
+        flash.slice(0, 8).forEach(m => console.log(`    --model ${m.name}`));
+    }
+    console.log('');
+}
+
+// Bir 429/404 aldığımızda iki değişken var: model mi kapalı, grounding mi?
+// Bu mod ikisini ayrı ayrı sınayıp hangi kombinasyonun açık olduğunu gösterir.
+// Çağrılar kasıtlı olarak çok küçük tutulur ki kota harcanmasın.
+async function diagnose() {
+    const candidates = [
+        'gemini-2.0-flash-lite',
+        'gemini-2.0-flash',
+        'gemini-2.5-flash-lite',
+        'gemini-flash-lite-latest',
+        'gemini-flash-latest',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-3.6-flash'
+    ];
+
+    async function probe(model, grounded) {
+        const body = {
+            contents: [{ parts: [{ text: grounded ? 'Bugün İstanbul hava durumu nedir?' : 'Merhaba de.' }] }],
+            generationConfig: { maxOutputTokens: 32, temperature: 0 }
+        };
+        if (grounded) body.tools = [{ google_search: {} }];
+
+        try {
+            const res = await fetch(`${ENDPOINT}/${model}:generateContent`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) return { ok: true, note: '' };
+
+            const raw = await res.text();
+            let msg = raw;
+            try { msg = JSON.parse(raw).error.message; } catch { /* düz metin */ }
+            const short = res.status === 429 ? 'kota (429)'
+                : res.status === 404 ? 'model yok (404)'
+                : `${res.status}: ${String(msg).slice(0, 45)}`;
+            return { ok: false, note: short };
+        } catch (err) {
+            return { ok: false, note: `ağ: ${err.message.slice(0, 30)}` };
+        }
+    }
+
+    console.log('\n  Her model iki kez sınanıyor: grounding KAPALI ve AÇIK.');
+    console.log('  (küçük istekler — kota tüketmemek için)\n');
+    console.log(`  ${'MODEL'.padEnd(26)} ${'DÜZ ÇAĞRI'.padEnd(24)} GROUNDING İLE`);
+    console.log(`  ${'─'.repeat(26)} ${'─'.repeat(24)} ${'─'.repeat(24)}`);
+
+    const working = [];
+    for (const model of candidates) {
+        const plain = await probe(model, false);
+        await new Promise(r => setTimeout(r, 1200));   // dakikalık limitleri zorlamamak için
+        const ground = await probe(model, true);
+        await new Promise(r => setTimeout(r, 1200));
+
+        const fmt = r => (r.ok ? '✓ çalışıyor' : `✗ ${r.note}`);
+        console.log(`  ${model.padEnd(26)} ${fmt(plain).padEnd(24)} ${fmt(ground)}`);
+
+        if (ground.ok) working.push({ model, grounded: true });
+        else if (plain.ok) working.push({ model, grounded: false });
+    }
+
+    console.log('');
+    const grounded = working.filter(w => w.grounded);
+    if (grounded.length) {
+        console.log(`  ✓ Grounding ŞU MODELLERDE çalışıyor: ${grounded.map(w => w.model).join(', ')}`);
+        console.log(`\n  Prototipi şununla çalıştır:\n    node scripts/prototype-grounded.js --model ${grounded[0].model} --category health-ai --runs 3\n`);
+    } else if (working.length) {
+        console.log(`  ⚠ Düz çağrı çalışıyor ama GROUNDING hiçbir modelde açılmadı.`);
+        console.log(`    Çalışan modeller: ${working.map(w => w.model).join(', ')}`);
+        console.log(`    → Bu, google_search aracının bu anahtar/katman için kapalı olduğu anlamına gelir.\n`);
+    } else {
+        console.log(`  ✗ Hiçbir model yanıt vermedi — anahtar veya hesap düzeyinde bir sorun var.\n`);
+    }
 }
 
 async function callGemini(body, label) {
@@ -80,7 +195,12 @@ async function callGemini(body, label) {
         // Hata gövdesi JSON olmayabilir; ham metni olduğu gibi göster
         let detail = raw;
         try { detail = JSON.parse(raw).error.message; } catch { /* düz metin */ }
-        throw new Error(`${label}: HTTP ${res.status} — ${String(detail).slice(0, 300)}`);
+
+        // 404 neredeyse her zaman "model artık yok / bu anahtara kapalı" demek
+        const hint = res.status === 404
+            ? '\n           → Açık modelleri görmek için: node scripts/prototype-grounded.js --list-models'
+            : '';
+        throw new Error(`${label}: HTTP ${res.status} — ${String(detail).slice(0, 300)}${hint}`);
     }
 
     return { data: JSON.parse(raw), ms: Date.now() - started };
@@ -180,15 +300,29 @@ Yanıtını tam olarak şu JSON şemasında ver:
 "type" alanı yalnızca şunlardan biri olabilir: source, service, ai, storage, client.
 Araştırmadaki sayıları, tarihleri ve isimleri marketGap içinde MUTLAKA koru.`;
 
-    const { data, ms } = await callGemini({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            maxOutputTokens: 8192,
-            thinkingConfig: { thinkingBudget: 0 }
-        }
-    }, 'Geçiş 2 (yapılandırma)');
+    const baseConfig = {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        maxOutputTokens: 16384
+    };
+
+    // thinkingBudget çıktı bütçesini korumak için kapatılıyor, ama model aileleri
+    // bu alanı farklı adlandırabiliyor. Reddedilirse alansız tekrar deniyoruz.
+    let result;
+    try {
+        result = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { ...baseConfig, thinkingConfig: { thinkingBudget: 0 } }
+        }, 'Geçiş 2 (yapılandırma)');
+    } catch (err) {
+        if (!/thinking/i.test(err.message) || !/400/.test(err.message)) throw err;
+        console.log('\n    (not: bu model thinkingConfig kabul etmedi, alansız tekrar deneniyor)');
+        result = await callGemini({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: baseConfig
+        }, 'Geçiş 2 (yapılandırma, thinkingConfig olmadan)');
+    }
+    const { data, ms } = result;
 
     const candidate = (data.candidates || [])[0];
     if (!candidate) throw new Error('Geçiş 2: yanıt boş');
@@ -300,6 +434,14 @@ async function main() {
              '    export GEMINI_API_KEY="AIza..."     # bash/git-bash\n' +
              '    $env:GEMINI_API_KEY = "AIza..."     # PowerShell\n\n' +
              '  Ücretsiz anahtar: https://aistudio.google.com/app/apikey');
+    }
+    if (args.includes('--list-models')) {
+        await listModels();
+        return;
+    }
+    if (args.includes('--diagnose')) {
+        await diagnose();
+        return;
     }
     if (!CATEGORIES[CATEGORY_KEY]) {
         fail(`Bilinmeyen kategori "${CATEGORY_KEY}". Seçenekler: ${Object.keys(CATEGORIES).join(', ')}`);
