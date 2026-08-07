@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pickUnseenProject,
         pickConstraintCombo,
         selectFreshIdea,
+        buildIdeationPrompt,
+        CATEGORY_LABELS,
         evaluateRateLimit,
         buildBlueprintMarkdown
     } = window.AetheriaCore;
@@ -97,18 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // discard repeats without needing a second round trip.
     const IDEA_BATCH_SIZE = 8;
     const IDEA_MAX_TOKENS = 1024;
-
-    // Human-readable domain for the prompt — the filter keys are not descriptive
-    // enough on their own ("web3" tells the model much less than the full phrase).
-    const CATEGORY_LABELS = {
-        all: 'herhangi bir yazılım',
-        'health-ai': 'sağlık teknolojileri ve tıbbi yapay zeka',
-        web3: 'Web3, blokzincir ve kripto güvenliği',
-        infrastructure: 'bulut altyapısı, dağıtık sistemler ve performans',
-        edtech: 'eğitim teknolojileri',
-        sustainability: 'sürdürülebilirlik, enerji ve endüstriyel IoT',
-        devops: 'DevOps ve yazılım geliştirme araçları'
-    };
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
@@ -515,26 +505,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // PASS 1 — a short list of one-line ideas. Small output, so this is cheap.
     async function requestIdeas(categoryLabel, combo) {
-        const avoid = knownIdeaTitles();
-        const avoidBlock = avoid.length
-            ? '\n\nBu fikirler kullanıcıya zaten gösterildi. Bunlardan ve varyasyonlarından KAÇIN:\n'
-              + avoid.map(t => '- ' + t).join('\n')
-            : '';
-
-        const prompt = `${categoryLabel} alanında ${IDEA_BATCH_SIZE} farklı yazılım projesi fikri üret.
-
-Her fikir şu kısıtlara uysun:
-- Problem kaynağı: ${combo.problemSource}
-- Hedef kullanıcı: ${combo.audience}
-- Teknik yaklaşım: ${combo.technical}
-- Gelir modeli: ${combo.revenue}
-
-Kısıtlardan biri bu alana zorlama geliyorsa onu yumuşat, ama tamamen yok sayma.
-Fikirler birbirinden belirgin şekilde farklı problemleri çözsün; aynı problemin
-varyasyonlarını yazma.${avoidBlock}
-
-Yanıtı şu JSON şemasında ver:
-{ "ideas": [ { "title": "Kısa proje adı", "summary": "Tek cümlelik açıklama" } ] }`;
+        // Prompt text lives in core.js so scripts/gemini-lab.js measures the exact
+        // wording the app ships rather than a copy that can drift.
+        const prompt = buildIdeationPrompt(categoryLabel, IDEA_BATCH_SIZE, combo, knownIdeaTitles());
 
         const data = await requestGeminiCompletion({
             contents: [{ parts: [{ text: prompt }] }],

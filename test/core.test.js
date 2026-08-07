@@ -241,6 +241,40 @@ test('titleOverlap scores near-duplicates high and unrelated titles low', () => 
     assert.ok(core.titleOverlap('Akıllı Sulama Ağı', 'Blokzincir Denetim Motoru') < 0.3);
 });
 
+test('buildIdeationPrompt carries the category, count and every axis', () => {
+    const combo = core.pickConstraintCombo();
+    const p = core.buildIdeationPrompt('eğitim teknolojileri', 8, combo, []);
+    assert.ok(p.includes('eğitim teknolojileri'));
+    assert.ok(p.includes('8 farklı'));
+    for (const v of Object.values(combo)) assert.ok(p.includes(v), `eksen değeri prompt'ta yok: ${v}`);
+    assert.ok(p.includes('"ideas"'), 'JSON şeması istenmemiş');
+});
+
+test('buildIdeationPrompt omits the avoid block when nothing is known', () => {
+    const p = core.buildIdeationPrompt('x', 8, core.pickConstraintCombo(), []);
+    assert.ok(!p.includes('KAÇIN'));
+});
+
+test('buildIdeationPrompt lists known titles and ignores junk entries', () => {
+    const p = core.buildIdeationPrompt('x', 8, core.pickConstraintCombo(), ['Alfa Projesi', '', null, 'Beta Projesi']);
+    assert.ok(p.includes('KAÇIN'));
+    assert.ok(p.includes('- Alfa Projesi'));
+    assert.ok(p.includes('- Beta Projesi'));
+    // Yalnızca kaçınma bloğundaki satırlar sayılır — prompt'un kısıt satırları da "- " ile başlıyor
+    const avoidBlock = p.slice(p.indexOf('KAÇIN'));
+    assert.strictEqual((avoidBlock.match(/^- /gm) || []).length, 2, 'boş/geçersiz başlıklar listeye girmiş');
+});
+
+test('CATEGORY_LABELS covers every filter key used by the data', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const keys = [...html.matchAll(/data-category="([^"]+)"/g)].map(m => m[1]);
+    for (const key of keys) {
+        assert.ok(core.CATEGORY_LABELS[key], `"${key}" için prompt etiketi yok`);
+    }
+});
+
 const ideas = [
     { title: 'Akıllı Sulama Ağı', summary: 'a' },
     { title: 'Blokzincir Denetim Motoru', summary: 'b' },

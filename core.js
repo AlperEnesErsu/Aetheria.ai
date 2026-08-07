@@ -172,6 +172,46 @@
         return shared / Math.min(A.size, B.size);
     }
 
+    // Human-readable domain names for prompts — the filter keys are not descriptive
+    // enough on their own ("web3" tells the model far less than the full phrase).
+    const CATEGORY_LABELS = {
+        all: 'herhangi bir yazılım',
+        'health-ai': 'sağlık teknolojileri ve tıbbi yapay zeka',
+        web3: 'Web3, blokzincir ve kripto güvenliği',
+        infrastructure: 'bulut altyapısı, dağıtık sistemler ve performans',
+        edtech: 'eğitim teknolojileri',
+        sustainability: 'sürdürülebilirlik, enerji ve endüstriyel IoT',
+        devops: 'DevOps ve yazılım geliştirme araçları'
+    };
+
+    // The ideation prompt lives here rather than in app.js so the measurement script
+    // exercises the exact text the app sends. A separate copy would drift, and then
+    // the diversity numbers would describe a prompt nobody ships.
+    function buildIdeationPrompt(categoryLabel, count, combo, avoidTitles) {
+        const avoid = (Array.isArray(avoidTitles) ? avoidTitles : [])
+            .filter(t => typeof t === 'string' && t.trim());
+
+        const avoidBlock = avoid.length
+            ? '\n\nBu fikirler kullanıcıya zaten gösterildi. Bunlardan ve varyasyonlarından KAÇIN:\n'
+              + avoid.map(t => '- ' + t).join('\n')
+            : '';
+
+        return `${categoryLabel} alanında ${count} farklı yazılım projesi fikri üret.
+
+Her fikir şu kısıtlara uysun:
+- Problem kaynağı: ${combo.problemSource}
+- Hedef kullanıcı: ${combo.audience}
+- Teknik yaklaşım: ${combo.technical}
+- Gelir modeli: ${combo.revenue}
+
+Kısıtlardan biri bu alana zorlama geliyorsa onu yumuşat, ama tamamen yok sayma.
+Fikirler birbirinden belirgin şekilde farklı problemleri çözsün; aynı problemin
+varyasyonlarını yazma.${avoidBlock}
+
+Yanıtı şu JSON şemasında ver:
+{ "ideas": [ { "title": "Kısa proje adı", "summary": "Tek cümlelik açıklama" } ] }`;
+    }
+
     // Choose an idea the user has not already been shown.
     //
     // The model is asked for several one-line ideas rather than one full project,
@@ -328,6 +368,8 @@
     return {
         NODE_TYPES,
         CONSTRAINT_AXES,
+        CATEGORY_LABELS,
+        buildIdeationPrompt,
         pickConstraintCombo,
         normalizeTitle,
         titleOverlap,
