@@ -21,6 +21,25 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 
 ---
 
+## 💸 Maliyet: sıfır
+
+Bu proje **tamamen ücretsiz** çalışacak şekilde tasarlandı ve öyle kalması test edilerek korunuyor.
+
+**Ücret çıkmaz, çünkü:**
+
+- Google AI Studio anahtarı varsayılan olarak **ücretsiz katmanda** çalışır. Kota bitince para alınmaz, sadece `429` döner ve uygulama örnek projelere geçer.
+- Ücretsiz katmanda **kullanılamayan** özellikler (Google Search grounding gibi) bilinçli olarak kullanılmıyor. `test/free-tier.test.js` bunları kodda arar ve eklenirse testi kırar.
+- Yalnızca **flash** modelleri kullanılıyor; pro modelleri hem çok daha pahalı hem de ücretsiz limitleri çok daha dar.
+- İstemci tarafı hız sınırı (20 sn bekleme, 15 üretim/saat) günlük kotanın bir oturumda tükenmesini engeller.
+
+**Tek risk:** anahtarının bağlı olduğu Google Cloud projesinde **faturalandırma (billing) etkinse** katman otomatik ücretliye geçer. Kart bağlamadıysan bu mümkün değildir. Kontrol: [console.cloud.google.com/billing](https://console.cloud.google.com/billing)
+
+> **Gizlilik notu:** Google, ücretsiz katmanda gönderilen içeriği ürün geliştirme için kullanabiliyor. Bu bir maliyet değil ama hassas bilgi göndermemek gerekir.
+
+**Kota dolduğunda ne olur?** Uygulama çökmez; "Ücretsiz Gemini kotası doldu, ücret çıkmaz" der ve örnek projeleri göstermeye devam eder. Kota her gün sıfırlanır.
+
+---
+
 ## 🛠️ Teknoloji Yığını (Tech Stack)
 
 - **Frontend / Core**: HTML5, Vanilla JavaScript (ES6+ SPA Architecture)
