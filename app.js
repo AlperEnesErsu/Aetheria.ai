@@ -509,6 +509,16 @@ document.addEventListener('DOMContentLoaded', () => {
             detail = '';
         }
         detail = String(detail).replace(/\s+/g, ' ').trim().slice(0, 200);
+
+        // Google's raw 429 text ("You exceeded your current quota, please check your
+        // plan and billing details") reads like a billing problem. On the free tier
+        // it is not: nothing is owed, the daily allowance is simply spent. Saying so
+        // matters — the alternative is a user who thinks the app just charged them.
+        if (response.status === 429) {
+            return 'Ücretsiz Gemini kotası doldu. Ücret çıkmaz — kota her gün sıfırlanır. ' +
+                   'O zamana kadar örnek projeler gösterilecek.';
+        }
+
         return `HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
     }
 
@@ -965,6 +975,17 @@ Yanıtı tam olarak şu JSON şemasında ver:
         geminiApiKey = key;
         useGeminiLiveMode = true;
         useGeminiApiToggle.checked = true;
+
+        // Re-saving an unchanged key that already worked would spend a free-tier
+        // request to re-learn something we know. The daily allowance is small enough
+        // that a wasted call is worth avoiding.
+        if (key === previousKey && previousMode) {
+            applyGeminiSettings();
+            setKeyStatus('Anahtar zaten etkin. Yapay zeka üretimi açık.', 'ok');
+            await sleep(900);
+            closeDialogOverlay();
+            return;
+        }
 
         setKeyStatus('Anahtar doğrulanıyor...', 'checking');
         setButtonBusy(btnSaveGeminiKey, true);
