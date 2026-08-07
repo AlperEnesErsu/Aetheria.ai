@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyHint = document.getElementById('keyHint');
     const btnHeroSetKey = document.getElementById('btnHeroSetKey');
     const generateButtonLabel = document.getElementById('generateButtonLabel');
+    const keyStatus = document.getElementById('keyStatus');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -920,27 +921,98 @@ Yanıtı tam olarak şu JSON şemasında ver:
     btnSaveProject.addEventListener('click', toggleSaveCurrentProject);
 
     // Gemini API Modal Handlers
-    btnFeature2Notice.addEventListener('click', () => openDialogOverlay(feature2Modal, btnFeature2Notice, 'flex'));
-    btnNoticeSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnNoticeSetKey, 'flex'));
+    btnFeature2Notice.addEventListener('click', () => openKeyDialog(btnFeature2Notice));
+    btnNoticeSetKey.addEventListener('click', () => openKeyDialog(btnNoticeSetKey));
     btnCloseStorageWarning.addEventListener('click', () => storageWarning.classList.remove('visible'));
-    btnHeroSetKey.addEventListener('click', () => openDialogOverlay(feature2Modal, btnHeroSetKey, 'flex'));
+    btnHeroSetKey.addEventListener('click', () => openKeyDialog(btnHeroSetKey));
+
+    // Stale success/error text from a previous visit would be misleading
+    function openKeyDialog(trigger) {
+        keyStatus.className = 'key-status';
+        keyStatus.textContent = '';
+        openDialogOverlay(feature2Modal, trigger, 'flex');
+    }
     btnCloseModal.addEventListener('click', closeDialogOverlay);
     feature2Modal.addEventListener('click', (e) => {
         if (e.target === feature2Modal) closeDialogOverlay();
     });
 
     // Save Gemini Key & Mode Setting
-    btnSaveGeminiKey.addEventListener('click', () => {
-        geminiApiKey = geminiApiKeyInput.value.trim();
-        useGeminiLiveMode = useGeminiApiToggle.checked;
+    btnSaveGeminiKey.addEventListener('click', saveGeminiSettings);
 
-        persistOrWarn('aetheria_gemini_key', geminiApiKey, 'API anahtarı');
-        persist('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
-        
+    async function saveGeminiSettings() {
+        const key = geminiApiKeyInput.value.trim();
+
+        // Clearing the field is a deliberate "turn this off"
+        if (!key) {
+            geminiApiKey = '';
+            useGeminiLiveMode = false;
+            useGeminiApiToggle.checked = false;
+            persist('aetheria_gemini_key', '');
+            persist('aetheria_use_gemini', 'false');
+            applyGeminiSettings();
+            setKeyStatus('Anahtar temizlendi. Örnek projeler gösterilecek.', 'ok');
+            return;
+        }
+
+        // Kept so a rejected new key does not cost the user a working old one
+        const previousKey = geminiApiKey;
+        const previousMode = useGeminiLiveMode;
+
+        // Typing a key IS the intent to use it. Previously live mode also required
+        // ticking a separate checkbox, so a user who entered a key and pressed save
+        // got no generation, no explanation, and a dialog that just closed.
+        geminiApiKey = key;
+        useGeminiLiveMode = true;
+        useGeminiApiToggle.checked = true;
+
+        setKeyStatus('Anahtar doğrulanıyor...', 'checking');
+        setButtonBusy(btnSaveGeminiKey, true);
+
+        try {
+            // A key that is wrong should be reported here, not discovered on the next
+            // generation as a silent fall back to the examples.
+            await requestGeminiCompletion({
+                contents: [{ parts: [{ text: 'ping' }] }],
+                generationConfig: { maxOutputTokens: 1 }
+            });
+
+            persistOrWarn('aetheria_gemini_key', geminiApiKey, 'API anahtarı');
+            persist('aetheria_use_gemini', 'true');
+            applyGeminiSettings();
+
+            setKeyStatus('✓ Anahtar doğrulandı. Yapay zeka üretimi açık.', 'ok');
+            await sleep(1200);          // long enough to read before the dialog closes
+            closeDialogOverlay();
+        } catch (err) {
+            // Nothing is written on failure, so a rejected key leaves both memory and
+            // storage exactly as they were — a bad paste cannot cost a working key.
+            geminiApiKey = previousKey;
+            useGeminiLiveMode = previousMode;
+            useGeminiApiToggle.checked = previousMode;
+            applyGeminiSettings();
+
+            // Dialog stays open so the user can correct what they just typed
+            setKeyStatus(`✗ Anahtar doğrulanamadı: ${err.message}`, 'error');
+        } finally {
+            setButtonBusy(btnSaveGeminiKey, false);
+        }
+    }
+
+    function setKeyStatus(message, kind) {
+        keyStatus.textContent = message;
+        keyStatus.className = `key-status visible is-${kind}`;
+    }
+
+    // Settings changes have to repaint everything that depends on them. The example
+    // banner and origin badge were only refreshed inside loadProjectIntoView, so
+    // after saving a key the page still announced "bu bir örnek proje" until the
+    // next generation.
+    function applyGeminiSettings() {
         updateGeminiBadgeStatus();
         updateKeyHint();
-        closeDialogOverlay();
-    });
+        if (currentProject) setOriginBadge(originBadge.textContent.includes('Örnek'));
+    }
 
     // Export Blueprint Handler
     btnExportBlueprint.addEventListener('click', () => exportBlueprintMarkdown());
