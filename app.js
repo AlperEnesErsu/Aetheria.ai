@@ -100,6 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const IDEA_BATCH_SIZE = 8;
     const IDEA_MAX_TOKENS = 1024;
 
+    // Reasoning is kept short so it does not eat the output budget. The field name
+    // is generation-specific: 2.5 took thinkingConfig.thinkingBudget, the current
+    // flash models reject that with 400 and take thinkingLevel instead. Measured
+    // with `node scripts/gemini-lab.js --probe-config`. requestGeminiCompletion
+    // drops the whole block and retries if a future model rejects this spelling
+    // too — the field has now changed twice, so it will change again.
+    const THINKING_CONFIG = { thinkingLevel: 'low' };
+
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = JSON.parse(localStorage.getItem('aetheria_gemini_call_history') || '[]');
 
@@ -515,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 responseMimeType: 'application/json',
                 maxOutputTokens: IDEA_MAX_TOKENS,
                 temperature: 1.0,   // higher than the expansion pass: this call exists to explore
-                thinkingConfig: { thinkingBudget: 0 }
+                thinkingConfig: THINKING_CONFIG
             }
         });
 
@@ -577,7 +585,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 responseMimeType: 'application/json',
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
                 temperature: 0.7,
-                thinkingConfig: { thinkingBudget: 0 }
+                thinkingConfig: THINKING_CONFIG
             }
         });
 
@@ -593,6 +601,17 @@ Yanıtı tam olarak şu JSON şemasında ver:
             model: data.__model,
             tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
         };
+    }
+
+    // Surfaced in the log rather than swallowed: if this fires, THINKING_CONFIG needs
+    // updating, and silently degrading would hide that until someone read the code.
+    let thinkingConfigWarned = false;
+    function onThinkingConfigRejected() {
+        if (thinkingConfigWarned) return;
+        thinkingConfigWarned = true;
+        writeTerminalLog(
+            'Model thinkingConfig alanını reddetti; o alan olmadan tekrar deneniyor. ' +
+            '(node scripts/gemini-lab.js --probe-config ile doğrulanabilir)', 'warning');
     }
 
     // Shared unwrapping for both passes: the API does not guarantee the shape the
@@ -655,6 +674,19 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 }
 
                 lastError = new Error(`${model}: ${await describeHttpError(response)}`);
+
+                // A 400 with thinkingConfig present is almost always this model
+                // rejecting that field's spelling — it has already changed once
+                // (thinkingBudget -> thinkingLevel) and broke live mode silently.
+                // Drop the block and retry the same model before giving up: a shorter
+                // reasoning budget is an optimisation, not a requirement.
+                if (response.status === 400 && requestBody.generationConfig
+                    && requestBody.generationConfig.thinkingConfig) {
+                    const { thinkingConfig, ...rest } = requestBody.generationConfig;
+                    void thinkingConfig;
+                    onThinkingConfigRejected();
+                    return requestGeminiCompletion({ ...requestBody, generationConfig: rest });
+                }
 
                 // 404 means this particular model is gone or gated for this key, and
                 // 429 is a quota answer for this model — both are exactly what the

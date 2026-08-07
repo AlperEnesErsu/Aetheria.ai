@@ -27,7 +27,12 @@ function loadEnvFile() {
     const envPath = path.join(__dirname, '..', '.env');
     if (!fs.existsSync(envPath)) return;
 
-    for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    // PowerShell'in -Encoding utf8 seçeneği Windows'ta dosyanın başına BOM koyuyor;
+    // atılmazsa ilk anahtarın adı U+FEFF ile başlar ve hiçbir zaman eşleşmez.
+    const text = fs.readFileSync(envPath, 'utf8');
+    const raw = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+
+    for (const line of raw.split(/\r?\n/)) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
 
@@ -215,7 +220,7 @@ async function diversity() {
                     responseMimeType: 'application/json',
                     maxOutputTokens: 1024,
                     temperature: 1.0,
-                    thinkingConfig: { thinkingBudget: 0 }
+                    thinkingConfig: { thinkingLevel: 'low' }   // 3.x thinkingBudget'ı reddediyor (--probe-config)
                 }
             }));
         } catch (err) {
