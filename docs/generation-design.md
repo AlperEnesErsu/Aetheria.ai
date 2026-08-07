@@ -1,220 +1,195 @@
-# Aetheria.ai — Gerçek Araştırma Tabanlı Üretim Tasarımı
+# Aetheria.ai — Üretim Tasarımı (ücretsiz katman, açık kaynak)
 
-> **Durum:** Taslak / karar bekliyor · **Tarih:** 6 Ağustos 2026
-> Kod içermez. Amacı, "yapay zeka sıfırdan araştırıp proje önersin" hedefinin
-> teknik karşılığını, kısıtlarını ve yapılacak işi karara hazır hale getirmektir.
+> **Durum:** Karar verildi, uygulanmayı bekliyor · **Tarih:** 7 Ağustos 2026
+> Kod içermez.
 
 ---
 
-## 1. Ürün tanımı
+## 1. Kısıtlar
 
-Ticari amacı olmayan, açık kaynak, **lokal kurulan** bir geliştirici aracı.
-
-```
-Kullanıcı kendi Gemini anahtarını girer
-  → Kategori seçer, "PROJE BUL"a basar
-  → Ajan web'de GERÇEK araştırma yapar (hazır veri setinden seçmez)
-  → Kaynaklarıyla birlikte bir proje önerir
-  → Kullanıcı beğenirse detayına iner (Aşama 2) veya kaydeder
-  → Kayıt tarayıcıda (localStorage) durur
-```
-
-**Kapsam dışı — bilinçli olarak:**
-
-| Yok | Neden |
+| Karar | Sonuç |
 |---|---|
-| Sunucu / backend | Yapacak iş kalmıyor |
-| Paylaşılan veritabanı | Kayıt lokalde yeterli |
-| Giriş / kayıt / hesap | Kullanıcı ayrımı yok |
-| Sunucu tarafı API anahtarı | Herkes kendi anahtarını kullanıyor |
-| Oylama, moderasyon | Paylaşım olmayınca gereksiz |
-
-Bu, projeyi **sıfır sırlı ve sıfır bağımlılıklı** tutuyor: `git clone` + herhangi
-bir statik sunucu = çalışır durumda. Açık kaynak bir proje için en değerli özellik bu.
+| Ticari amaç yok | Sunucu, veritabanı, hesap yok |
+| Açık kaynak, lokal kurulum | Sıfır sır, sıfır bağımlılık; `git clone` + statik sunucu yeterli |
+| **Ücretsiz Gemini katmanı** | **Google Search grounding kullanılamaz** |
+| Kayıt lokalde | `localStorage` yeterli |
 
 ---
 
-## 2. Mevcut durumun eleştirisi
+## 2. Ölçülen gerçek: grounding ücretsiz katmanda yok
 
-| Hedef | Bugünkü davranış |
-|---|---|
-| "Sıfırdan araştırarak bulacak" | Model yalnızca eğitim verisinden **hatırlıyor**; hiçbir arama yapmıyor |
-| "Hazır veri seti çekmeyecek" | Anahtar yoksa 18 elemanlı sabit listeden rastgele seçiyor |
-| Şeffaflık | Sabit listeden gelen proje, AI üretimiymiş gibi sunuluyor |
+Gerçek bir anahtarla `scripts/prototype-grounded.js --diagnose` çalıştırıldı.
+Aynı model, aynı dakika:
 
-Üçüncü madde asıl kusur. Liste var olduğu için değil, **ne olduğunu söylemediği
-için** sorunlu. Dürüstçe etiketlendiği anda mesele kalmıyor.
-
----
-
-## 3. Kritik teknik kısıt: grounding ⊗ JSON modu
-
-"Araştırarak bulsun"un teknik karşılığı Gemini'nin **`google_search`** aracıdır
-(Google Search grounding). Model arama yapar, sonuçları işler ve yanıtı kaynak
-atıflarıyla döndürür.
-
-**Ancak bu araç, yapılandırılmış çıktı modu ile aynı çağrıda kullanılamaz:**
-
-```
-Search Grounding can't be used with JSON/YAML/XML mode
-→ 400 INVALID_ARGUMENT
-```
-
-Mevcut kod `generationConfig.responseMimeType = 'application/json'` kullanıyor.
-Yani grounding'i eklemek tek satırlık bir değişiklik değil; üretim hattının
-yeniden kurgulanması gerekiyor.
-
-### 3.1 Çözüm: iki geçişli üretim
-
-```mermaid
-graph LR
-    A[Kategori] --> B[Geçiş 1: ARAŞTIRMA<br/>google_search açık<br/>JSON modu KAPALI]
-    B --> C[Serbest metin bulgular<br/>+ grounding metadata]
-    C --> D[Geçiş 2: YAPILANDIRMA<br/>JSON modu açık<br/>grounding KAPALI]
-    D --> E[Proje nesnesi]
-    C --> F[Kaynak URL'leri]
-    F --> G[Arayüzde<br/>Kaynaklar bölümü]
-    E --> G
-```
-
-**Geçiş 1 — Araştırma.** Modele "şu sektörde son dönemde dile getirilen
-çözülmemiş problemleri, doymuş pazarları ve kullanıcı şikayetlerini araştır"
-denir. Çıktı serbest metindir ve `groundingMetadata` içinde kaynak URL'leri gelir.
-
-**Geçiş 2 — Yapılandırma.** Birinci geçişin metni girdi olarak verilir ve mevcut
-proje şemasına dönüştürülmesi istenir. Bu çağrıda arama yok, JSON modu açık.
-
-### 3.2 Neden tek geçişte "JSON iste" denmiyor
-
-Grounding açıkken prompt içinde JSON istemek mümkün ama güvenilmez: bildirilen
-sorunlar arasında yanıtın **başının kesilmesi** (metin cümle ortasından
-başlıyor) ve `groundingMetadata` alanlarının boş gelmesi var. İki geçiş hem
-sağlam hem de kaynakları temiz biçimde ayrı tutuyor.
-
-### 3.3 Beklenmedik kazanç: kanıtlanabilir araştırma
-
-Birinci geçişin `groundingMetadata`'sı gerçek URL'ler içeriyor. Bu, arayüzde
-"Bu pazar açığı şu kaynaklara dayanıyor" bölümü olarak gösterilebilir.
-
-Ürünün "araştırıyor" iddiası böylece bir slogan olmaktan çıkıp **ekranda
-doğrulanabilir** hale geliyor. Projenin en ayırt edici özelliği bu olabilir.
-
----
-
-## 4. Çeşitlilik: "her seferinde farklı proje"
-
-Grounding tek başına yetmez. Aynı kategoride arka arkaya çağrıldığında model
-benzer arama sorguları üretip benzer sonuçlara varabilir. Üç katman gerekiyor:
-
-| # | Mekanizma | Nasıl |
+| Model | Düz çağrı | `google_search` ile |
 |---|---|---|
-| 1 | **Arama çeşitlendirme** | Geçiş 1'in prompt'una dönüşümlü açı verilir: bir seferinde "regülasyon değişiklikleri", diğerinde "kullanıcı şikayetleri", diğerinde "yeni açılan pazarlar" |
-| 2 | **Negatif örnekler** | Lokalde kaydedilmiş ve daha önce görülmüş proje başlıkları prompt'a "bunlardan farklı bir problem alanı seç" diye eklenir |
-| 3 | **Görülenleri ele** | Örnek listeden gösterim yapılırken bu oturumda görülenler hariç tutulur |
+| `gemini-flash-latest` | ✓ | ✗ 429 |
+| `gemini-3.6-flash` | ✓ | ✗ 429 |
+| `gemini-3.5-flash` | ✓ | ✗ 429 |
+| `gemini-3.1-flash-lite` | ✓ | ✗ 429 |
 
-3. madde backend gerektirmiyor ve **bugün uygulanabilir**. Şu anki
-`getRandomProject` yalnızca bir önceki projeyi eliyor; görülenler kümesine
-çevrilirse 18 proje = 18 farklı deneyim olur.
+Düz çağrı çalışırken grounding'in 429 dönmesi bir hız limiti değil, **kotanın
+sıfır olması** demek. Google'ın fiyat sayfası doğruluyor: ücretsiz katman için
+grounding **"Not available"**. Ücretli katmanda Gemini 3.x'e ayda 5.000 arama
+ücretsiz veriliyor, sonrası 1.000 sorgu başına $14.
 
----
+**Sonuç:** "Sıfırdan araştırarak bulacak" hedefi ücretsiz katmanda teknik olarak
+karşılanamıyor. Bu doküman grounding'i kapsam dışı bırakır.
 
-## 5. Örnek projelerin yeni rolü
+Bu, prototipin varlık sebebiydi: varsayım kod yazılmadan önce çürütüldü.
 
-`PROJECTS_DATABASE` silinmiyor, **yeniden konumlanıyor**:
+### 2.1 Yan bulgu: sabitlenmiş model adları eskiyor
 
-| Eski | Yeni |
-|---|---|
-| Anahtar yokken AI üretimi gibi sunuluyordu | Açıkça **"Örnek Projeler"** olarak etiketlenir |
-| Ürünün asıl içeriğiymiş gibi davranıyordu | İlk açılış vitrini + çevrimdışı yedek |
-| Çeşitlilik için engeldi | Negatif örnek korpusu (§4.2) olarak üretimi çeşitlendirir |
-
-Anahtar girilmemişken arayüz şunu söylemeli:
-
-> *"Bunlar örnek projeler. Gerçek araştırma tabanlı üretim için ücretsiz Gemini
-> anahtarını gir."*
-
-Tezat, listenin varlığından değil sunumundan doğuyordu; bu etiketle kapanıyor.
+Aynı teşhis, uygulamadaki iki modelin de öldüğünü ortaya çıkardı
+(`gemini-2.5-flash` → 404 "no longer available to new users",
+`gemini-2.5-flash-lite` → 404). PR #10 bunu `-latest` takma adlarına geçerek
+düzeltti. Ders: sürüm numarası sabitlemek, zamanla kendini bozan bir karar.
 
 ---
 
-## 6. Anahtar akışı (BYOK)
+## 3. Dürüstlük problemi
 
-Anahtar zorunlu ve tek yol. Değişmesi gereken, anahtarın **nasıl sunulduğu**:
+Grounding olmadan model **araştırmıyor, kendi bilgisinden üretiyor.** Bu meşru
+bir ürün — ama uygulamanın bugünkü dili bunu gizliyor:
 
-- Bugün: başlıkta küçük bir rozet, kolayca gözden kaçıyor
-- Olması gereken: anahtar yokken ana eylem butonunun kendisi kurulum akışına
-  yönlendirir; kurulum tek ekranda ve "30 saniye, ücretsiz" vurgusuyla
-
-Anahtar `localStorage`'da kalmaya devam eder. Lokal kurulan kişisel bir araçta
-bu kabul edilebilir; PR #3'te eklenen uyarı metni de yerinde duruyor.
-
----
-
-## 7. Veri saklama
-
-Hepsi tarayıcıda. Şema değişikliği yok, mevcut yapı yeterli:
-
-| Anahtar | İçerik | Not |
+| Nerede | Ne diyor | Gerçek |
 |---|---|---|
-| `aetheria_community_pool` | Kaydedilen projeler | İsim artık yanıltıcı → `aetheria_saved_projects` olmalı |
-| `aetheria_gemini_key` | API anahtarı | Mevcut |
-| `aetheria_seen_projects` | **Yeni** — görülen proje id'leri | §4.3 için |
-| `aetheria_gemini_call_history` | Kota sayacı | Anahtar kullanıcının olduğu için artık yalnızca bilgilendirme amaçlı |
+| Terminal logları | "Küresel SaaS & GitHub Trend Veritabanı bağlandı" | Böyle bir bağlantı yok |
+| Terminal logları | "Rekabet doyum oranı ve kullanıcı şikayetleri analiz ediliyor" | Hiçbir analiz yapılmıyor |
+| Hero başlığı | "Otonom Sektörel Analiz Ajanı" | Sektörel analiz yok |
+| README | "doymuşluk oranlarını analiz ederek" | Analiz yok |
+| Anahtarsız mod | Sabit listeyi AI üretimi gibi sunuyor | Rastgele seçim |
 
-`localStorage` kotası (~5 MB) bir endişe değil: proje başına ~8 KB, yani
-yüzlerce kayıt sığar. Yine de kota dolduğunda `QuotaExceededError` yakalanmalı
-ve kullanıcıya anlamlı bir mesaj gösterilmeli — bugün yakalanmıyor.
+Terminal simülasyonu bunların en ağırı: **var olmayan işlem adımlarını gerçekmiş
+gibi gösteriyor.** Estetik değeri var ama içeriği uydurma.
+
+**Karar:** Terminal kalır, ancak **gerçek** adımları gösterir — hangi model,
+hangi geçiş, kaç token, geçen süre. Sahte tarama satırları kaldırılır.
+
+Ürün dili "araştırıyor"dan **"fikir üretiyor"a** çekilir. Kaybedilen bir şey yok;
+kazanılan, iddianın doğru olması.
 
 ---
 
-## 8. Yapılacak işler
+## 4. Asıl mühendislik problemi: çeşitlilik
+
+Grounding gidince "her seferinde farklı proje" tamamen prompt tasarımına kalıyor.
+Aynı prompt'la 20 çağrı, 20 farklı fikir değil 6-7 fikrin varyasyonunu üretir.
+
+### 4.1 Çözüm: önce fikir listele, sonra genişlet
+
+Tek çağrıda tam proje istemek yerine üç adım:
+
+```
+Adım 1 — FİKİR LİSTESİ            küçük çıktı, ~300 token
+  "X alanında 8 proje fikri, her biri tek cümle.
+   Şunlardan farklı olsun: [görülen + kaydedilen başlıklar]"
+  → 8 tek satırlık fikir
+
+Adım 2 — YEREL SEÇİM              API çağrısı yok
+  Görülenler kümesiyle karşılaştır, elenmemiş olanlardan birini seç
+
+Adım 3 — GENİŞLETME               tam çıktı
+  "Bu fikri tam projeye dönüştür: [seçilen fikir]"
+  → mevcut proje şeması
+```
+
+Üç faydası var:
+
+1. **Tekilleştirme ucuzluyor** — tek cümlelik fikirleri karşılaştırmak, tam
+   blueprint'leri karşılaştırmaktan hem kolay hem doğru.
+2. **Çeşitlilik yapısal hale geliyor** — model her seferinde 8 seçenek üretiyor,
+   biz görülmemiş olanı seçiyoruz. Sekizi de görülmüşse yeni liste isteniyor.
+3. **Maliyet neredeyse aynı** — Adım 1 çok küçük bir çağrı.
+
+### 4.2 Kısıt eksenleri döndürme
+
+Adım 1'in prompt'una her çağrıda farklı bir kombinasyon enjekte edilir:
+
+| Eksen | Örnek değerler |
+|---|---|
+| Problem kaynağı | regülasyon baskısı · maliyet · manuel iş yükü · veri siloları · erişilebilirlik |
+| Hedef kullanıcı | kurumsal ekip · bağımsız profesyonel · son kullanıcı · araştırmacı · kamu |
+| Teknik açı | uçta çalışma · gizlilik korumalı · gerçek zamanlı · çevrimdışı öncelikli · otomasyon |
+| Gelir modeli | B2B SaaS · pazaryeri · API · açık çekirdek · kullanım bazlı |
+
+5 × 5 × 5 × 5 = **625 kombinasyon**. Model aynı fikre dönmek istese bile prompt
+onu farklı bir köşeye itiyor. Grounding'in yokluğunu telafi eden asıl mekanizma bu.
+
+### 4.3 Görülenleri ele
+
+`localStorage`'da görülen proje id'leri tutulur; hem örnek listeden seçimde hem
+Adım 2'de kullanılır. Bugün `getRandomProject` yalnızca **bir önceki** projeyi
+eliyor; kümeye çevrilirse 18 örnek = 18 farklı deneyim olur.
+
+Anahtarı olmayan kullanıcı için de çalışan tek çeşitlilik mekanizması bu.
+
+---
+
+## 5. Örnek projelerin rolü
+
+`PROJECTS_DATABASE` kalır, ama **"Örnek Projeler"** olarak etiketlenir:
+
+- Anahtar yokken vitrin — boş ekran görünmez
+- Çevrimdışı yedek
+- Adım 1'in negatif örnek korpusunun başlangıcı
+
+Anahtarsız kullanıcıya gösterilen mesaj açık olmalı:
+
+> *"Bunlar örnek projeler. Yapay zekanın sana özel fikir üretmesi için ücretsiz
+> Gemini anahtarını gir."*
+
+Tezat listenin varlığından değil, sunumundan doğuyordu.
+
+---
+
+## 6. Anahtar akışı
+
+Anahtar zorunlu ve tek yol; değişmesi gereken sunumu:
+
+- Bugün: başlıkta kolayca gözden kaçan bir rozet
+- Olması gereken: anahtar yokken ana buton kurulum akışına yönlendirir,
+  "30 saniye, ücretsiz, kart gerekmez" vurgusuyla
+
+Açık kaynak bir projede doğru model bu: hedef kitle geliştirici, anahtar almak
+30 saniye ve hiç kimsenin faturalandırma açması gerekmiyor.
+
+---
+
+## 7. Yapılacak işler
 
 | # | İş | Neden | Tahmin |
 |---|---|---|---|
-| 1 | **İki geçişli grounded üretim** | Vizyonun çekirdeği — "araştırarak bulacak" | 1-2 gün |
-| 2 | **Kaynaklar bölümü** | Araştırma iddiasını kanıtlanabilir kılar | yarım gün |
-| 3 | **Görülenleri ele** | "Her seferinde farklı" — bugün uygulanabilir | yarım gün |
-| 4 | **Arama açısı çeşitlendirme** | Modelin kendini tekrar etmesini engeller | yarım gün |
-| 5 | **Örnek projelerin dürüst etiketlenmesi** | Asıl tezadı kapatır | yarım gün |
-| 6 | **Anahtar kurulum akışının öne çıkarılması** | Anahtarsız kullanıcı ürünü hiç görmüyor | yarım gün |
-| 7 | `localStorage` kota hatası yakalama | Sessiz veri kaybını önler | 1 saat |
+| 1 | Görülenleri ele (§4.3) | Anahtarsız kullanıcı için bile çeşitlilik | yarım gün |
+| 2 | Örnekleri dürüst etiketle (§5) | Asıl tezadı kapatır | yarım gün |
+| 3 | Terminal loglarını gerçekleştir (§3) | Uydurma adımları kaldırır | yarım gün |
+| 4 | Ürün dilini düzelt (hero, README) | "araştırıyor" → "fikir üretiyor" | yarım gün |
+| 5 | Fikir listele → genişlet akışı (§4.1) | Çeşitliliğin çekirdeği | 1-2 gün |
+| 6 | Kısıt ekseni döndürme (§4.2) | 625 kombinasyon | yarım gün |
+| 7 | Anahtar kurulum akışı (§6) | Anahtarsız kullanıcı ürünü hiç görmüyor | yarım gün |
+| 8 | `localStorage` kota hatası yakalama | Sessiz veri kaybı | 1 saat |
 
-Toplam ~3-4 gün. Backend, veritabanı ve dağıtım altyapısı gerektirmiyor.
+Toplam ~4 gün. Backend yok, ikinci API yok, sır yok.
 
-**Sıralama önerisi:** 3 → 5 → 1 → 2 → 4 → 6 → 7.
-3 ve 5 anında görünür iyileşme sağlıyor ve risksiz; 1 en büyük iş olduğu için
-zemin temizlendikten sonra yapılmalı.
+**Sıra:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8.
+İlk dördü risksiz ve anında görünür; 5 en büyük iş, zemin temizlendikten sonra.
 
 ---
 
-## 9. Açık sorular ve riskler
+## 8. Açık sorular
 
 | # | Konu | Not |
 |---|---|---|
-| 1 | Grounding'in ücretsiz katman limitleri | Google resmi dokümanda yayınlamıyor, AI Studio panosundan bakılmalı. Üretim başına 2 çağrı + N arama sorgusu tüketiliyor. |
-| 2 | İki geçiş = iki kat gecikme | Üretim süresi ~10-20 saniyeye çıkabilir. Terminal simülasyonu bunu doğal biçimde örtüyor — ama artık **sahte değil, gerçek ilerleme** göstermeli. |
-| 3 | Araştırma kalitesi ölçülmedi | Grounding'in gerçekten özgün pazar açıkları bulup bulmadığı denenmeden bilinemez. Önce 1 numaralı iş için küçük bir prototip yapılıp elle değerlendirilmeli. |
-| 4 | Kaynak güvenilirliği | Model düşük kaliteli kaynaklara dayanabilir. Kaynaklar kullanıcıya gösterildiği için değerlendirme ona bırakılıyor — ama bu bilinçli bir tercih olarak yazılmalı. |
-| 5 | Grounding yanıt biçimi kırılganlığı | Bildirilen sorunlar (yanıt başının kesilmesi) iki geçişli tasarımla azalıyor ama tamamen ortadan kalkmıyor. Geçiş 1 çıktısı serbest metin olduğu için tolerans yüksek. |
-| 6 | Örnek projeler zamanla eskir | Çevrimdışı vitrin olarak kalacaklarsa yılda bir gözden geçirilmeli. |
+| 1 | 8 fikrin kaçı gerçekten farklı olacak? | Ölçülmedi. Adım 1 uygulandığında prototiple sayılmalı. |
+| 2 | Kısıt eksenleri saçma kombinasyon üretir mi? | "Kamu + pazaryeri + çevrimdışı öncelikli" zorlama olabilir; modele "uymuyorsa ekseni yumuşat" izni verilmeli. |
+| 3 | Ücretsiz katman günlük limiti | Ölçülmedi. Anahtar kullanıcının olduğu için kritik değil, ama limit mesajı anlaşılır olmalı. |
+| 4 | Eğitim verisi güncelliği | Model kesim tarihinden sonrasını bilmiyor. Ürün dili güncellik ima etmemeli. |
+| 5 | Grounding ileride açılırsa | Ücretli katmana geçen kullanıcı için opsiyonel ayar olarak eklenebilir; iki geçişli tasarım git geçmişinde (commit `7b9fd47`) duruyor. |
 
 ---
 
-## 10. Bu dokümanın önceki sürümünden farkı
+## 9. Kaynaklar
 
-İlk taslak, paylaşılan bir Supabase havuzu, sunucu tarafı API anahtarı, kimlik
-doğrulama ve dört fazlı bir dağıtım planı öneriyordu. **Tamamı kapsam dışı kaldı:**
-proje ticari değil, kullanıcılar ayrıştırılmıyor, kurulum lokal ve kayıt
-tarayıcıda yeterli.
-
-Geriye kalan iş, altyapı değil **üretim kalitesi**. Doğru sorun bu; ilk taslak
-yanlış sorunu çözüyordu.
-
----
-
-## Kaynaklar
-
-- [Grounding with Google Search — Gemini API](https://ai.google.dev/gemini-api/docs/google-search)
-- [Grounding ve JSON modu uyumsuzluğu — Google AI geliştirici forumu](https://discuss.ai.google.dev/t/rest-api-grounding-and-json-responses-not-compatible/73101)
-- [Structured output does not work with Grounding — googleapis/python-genai #665](https://github.com/googleapis/python-genai/issues/665)
-- [Gemini API fiyatlandırma](https://ai.google.dev/gemini-api/docs/pricing)
+- [Gemini API fiyatlandırma](https://ai.google.dev/gemini-api/docs/pricing) — grounding ücretsiz katmanda "Not available"
+- [Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search)
+- Ölçüm: `scripts/prototype-grounded.js --diagnose`, 7 Ağustos 2026
