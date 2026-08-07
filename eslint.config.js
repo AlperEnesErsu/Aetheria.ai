@@ -47,8 +47,8 @@ module.exports = [
         rules: { 'no-unused-vars': 'off' }
     },
     {
-        // Node test files
-        files: ['test/**/*.js', 'eslint.config.js'],
+        // Node-side sources: tests, tooling config and standalone scripts
+        files: ['test/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'commonjs',
@@ -56,7 +56,10 @@ module.exports = [
                 require: 'readonly',
                 module: 'writable',
                 __dirname: 'readonly',
-                console: 'readonly'
+                console: 'readonly',
+                process: 'readonly',
+                fetch: 'readonly',
+                URL: 'readonly'
             }
         }
     }
