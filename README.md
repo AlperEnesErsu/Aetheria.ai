@@ -12,7 +12,7 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 ## ✨ Öne Çıkan Özellikler
 
 - **🖥️ İşlem Günlüğü**: Hangi modelin yanıt verdiğini, harcanan token sayısını ve geçen süreyi canlı olarak gösterir — süslemek için değil, ne olduğunu görmen için.
-- **⚡ Gemini API Entegrasyonu**: Google AI Studio'dan alınan ücretsiz API Key ile proje üretimi. Anahtar yalnızca senin tarayıcında saklanır, hiçbir sunucuya gönderilmez.
+- **⚡ Çoklu Sağlayıcı Desteği**: **Google Gemini** (ücretsiz katman, varsayılan) veya **Anthropic Claude** (ücretli) anahtarınla proje üretimi. Her sağlayıcının anahtarı ayrı saklanır, aralarında geçiş yaparken kaybolmaz; anahtar yalnızca senin tarayıcında durur, hiçbir sunucuya gönderilmez.
 - **📐 Görsel Sistem Mimarisi Akış Diyagramı (Interactive Diagram Nodes)**: Mikroservis katmanlarını ve veri akışını gösteren interaktif neon düğüm kartları (`Client -> Gateway -> AI Engine -> Storage`).
 - **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
 - **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve proje açıklamasını tek tıkla Markdown raporu olarak indirme.
@@ -23,17 +23,18 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 
 ## 🔐 API anahtarın nasıl korunuyor
 
-Anahtar **hiçbir sunucuya gitmiyor** — bu projede sunucu yok. Yalnızca senin tarayıcından doğrudan Google'a gidiyor. Bunun ötesinde:
+Anahtar **hiçbir sunucuya gitmiyor** — bu projede sunucu yok. Yalnızca senin tarayıcından doğrudan seçtiğin sağlayıcıya gidiyor. Bunun ötesinde:
 
 | Önlem | Ne engelliyor |
 |---|---|
-| Anahtar `x-goog-api-key` **başlığında** taşınıyor | Tarayıcı geçmişi, referrer ve proxy loglarına sızmasını |
+| Anahtar **başlıkta** taşınıyor (`x-goog-api-key` / `x-api-key`) | Tarayıcı geçmişi, referrer ve proxy loglarına sızmasını |
+| Her sağlayıcının anahtarı **ayrı slotta** | Sağlayıcı değiştirince diğerinin anahtarının silinmesini |
 | Sayfa yüklenirken **input'a geri yazılmıyor** | Devtools, ekran paylaşımı ve eklentilerin okumasını |
 | `type="password"` + `autocomplete="off"` + `spellcheck="false"` | Otomatik doldurma ve yazım denetimi yoluyla dışarı çıkmasını |
 | Terminal çıktısı **redaksiyondan** geçiyor | Hata mesajı anahtarı yansıtırsa ekran görüntüsüne/hata raporuna girmesini |
 | **Oturumluk saklama** seçeneği | Ortak bilgisayarda kalıcı iz bırakmasını |
 | **"Anahtarı Sil"** butonu | Anahtarın kaldırılamamasını |
-| CSP `connect-src` yalnızca Gemini uç noktası | Anahtarın başka bir adrese gönderilmesini |
+| CSP `connect-src` yalnızca desteklenen sağlayıcı uç noktaları | Anahtarın başka bir adrese gönderilmesini |
 
 `test/api-key-safety.test.js` bunların **hepsini** test ediyor; biri bozulursa CI kırılır.
 
@@ -58,13 +59,23 @@ Bu proje **tamamen ücretsiz** çalışacak şekilde tasarlandı ve öyle kalmas
 
 **Kota dolduğunda ne olur?** Uygulama çökmez; "Ücretsiz Gemini kotası doldu, ücret çıkmaz" der ve örnek projeleri göstermeye devam eder. Kota her gün sıfırlanır.
 
+### Diğer sağlayıcılar ücretsiz değil
+
+Gemini varsayılan ve **ücretsiz kalmanın tek yolu**. Anthropic Claude de destekleniyor, ama:
+
+- **Anthropic'in ücretsiz API katmanı yok.** İlk istekten itibaren kullandığın kadar ücretlendirilirsin. Seçici bunu hem seçenek metninde ("— ücretli") hem de altındaki notta söyler; `test/free-tier.test.js` bu etiketin kaybolmadığını doğrular.
+- Harcamayı sınırlamak istersen [Anthropic Console](https://console.anthropic.com/settings/limits)'dan aylık limit koy.
+- Sağlayıcıyı değiştirmedikçe hiçbir şey değişmez: uygulama açıldığında her zaman Gemini seçili gelir.
+
+**OpenAI (ChatGPT) neden yok?** Denendi ve ölçüldü: `api.openai.com` tarayıcıdan gelen isteklere `Access-Control-Allow-Origin` başlığı **hiç göndermiyor**, yani anahtarın doğru olsa bile istek tarayıcıdan çıkamıyor. Anthropic bunun için açık bir izin başlığı sunuyor, OpenAI sunmuyor. Aşmanın tek yolu araya bir sunucu koymak — bu projede sunucu yok, çünkü anahtarı senin makinende tutan şey tam olarak bu. Seçicide görünüyor ama seçilemiyor; nedeni orada yazılı. OpenAI CORS'u açarsa tek bir bayrak değişikliğiyle etkinleşir.
+
 ---
 
 ## 🛠️ Teknoloji Yığını (Tech Stack)
 
 - **Frontend / Core**: HTML5, Vanilla JavaScript (ES6+ SPA Architecture)
 - **Styling**: Modern Vanilla CSS3 (Custom Design System, Glassmorphism, HSL Design Tokens, CSS Grid/Flexbox)
-- **AI Integration**: Google Gemini REST API (`gemini-flash-latest`, yedek: `gemini-flash-lite-latest`)
+- **AI Integration**: Google Gemini REST API (`gemini-flash-latest`, yedek: `gemini-flash-lite-latest`) veya Anthropic Messages API (`claude-haiku-4-5`, yedek: `claude-sonnet-5`)
 - **Typography**: Google Fonts (*Outfit* & *Fira Code*)
 - **Icons & Graphics**: Inline SVG & CSS Micro-animations
 

@@ -11,7 +11,7 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src https://fonts.gstatic.com;
         img-src 'self' data:;
-        connect-src https://generativelanguage.googleapis.com;
+        connect-src https://generativelanguage.googleapis.com https://api.anthropic.com;
         base-uri 'none';
         form-action 'none'">
     <title>Aetheria.ai | Yapay Zeka Destekli Yazılım Proje Fikri Üreteci</title>
@@ -89,10 +89,10 @@
             </a>
 
             <div class="header-right-badges" id="headerRightBadges">
-                <!-- Gemini API Settings Indicator -->
+                <!-- AI provider settings indicator -->
                 <button type="button" id="btnFeature2Notice" class="feature2-pending-badge"
-                        title="Gemini Live API Ayarları" aria-haspopup="dialog" aria-expanded="false">
-                    <span>⚡ Gemini API Ayarları</span>
+                        title="Yapay zeka sağlayıcı ayarları" aria-haspopup="dialog" aria-expanded="false">
+                    <span>⚡ API Ayarları</span>
                 </button>
 
                 <!-- Shared Community Project Pool Button -->
@@ -123,7 +123,7 @@
                     <span class="gradient-text">Yapay Zeka ile Bul</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Kendi Gemini anahtarınla, seçtiğin alanda özgün proje fikirleri üret; beğendiklerini teknik mimarisiyle birlikte kaydet.
+                    Kendi API anahtarınla, seçtiğin alanda özgün proje fikirleri üret; beğendiklerini teknik mimarisiyle birlikte kaydet.
                 </p>
 
                 <!-- Category & Domain Filter Bar -->
@@ -183,7 +183,7 @@
                     <span class="example-notice-icon" aria-hidden="true">📁</span>
                     <div class="example-notice-text">
                         <strong>Bu bir örnek proje.</strong>
-                        Yapay zekanın sana özel fikir üretmesi için ücretsiz Gemini API anahtarını gir —
+                        Yapay zekanın sana özel fikir üretmesi için ücretsiz Gemini anahtarını gir —
                         30 saniye sürer, kredi kartı istemez.
                     </div>
                     <button type="button" id="btnNoticeSetKey" class="btn-notice-action">Anahtar Ekle</button>
@@ -344,20 +344,29 @@
             </div>
         </div>
 
-        <!-- Gemini API Key & Settings Modal -->
+        <!-- API key & provider settings modal -->
         <div id="feature2Modal" class="modal-overlay">
             <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-                <h3 class="modal-title" id="modalTitle">⚡ Gemini Live API Ayarları</h3>
+                <h3 class="modal-title" id="modalTitle">⚡ Yapay Zeka Sağlayıcı Ayarları</h3>
                 <p class="modal-desc">
-                    Google AI Studio'dan aldığınız <strong>ücretsiz Gemini API Key</strong> ile Aetheria.ai ajanı sınırsız sayıda canlı ve %100 özgün proje üretebilir.
+                    Kendi API anahtarınla Aetheria.ai ajanı canlı ve özgün proje üretir.
+                    <strong>Gemini</strong> ücretsiz katmanı olan tek seçenek ve varsayılan olarak seçilidir.
                 </p>
 
                 <div class="form-group" style="margin-bottom: 1rem;">
-                    <label for="geminiApiKey">Gemini API Key</label>
+                    <label for="providerSelect">Sağlayıcı</label>
+                    <!-- Options are filled from core.js PROVIDERS so the list can never
+                         disagree with what the request layer actually supports. -->
+                    <select id="providerSelect" style="width: 100%;"></select>
+                    <small id="providerCostNote" class="key-storage-warning"></small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="geminiApiKey"><span id="keyFieldLabel">Gemini</span> API Key</label>
                     <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;"
                            autocomplete="off" spellcheck="false" data-1p-ignore>
                     <small style="color: var(--accent-cyan); display: block; margin-top: 0.4rem;">
-                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">👉 Ücretsiz Gemini API Key Al (Google AI Studio)</a>
+                        <a id="providerConsoleLink" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">👉 API anahtarı al (Google AI Studio)</a>
                     </small>
                     <small class="key-storage-warning">
                         🔒 Anahtar yalnızca bu tarayıcıda saklanır, hiçbir sunucuya gönderilmez.

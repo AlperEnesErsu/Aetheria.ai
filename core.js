@@ -186,6 +186,251 @@
         mobile: 'mobil uygulama geliştirme (iOS, Android, çapraz platform)'
     };
 
+    // ---- Model sağlayıcıları ------------------------------------------------
+    // The app was Gemini-only. Other vendors are supported because a user may
+    // already pay for one, but nothing about them is interchangeable: endpoint,
+    // auth header, request body, response envelope and JSON-mode support all
+    // differ. Each entry below states all five, so supporting a sixth vendor is a
+    // data change rather than a rewrite of the request path.
+    //
+    // No secret passes through this file. A provider declares the *name* of its
+    // auth header and the prefix its value carries; app.js holds the credential
+    // and is the only place that fills it in.
+    //
+    // `free: false` means the vendor bills from the first request — there is no
+    // free API tier at Anthropic or OpenAI. The UI has to say so before a key is
+    // accepted, which is what `costNote` is for.
+    const PROVIDERS = {
+        gemini: {
+            id: 'gemini',
+            label: 'Google Gemini',
+            free: true,
+            costNote: 'Ücretsiz katman var. Faturalandırma kapalıyken ücret çıkmaz.',
+            keyPlaceholder: 'AIzaSy...',
+            consoleUrl: 'https://aistudio.google.com/app/apikey',
+            consoleLabel: 'Google AI Studio',
+            origin: 'https://generativelanguage.googleapis.com',
+            // The -latest aliases are repointed by Google as models retire; pinned
+            // names went 404 once already and killed live mode silently.
+            models: ['gemini-flash-latest', 'gemini-flash-lite-latest'],
+            nativeJsonMode: true
+        },
+        anthropic: {
+            id: 'anthropic',
+            label: 'Anthropic Claude',
+            free: false,
+            costNote: 'Ücretsiz katmanı yok — her istek kullandığın kadar ücretlendirilir.',
+            keyPlaceholder: 'sk-ant-...',
+            consoleUrl: 'https://console.anthropic.com/settings/keys',
+            consoleLabel: 'Anthropic Console',
+            origin: 'https://api.anthropic.com',
+            models: ['claude-haiku-4-5', 'claude-sonnet-5'],
+            // No JSON response mode; the prompt already pins the schema and the
+            // shared extractor tolerates a fenced code block around it.
+            nativeJsonMode: false
+        },
+        openai: {
+            id: 'openai',
+            label: 'OpenAI ChatGPT',
+            free: false,
+            costNote: 'Ücretsiz katmanı yok — her istek kullandığın kadar ücretlendirilir.',
+            keyPlaceholder: 'sk-...',
+            consoleUrl: 'https://platform.openai.com/api-keys',
+            consoleLabel: 'OpenAI Platform',
+            origin: 'https://api.openai.com',
+            models: ['gpt-4o-mini', 'gpt-4o'],
+            nativeJsonMode: true,
+            // Measured 8 Aug 2026 against api.openai.com from a localhost page:
+            // the preflight comes back with no Access-Control-Allow-Origin at all,
+            // so the browser drops the request before the key is even checked.
+            // Anthropic works because it ships an explicit opt-in header for this;
+            // OpenAI has no equivalent. Supporting it would need a server to relay
+            // the call, and this project deliberately has no backend — that is what
+            // keeps the key on the user's machine.
+            //
+            // The entry stays so the picker can say why rather than failing with
+            // "Failed to fetch", and so the day OpenAI enables CORS it is one flag.
+            browserBlocked: true,
+            blockedReason: 'OpenAI tarayıcıdan doğrudan çağrıya izin vermiyor (CORS). '
+                + 'Bu proje sunucusuz olduğu için aradan geçecek bir servis yok.'
+        }
+    };
+
+    // Gemini stays the default: it is the only one of the three a user can run
+    // without a payment method, and this project promises to be free by default.
+    const DEFAULT_PROVIDER = 'gemini';
+
+    // Appended to every prompt sent to a provider that has no JSON response mode.
+    // Without it those models answer in prose around the object, and while
+    // parseJsonResponse recovers from that, not asking for it wastes tokens on
+    // commentary nobody reads.
+    const JSON_ONLY_SUFFIX = '\n\nYalnızca istenen JSON nesnesini döndür. ' +
+        'Açıklama, giriş cümlesi veya kod bloğu işareti ekleme.';
+
+    function getProvider(providerId) {
+        return PROVIDERS[providerId] || PROVIDERS[DEFAULT_PROVIDER];
+    }
+
+    // Shape one completion request. Returns the URL, the body, and the *name* and
+    // prefix of the auth header — never its value.
+    function buildProviderRequest(providerId, model, prompt, options) {
+        const opts = options || {};
+        const maxTokens = opts.maxTokens || 4096;
+        const temperature = typeof opts.temperature === 'number' ? opts.temperature : 0.7;
+
+        if (providerId === 'anthropic') {
+            return {
+                url: `${PROVIDERS.anthropic.origin}/v1/messages`,
+                authHeader: { name: 'x-api-key', prefix: '' },
+                extraHeaders: {
+                    'anthropic-version': '2023-06-01',
+                    // Without this the browser request is rejected before it is
+                    // sent; Anthropic blocks direct browser calls by default
+                    // because it means the key lives on the client.
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: {
+                    model,
+                    max_tokens: maxTokens,
+                    // temperature is deliberately omitted: the newer Claude models
+                    // reject any non-default sampling parameter with a 400, and a
+                    // fallback list that spans generations must work on both.
+                    messages: [{ role: 'user', content: prompt }]
+                }
+            };
+        }
+
+        if (providerId === 'openai') {
+            return {
+                url: `${PROVIDERS.openai.origin}/v1/chat/completions`,
+                authHeader: { name: 'Authorization', prefix: 'Bearer ' },
+                extraHeaders: {},
+                body: {
+                    model,
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: maxTokens,
+                    temperature,
+                    response_format: { type: 'json_object' }
+                }
+            };
+        }
+
+        return {
+            url: `${PROVIDERS.gemini.origin}/v1beta/models/${model}:generateContent`,
+            authHeader: { name: 'x-goog-api-key', prefix: '' },
+            extraHeaders: {},
+            body: {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    maxOutputTokens: maxTokens,
+                    temperature,
+                    // Reasoning is kept short so it does not eat the output budget.
+                    // The field name is generation-specific and has already changed
+                    // twice; app.js drops the block and retries if a model rejects
+                    // this spelling too.
+                    thinkingConfig: { thinkingLevel: 'low' }
+                }
+            }
+        };
+    }
+
+    // Pull the assistant's text out of whichever envelope came back. Every step
+    // that can be missing is checked: an unguarded index here turned a refusal or a
+    // truncated answer into "undefined is not an object" further down.
+    function extractProviderText(providerId, payload, label) {
+        const what = label || 'Yanıt';
+        const data = payload || {};
+
+        if (providerId === 'anthropic') {
+            if (data.stop_reason === 'refusal') {
+                throw new Error(`${what}: model isteği reddetti`);
+            }
+            if (data.stop_reason === 'max_tokens') {
+                throw new Error(`${what}: yanıt token sınırına takıldı`);
+            }
+            const blocks = Array.isArray(data.content) ? data.content : [];
+            const text = blocks
+                .filter(b => b && b.type === 'text' && typeof b.text === 'string')
+                .map(b => b.text)
+                .join('');
+            if (!text.trim()) throw new Error(`${what}: yanıtta metin bulunamadı`);
+            return text;
+        }
+
+        if (providerId === 'openai') {
+            const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+            if (!choice) throw new Error(`${what}: boş yanıt döndü`);
+            if (choice.finish_reason === 'length') {
+                throw new Error(`${what}: yanıt token sınırına takıldı`);
+            }
+            if (choice.finish_reason === 'content_filter') {
+                throw new Error(`${what}: istek içerik filtresine takıldı`);
+            }
+            const text = choice.message && typeof choice.message.content === 'string'
+                ? choice.message.content
+                : '';
+            if (!text.trim()) throw new Error(`${what}: yanıtta metin bulunamadı`);
+            return text;
+        }
+
+        const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
+        if (!candidate) {
+            const blockReason = data.promptFeedback && data.promptFeedback.blockReason;
+            throw new Error(blockReason
+                ? `${what}: istek güvenlik filtresine takıldı (${blockReason})`
+                : `${what}: model boş yanıt döndürdü`);
+        }
+        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+            throw new Error(`${what}: yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
+        }
+        const parts = candidate.content && Array.isArray(candidate.content.parts)
+            ? candidate.content.parts
+            : [];
+        const text = parts.map(p => (p && typeof p.text === 'string' ? p.text : '')).join('');
+        if (!text.trim()) throw new Error(`${what}: yanıtta metin bulunamadı`);
+        return text;
+    }
+
+    // Providers without a JSON mode wrap the object in prose or a fenced block, so
+    // JSON.parse on the raw text fails on a perfectly good answer. Take the widest
+    // brace-delimited span rather than rejecting it.
+    function parseJsonResponse(text, label) {
+        const what = label || 'Yanıt';
+        const raw = String(text || '').trim();
+
+        const attempts = [raw];
+        const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (fenced) attempts.push(fenced[1].trim());
+
+        const first = raw.indexOf('{');
+        const last = raw.lastIndexOf('}');
+        if (first !== -1 && last > first) attempts.push(raw.slice(first, last + 1));
+
+        for (const attempt of attempts) {
+            if (!attempt) continue;
+            try {
+                const parsed = JSON.parse(attempt);
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch { /* try the next shape */ }
+        }
+        throw new Error(`${what}: geçerli JSON döndürmedi`);
+    }
+
+    // Token accounting is reported under a different name by each vendor; the
+    // terminal shows one number, so normalise here.
+    function readUsageTokens(providerId, payload) {
+        const data = payload || {};
+        if (providerId === 'anthropic') {
+            const u = data.usage || {};
+            return (u.input_tokens || 0) + (u.output_tokens || 0);
+        }
+        if (providerId === 'openai') {
+            return (data.usage && data.usage.total_tokens) || 0;
+        }
+        return (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0;
+    }
+
     // The ideation prompt lives here rather than in app.js so the measurement script
     // exercises the exact text the app sends. A separate copy would drift, and then
     // the diversity numbers would describe a prompt nobody ships.
@@ -371,6 +616,14 @@ Yanıtı şu JSON şemasında ver:
         NODE_TYPES,
         CONSTRAINT_AXES,
         CATEGORY_LABELS,
+        PROVIDERS,
+        DEFAULT_PROVIDER,
+        getProvider,
+        buildProviderRequest,
+        extractProviderText,
+        parseJsonResponse,
+        readUsageTokens,
+        JSON_ONLY_SUFFIX,
         buildIdeationPrompt,
         pickConstraintCombo,
         normalizeTitle,

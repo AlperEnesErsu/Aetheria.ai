@@ -15,9 +15,32 @@ const coreSource = fs.readFileSync(path.join(root, 'core.js'), 'utf8');
 test('the key travels in a header, never in the URL', () => {
     // A key in the query string lands in browser history, referrer headers and any
     // proxy log on the way. It was in the URL originally; it must not go back.
-    assert.ok(/x-goog-api-key/.test(appSource), 'x-goog-api-key başlığı kullanılmıyor');
+    //
+    // Each provider declares its own auth header, so the check runs over the
+    // registry — a new vendor added without one fails here rather than shipping.
+    const core = require('../core.js');
+    const EXPECTED_HEADER = {
+        gemini: 'x-goog-api-key',
+        anthropic: 'x-api-key',
+        openai: 'Authorization'
+    };
+
+    for (const id of Object.keys(core.PROVIDERS)) {
+        const shaped = core.buildProviderRequest(id, 'test-model', 'merhaba', {});
+        assert.ok(shaped.authHeader && shaped.authHeader.name,
+            `${id}: kimlik doğrulama başlığı tanımlı değil`);
+        assert.strictEqual(shaped.authHeader.name, EXPECTED_HEADER[id],
+            `${id}: beklenmeyen kimlik doğrulama başlığı`);
+        assert.ok(!/[?&]key=/i.test(shaped.url),
+            `${id}: anahtar URL query string'inde taşınıyor`);
+        assert.ok(!/\?/.test(shaped.url),
+            `${id}: endpoint URL'inde query string var — anahtar oraya sızabilir`);
+    }
+
+    // And the app must attach it as a header, not append it to the URL
+    assert.ok(/\[shaped\.authHeader\.name\]: shaped\.authHeader\.prefix/.test(appSource),
+        'app.js anahtarı başlık olarak eklemiyor');
     assert.ok(!/[?&]key=/.test(appSource), 'anahtar URL query string\'inde taşınıyor');
-    assert.ok(!/generateContent\?[^`'"]*key/.test(appSource), 'endpoint URL\'inde anahtar var');
 });
 
 test('the key is never written back into the DOM', () => {
@@ -72,7 +95,12 @@ test('session-only storage is offered', () => {
 test('the key never reaches the export or the saved pool', () => {
     // Blueprints get downloaded and pool entries get inspected; neither should be
     // able to carry the key along.
-    assert.ok(!/apiKey/i.test(coreSource), 'core.js anahtara dokunuyor — export yolu risk altında');
+    // core.js may name a vendor's key-console URL; what it must not do is hold or
+    // read a credential. So the check is for a binding, not for the substring —
+    // `https://aistudio.google.com/app/apikey` is a link, not a secret.
+    assert.ok(!/\b(apiKey|api_key)\s*[:=,)]/i.test(coreSource),
+        'core.js bir anahtar değişkeni taşıyor — export yolu risk altında');
+    assert.ok(!/geminiApiKey/.test(coreSource), 'core.js uygulama anahtarına erişiyor');
 
     const blueprint = coreSource.slice(coreSource.indexOf('function buildBlueprintMarkdown'));
     assert.ok(!/key/i.test(blueprint.slice(0, 1500).replace(/KEY_NAME/g, '')),
@@ -82,11 +110,71 @@ test('the key never reaches the export or the saved pool', () => {
 test('CSP still restricts where requests can go', () => {
     const csp = htmlSource.match(/Content-Security-Policy"[^>]*content="([^"]+)"/s);
     assert.ok(csp, 'CSP meta yok');
-    // With the key in the browser, the set of reachable hosts is the blast radius
-    assert.ok(/connect-src[^;]*generativelanguage\.googleapis\.com/.test(csp[1]),
-        'connect-src Gemini uç noktasıyla sınırlı değil');
+    // With the key in the browser, the set of reachable hosts is the blast radius.
+    // Every provider origin must be listed explicitly and nothing else may be.
+    const connectSrc = csp[1].match(/connect-src([^;]*)/);
+    assert.ok(connectSrc, 'connect-src yok');
+
+    const core = require('../core.js');
+    const reachable = Object.values(core.PROVIDERS).filter(p => !p.browserBlocked);
+
+    for (const provider of reachable) {
+        assert.ok(connectSrc[1].includes(provider.origin),
+            `connect-src ${provider.label} uç noktasını içermiyor — istek engellenir`);
+    }
+
+    // A provider the browser cannot reach anyway must not widen the allowlist:
+    // every extra origin here is somewhere a stolen key could be sent.
+    for (const provider of Object.values(core.PROVIDERS)) {
+        if (!provider.browserBlocked) continue;
+        assert.ok(!connectSrc[1].includes(provider.origin),
+            `connect-src kullanılamayan ${provider.label} uç noktasına izin veriyor`);
+    }
+
+    const allowed = connectSrc[1].trim().split(/\s+/).filter(Boolean);
+    const known = reachable.map(p => p.origin);
+    for (const host of allowed) {
+        assert.ok(known.includes(host),
+            `connect-src bilinmeyen bir hedefe izin veriyor: ${host}`);
+    }
+
     assert.ok(!/connect-src[^;]*\*/.test(csp[1]), 'connect-src joker karakter içeriyor');
     assert.ok(/script-src\s+'self'/.test(csp[1]), "script-src 'self' değil");
+});
+
+test('core.js never receives the credential', () => {
+    // The provider registry shapes requests; app.js is the only place that holds
+    // the secret. If core.js ever grew a key parameter, the export path and the
+    // test-runner logs would both become places a key could surface.
+    const core = require('../core.js');
+    const shaped = core.buildProviderRequest('anthropic', 'claude-haiku-4-5', 'merhaba', {});
+    const serialized = JSON.stringify(shaped);
+
+    assert.ok(!/sk-|AIza|Bearer\s+\w/.test(serialized),
+        'buildProviderRequest çıktısında anahtar benzeri bir değer var');
+    assert.strictEqual(shaped.authHeader.prefix, '',
+        'Anthropic auth başlığı yanlış biçimde');
+    assert.strictEqual(shaped.authHeader.name, 'x-api-key');
+});
+
+test('each provider key is stored under its own name', () => {
+    // One shared slot meant switching vendors silently discarded the other key.
+    assert.ok(/aetheria_key_\$\{providerId\}/.test(appSource),
+        'anahtarlar sağlayıcı başına saklanmıyor');
+    assert.ok(/function migrateLegacyKey/.test(appSource),
+        'eski tek-slot anahtarı taşınmıyor — kullanıcı anahtarını kaybeder');
+});
+
+test('every vendor key format is redacted from the terminal', () => {
+    const redact = appSource.slice(appSource.indexOf('function redactSecrets'),
+        appSource.indexOf('function redactSecrets') + 1200);
+    for (const [name, pattern] of [
+        ['Google', /AIza\[0-9A-Za-z_-\]/],
+        ['Anthropic', /sk-ant-\[0-9A-Za-z_-\]/],
+        ['OpenAI', /sk-\[0-9A-Za-z_-\]/]
+    ]) {
+        assert.ok(pattern.test(redact), `${name} anahtar biçimi redaksiyondan geçmiyor`);
+    }
 });
 
 test('no key-shaped literal is committed in the sources', () => {
