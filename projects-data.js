@@ -987,5 +987,340 @@ const PROJECTS_DATABASE = [
 • **Bağlayıcı Yetkileri**: Tüm entegrasyonlar salt okunur kapsam ister; sohbet bağlayıcısı yalnızca olay kanallarına erişir, kişisel mesajlara erişim talep etmez.
 • **Suçsuzluğun Teknik Karşılığı**: Kişi adları anlatı üretimine girmeden önce role dönüştürülür; sistem tasarım gereği bireyi işaret eden bir metin üretemez.`
         }
+    },
+    {
+        id: "tokenbridge-ds",
+        title: "TokenBridge",
+        tagline: "Tasarım Sistemi ile Kod Arasındaki Sessiz Kaymayı Ölçen ve Kapatan Köprü",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "Takım Başı Abonelik (B2B SaaS)",
+            opportunityScore: "%91 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Tasarım Dosyaları", type: "source", sub: "Figma Variables API" },
+            { id: 2, name: "Token Normalizer", type: "service", sub: "W3C Design Tokens" },
+            { id: 3, name: "Kod Tarayıcı", type: "service", sub: "CSS/TS AST Analizi" },
+            { id: 4, name: "Drift Detector", type: "ai", sub: "Anlamsal Eşleme" },
+            { id: 5, name: "PostgreSQL", type: "storage", sub: "Token Geçmişi" },
+            { id: 6, name: "PR Botu & Panel", type: "client", sub: "Kayma Raporu" }
+        ],
+        step1: {
+            marketGap: `Tasarım sistemi kuran ekiplerin neredeyse tamamı aynı sessiz çürümeyi yaşıyor: token'lar Figma'da tanımlanıyor, koda bir kez aktarılıyor, sonra iki taraf ayrı ayrı evrilmeye başlıyor. Tasarımcı bir gölge değerini güncelliyor, kimse koda taşımıyor; geliştirici acele bir düzeltmede sabit bir hex yazıyor, kimse fark etmiyor. Altı ay sonra "tek doğruluk kaynağı" olması gereken sistem, gerçekte hiçbir yeri tarif etmeyen bir dokümana dönüşüyor. Mevcut araçlar bu sorunun yalnızca **yarısını** çözüyor: token'ı tasarımdan koda **aktarıyorlar** ama kodun o token'ı gerçekten kullanıp kullanmadığını hiç kontrol etmiyorlar. Aktarım tek yönlü ve tek seferlik olduğu için kayma ölçülmüyor. TokenBridge kaymayı bir olay olarak değil **sürekli bir metrik** olarak ele alır: her iki tarafı tarar, uyumsuzlukları sıralar ve düzeltmeyi pull request olarak önerir.`,
+            description: `TokenBridge, tasarım sistemi ile kod tabanı arasındaki uyumu sürekli ölçen bir denetim aracıdır.
+
+**Temel İşlevler & Özellikler:**
+• **Çift Yönlü Tarama**: Figma'daki değişkenleri ve kod tabanındaki CSS/TS değerlerini ayrı ayrı çıkarır, ikisini karşılaştırır.
+• **Kayma Skoru**: "Token'ların %78'i kodda gerçekten kullanılıyor" gibi tek bir sayıyla sistemin sağlığını gösterir; zaman içindeki eğilimi izler.
+• **Kaçak Değer Avcısı**: Token yerine sabit yazılmış renk, boşluk ve tipografi değerlerini bulur ve en yakın token'ı önerir.
+• **Ölü Token Tespiti**: Tasarımda tanımlı ama kodda hiç kullanılmayan token'ları listeler — sistemin şişmesini engeller.
+• **Gerekçeli PR**: Düzeltmeyi hazır bir pull request olarak açar; hangi değerin hangi token'la değiştirildiğini ve neden eşleştiğini açıklar.`,
+            tags: ["TypeScript", "Figma API", "AST", "PostgreSQL", "GitHub Actions", "React"]
+        },
+        step2: {
+            architecture: `TokenBridge'in zorluğu veri toplamak değil, **iki farklı dünyadaki değerleri anlamlı biçimde eşleştirmek**.
+
+### 1. Sistem Katmanları:
+• **Token Normalizer (TypeScript)**: Figma Variables API'sinden gelen değişkenleri W3C Design Tokens formatına çevirir. Bu ara format olmadan her tasarım aracı için ayrı karşılaştırma mantığı yazmak gerekirdi.
+• **Kod Tarayıcı (TypeScript)**: CSS, SCSS ve TS/TSX dosyalarını AST düzeyinde gezer. Düz metin araması yetersizdir: bir hex değeri yorum satırında da geçebilir, önemli olan hangi CSS özelliğine atandığıdır.
+• **Drift Detector**: Renkleri algısal renk uzayında (OKLCH) karşılaştırır, boşlukları ölçek üzerinde eşler. Birebir eşitlik aramak kullanışsızdır — #3B82F6 ile #3b82f7 pratikte aynı niyeti taşır.
+• **PR Botu (Go)**: Değişiklik önerisini üretir ve açar.
+• **Panel (Next.js)**: Kayma skoru, eğilim grafiği, kaçak değer listesi.
+
+### 2. Veritabanı Mimarisi:
+• **PostgreSQL**: Token tanımları, tarama sonuçları ve kayma skorunun zaman serisi. Skorun geçmişi tutulmalı ki ekip iyileşip iyileşmediğini görebilsin.
+• **Redis**: Tarama iş kuyruğu ve Figma API hız sınırını aşmamak için jeton kovası.`,
+            security: `Araç hem tasarım dosyalarına hem kod tabanına erişir; ikisi de kurumsal fikri mülkiyettir.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Salt Okunur Kapsam**: Figma ve Git entegrasyonları yalnızca okuma yetkisi ister. Değişiklikler pull request olarak önerilir; araç hiçbir dala doğrudan yazmaz.
+• **Kod Saklanmaz**: Tarama sonrası yalnızca token kullanım istatistikleri ve dosya/satır referansları tutulur; kaynak kodun kendisi kalıcı depolamaya yazılmaz.
+• **Kiracı İzolasyonu**: Her tarama işi tek kullanımlık, ağ erişimi kısıtlı bir konteynerde çalışır ve iş bitiminde imha edilir.
+• **Token Yönetimi**: Entegrasyon jetonları şifrelenmiş olarak saklanır, kapsam ve son kullanma tarihi taşır, tek tek iptal edilebilir.
+• **Denetim İzi**: Hangi kullanıcının hangi taramayı başlattığı ve hangi PR'ın açıldığı değiştirilemez biçimde kaydedilir.`
+        }
+    },
+    {
+        id: "a11y-sentinel",
+        title: "A11y Sentinel",
+        tagline: "Erişilebilirlik Hatalarını Kullanıcıya Ulaşmadan Yakalayan Sürekli Denetim Ajanı",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "8 Hafta",
+            monetization: "Site Başı Abonelik + Kurumsal Uyum Raporlaması",
+            opportunityScore: "%94 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Önizleme Dağıtımı", type: "source", sub: "PR Başına Ortam" },
+            { id: 2, name: "Headless Tarayıcı", type: "service", sub: "Playwright Akış Kaydı" },
+            { id: 3, name: "Kural Motoru", type: "service", sub: "WCAG 2.2 / axe-core" },
+            { id: 4, name: "Etki Sıralayıcı", type: "ai", sub: "Kullanıcı Yolu Ağırlığı" },
+            { id: 5, name: "ClickHouse", type: "storage", sub: "Bulgu Geçmişi" },
+            { id: 6, name: "PR Yorumu", type: "client", sub: "Ekran Görüntülü Rapor" }
+        ],
+        step1: {
+            marketGap: `Erişilebilirlik denetimi çoğu ekipte yılda bir yapılan, sonucu yüzlerce satırlık bir PDF olan ve ardından rafa kalkan bir iş. Sorun araç eksikliği değil — otomatik denetleyiciler ücretsiz ve yaygın. Sorun bu araçların **eyleme dönüştürülemeyen** çıktı üretmesi: bir sayfada 400 ihlal raporlanıyor, bunların 380'i aynı bileşenin tekrarından geliyor ve hiçbiri hangisinin gerçek bir kullanıcıyı engellediğini söylemiyor. Ekip listeye bakıyor, nereden başlayacağını bilemiyor, kapatıyor. Üstelik denetim statik sayfalarda yapılıyor; oysa gerçek engeller **akışlarda** ortaya çıkıyor — modal açılınca odağın kaybolması, form hatasının ekran okuyucuya hiç duyurulmaması gibi. A11y Sentinel denetimi tek tek sayfalardan **kullanıcı yolculuklarına** taşır, bulguları tekilleştirip bileşen düzeyinde gruplar ve etkiye göre sıralar.`,
+            description: `A11y Sentinel, erişilebilirlik denetimini CI hattına yerleştiren ve çıktıyı önceliklendirilmiş hale getiren bir ajandır.
+
+**Temel İşlevler & Özellikler:**
+• **Akış Bazlı Denetim**: Kayıt-giriş, arama, sepete ekleme gibi tanımlı yolculukları headless tarayıcıda klavyeyle yürüterek denetler; sadece sayfa yüklemesine bakmaz.
+• **Bileşen Düzeyinde Tekilleştirme**: Aynı bileşenden kaynaklanan 380 ihlali tek bir bulguya indirir — düzeltmesi de tek yerdedir.
+• **Etki Sıralaması**: Bulguları hangi kullanıcı yolunda ve ne sıklıkta karşılaşıldığına göre sıralar; kritik akışı bloke eden hata en üste çıkar.
+• **Regresyon Koruması**: Kapatılan bir bulgu geri gelirse PR'da uyarır; erişilebilirlik kazanımlarının sessizce geri alınmasını engeller.
+• **Kanıtlı Rapor**: Her bulgu için ekran görüntüsü, odak sırası ve ekran okuyucu çıktısı sunar — "burada ne olduğunu göremiyorum" itirazını ortadan kaldırır.`,
+            tags: ["TypeScript", "Playwright", "axe-core", "ClickHouse", "Node.js", "React"]
+        },
+        step2: {
+            architecture: `Sistem, her PR için bir tarayıcı oturumu çalıştırmak zorunda olduğundan **paralel ve kısa ömürlü işler** üzerine kuruludur.
+
+### 1. Sistem Katmanları:
+• **Journey Runner (Node.js + Playwright)**: Tanımlı akışları hem fare hem klavyeyle yürütür. Klavye yolu ayrı çalıştırılır; çoğu erişilebilirlik hatası yalnızca orada görünür.
+• **Kural Motoru**: axe-core temel alınır, üzerine akış farkındalıklı kurallar eklenir — modal açıldığında odak taşındı mı, kapandığında geri döndü mü, canlı bölge duyuruldu mu.
+• **Etki Sıralayıcı (Python)**: Bulguyu, gerçekleştiği akışın kritikliği ve tekrar sayısıyla ağırlıklandırır.
+• **Dedup Service**: Bulguları DOM yolu yerine bileşen kimliğine göre gruplar; aynı düğmenin 50 örneği tek bulgudur.
+• **Rapor Botu**: PR'a özet yorum bırakır, detay panele link verir.
+
+### 2. Veritabanı Mimarisi:
+• **ClickHouse**: Bulgu geçmişi ve akış telemetrisi; "bu hata ne zaman ortaya çıktı" sorgusu sütun bazlı depoda çok daha hızlıdır.
+• **PostgreSQL**: Projeler, akış tanımları, bastırma kuralları ve kapatılan bulgular.
+• **Nesne Depolama**: Ekran görüntüleri ve DOM anlık görüntüleri.`,
+            security: `Araç, müşterinin önizleme ortamlarında oturum açıp gezinir; bu, yüksek yetkili bir erişimdir.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Yalnızca Önizleme Ortamları**: Üretim ortamına karşı çalıştırma varsayılan olarak kapalıdır; açıkça etkinleştirilmesi gerekir ve o durumda salt okunur akışlarla sınırlandırılır.
+• **Test Kimlik Bilgileri**: Akışlar için ayrılmış test hesapları kullanılır; gerçek kullanıcı hesabı kimlik bilgisi hiçbir zaman istenmez.
+• **Ekran Görüntüsü Maskeleme**: Yakalanan görüntülerde form alanları ve kişisel veri içerebilecek bölgeler kural bazlı maskelenir.
+• **İzole Tarayıcı**: Her çalıştırma tek kullanımlık konteynerde, kısıtlı ağ politikasıyla koşar; oturum çerezleri iş bitiminde imha edilir.
+• **Saklama Sınırı**: Ekran görüntüleri ve DOM anlık görüntüleri tanımlı süre sonunda otomatik silinir.`
+        }
+    },
+    {
+        id: "handoff-lens",
+        title: "Handoff Lens",
+        tagline: "Tasarım ile Uygulanan Arayüz Arasındaki Farkı Piksel Değil Niyet Düzeyinde Karşılaştırır",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "7 Hafta",
+            monetization: "Takım Başı Abonelik + Ajans Planı",
+            opportunityScore: "%88 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Tasarım Kaynağı", type: "source", sub: "Figma Frame" },
+            { id: 2, name: "Canlı Yakalayıcı", type: "service", sub: "Playwright + Hesaplanan Stil" },
+            { id: 3, name: "Yapı Karşılaştırıcı", type: "ai", sub: "Katman-DOM Eşleme" },
+            { id: 4, name: "Fark Sınıflandırıcı", type: "ai", sub: "Kasıtlı / Hatalı Ayrımı" },
+            { id: 5, name: "S3 & PostgreSQL", type: "storage", sub: "Görsel + Fark Kaydı" },
+            { id: 6, name: "İnceleme Arayüzü", type: "client", sub: "Yan Yana Fark" }
+        ],
+        step1: {
+            marketGap: `Tasarımcı ile geliştirici arasındaki "böyle mi olmalıydı?" tartışması her sprintte tekrar ediyor ve genellikle ekran görüntüsü üzerine ok çizerek çözülüyor. Görsel regresyon araçları var ama yanlış soruyu cevaplıyorlar: **piksel farkı** ölçüyorlar. Bu, farklı yazı tipi render'ı veya bir piksellik kaydırma yüzünden sürekli yanlış alarm üretiyor, ekip de kısa sürede uyarıları görmezden gelmeye başlıyor. Asıl ihtiyaç piksel eşitliği değil, **niyet uyumu**: boşluk ölçeğine uyulmuş mu, tipografi hiyerarşisi korunmuş mu, bileşen doğru varyantla kullanılmış mı? Handoff Lens tasarım katmanlarıyla DOM düğümlerini eşleştirir ve farkları "kasıtlı uyarlama" ile "uygulama hatası" olarak ayırarak yalnızca ikincisini rapor eder.`,
+            description: `Handoff Lens, tasarım-uygulama farkını anlamlı düzeyde karşılaştıran bir inceleme aracıdır.
+
+**Temel İşlevler & Özellikler:**
+• **Katman-DOM Eşlemesi**: Figma katmanlarını canlı arayüzdeki DOM düğümleriyle eşleştirir; karşılaştırma bu eşleme üzerinden yapılır, ham görüntü üzerinden değil.
+• **Niyet Düzeyinde Fark**: Boşluk, tipografi ölçeği, renk token'ı ve bileşen varyantı gibi tasarım kararlarını karşılaştırır. 1 piksellik kayma alarm üretmez; yanlış boşluk ölçeği üretir.
+• **Duyarlı Karşılaştırma**: Aynı ekranı birden fazla genişlikte kontrol eder — tasarımın verilmediği ara genişlikleri de işaretler.
+• **Kasıtlı Fark İşaretleme**: Ekip bir farkı "bilinçli uyarlama" olarak kapattığında, aynı fark sonraki çalışmalarda bastırılır.
+• **Yan Yana İnceleme**: Tasarım, uygulama ve fark açıklaması tek ekranda; tartışma ekran görüntüsü yerine ortak bir kayıt üzerinden yürür.`,
+            tags: ["TypeScript", "Figma API", "Playwright", "PostgreSQL", "Next.js", "S3"]
+        },
+        step2: {
+            architecture: `Sistemin çekirdeği **eşleme problemi**: hangi tasarım katmanı hangi DOM düğümüne karşılık geliyor?
+
+### 1. Sistem Katmanları:
+• **Design Extractor (TypeScript)**: Figma frame'inden katman ağacını, ölçüleri ve bağlı token'ları çıkarır.
+• **Live Capturer (Playwright)**: Aynı ekranı gerçek tarayıcıda açar, DOM ağacını ve her düğümün hesaplanmış stillerini toplar. Hesaplanmış stil şart: CSS'te yazan değer ile ekranda uygulanan değer sıklıkla farklıdır.
+• **Structure Matcher**: İki ağacı metin içeriği, konum ve rol benzerliğine göre eşler. Kusursuz eşleme mümkün değildir; güven skoru düşük eşlemeler rapora "belirsiz" olarak girer, sessizce atılmaz.
+• **Difference Classifier (Python)**: Farkı token ölçeğine göre değerlendirir; ölçek içinde kalan sapmalar düşük öncelikli, ölçek dışına çıkanlar yüksek öncelikli işaretlenir.
+• **İnceleme Arayüzü (Next.js)**: Yan yana görünüm ve karar akışı.
+
+### 2. Veritabanı Mimarisi:
+• **PostgreSQL**: Karşılaştırma çalışmaları, farklar, bastırma kararları ve eşleme güven skorları.
+• **S3 Uyumlu Depolama**: Tasarım ve uygulama görüntüleri.
+• **Redis**: Çalışma kuyruğu ve Figma API hız sınırı yönetimi.`,
+            security: `Tasarım dosyaları çoğu zaman henüz yayınlanmamış ürün planlarını içerir.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Salt Okunur Entegrasyon**: Figma ve dağıtım ortamı erişimi yalnızca okuma kapsamındadır; araç hiçbir tasarımı veya kodu değiştirmez.
+• **İzole Yakalama**: Canlı yakalama tek kullanımlık, ağ politikası kısıtlı konteynerlerde çalışır.
+• **Görsel Saklama Sınırı**: Karşılaştırma görüntüleri tanımlı süre sonunda silinir; kurumsal planda hiç saklanmayıp yalnızca fark özetinin tutulması seçilebilir.
+• **Erişim Kontrolü**: Proje bazlı RBAC; satır düzeyi güvenlik (RLS) ile bir takımın çalışması diğerine görünmez.
+• **Jeton Yönetimi**: Entegrasyon jetonları şifreli saklanır, minimum kapsamla istenir ve tek tek iptal edilebilir.`
+        }
+    },
+    {
+        id: "coldstart-mobile",
+        title: "ColdStart",
+        tagline: "Mobil Uygulama Açılış Süresini Gerçek Cihaz Dağılımıyla Ölçen ve Gerilemeyi Yakalayan Ajan",
+        category: "Mobil Uygulama",
+        categoryKey: "mobile",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "8 Hafta",
+            monetization: "Aylık Aktif Kullanıcı Bazlı SaaS",
+            opportunityScore: "%92 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Mobil SDK", type: "source", sub: "iOS + Android İzleme" },
+            { id: 2, name: "Batch Uploader", type: "service", sub: "Kesintiye Dayanıklı Kuyruk" },
+            { id: 3, name: "Cihaz Segmentleyici", type: "service", sub: "Model / OS / Bellek" },
+            { id: 4, name: "Regresyon Dedektörü", type: "ai", sub: "Sürüm Bazlı Değişim" },
+            { id: 5, name: "ClickHouse", type: "storage", sub: "Yüksek Hacimli Telemetri" },
+            { id: 6, name: "Sürüm Panosu", type: "client", sub: "Yüzdelik Dağılım" }
+        ],
+        step1: {
+            marketGap: `Mobil ekipler açılış süresini genellikle kendi geliştirme telefonlarında ölçüyor — yani üç yaşındaki amiral gemisi bir cihazda, iyi bir wifi'da, sıcak başlangıçta. Gerçek kullanıcı tabanının yarısı ise düşük bellekli, dolu depolamalı, zayıf şebekedeki cihazlarda soğuk başlangıç yaşıyor ve orada süre birkaç katına çıkabiliyor. Mağaza konsolları ortalama bir sayı veriyor ama **hangi cihaz sınıfında** ve **hangi sürümle** kötüleştiğini söylemiyor; üstelik bir regresyon ancak yayından günler sonra fark ediliyor. Piyasadaki APM araçları çökme ve ağ isteklerinde iyi, fakat açılış süresini başlatma aşamalarına ayırmıyor — "yavaş" diyor, "neden" demiyor. ColdStart açılışı aşamalara böler, cihaz sınıfına göre yüzdelik dağılım verir ve regresyonu sürüm bazında yakalar.`,
+            description: `ColdStart, mobil açılış performansını gerçek kullanıcı dağılımıyla ölçen bir izleme platformudur.
+
+**Temel İşlevler & Özellikler:**
+• **Aşama Ayrımı**: Süreci süreç oluşturma, ilk kare, etkileşime hazır olma gibi aşamalara böler; hangi aşamanın şiştiği doğrudan görünür.
+• **Cihaz Sınıfı Segmentasyonu**: Ortalama yerine cihaz modeli, OS sürümü ve bellek sınıfına göre yüzdelik dağılım (p50/p90/p99) verir. Ortalama, en çok acı çeken kullanıcıyı gizler.
+• **Sürüm Bazlı Regresyon Uyarısı**: Yeni sürümle birlikte belirli bir cihaz sınıfında bozulma olursa, kademeli yayın devam ederken uyarır.
+• **Başlatma Bloklayıcı Tespiti**: Ana iş parçacığını açılışta bloke eden SDK ve başlatma işlerini süreleriyle listeler — üçüncü taraf SDK'ların maliyeti görünür olur.
+• **Düşük Ayak İzi**: SDK'nın kendisi ölçtüğü şeyi bozmayacak şekilde tasarlanır; toplama işi açılış yolundan çıkarılır.`,
+            tags: ["Swift", "Kotlin", "ClickHouse", "Go", "OpenTelemetry", "React"]
+        },
+        step2: {
+            architecture: `Bir performans izleme SDK'sının birinci kuralı **ölçtüğü şeyi bozmamaktır**; mimari bu kısıt etrafında kurulur.
+
+### 1. Sistem Katmanları:
+• **Mobil SDK (Swift / Kotlin)**: Platformun kendi başlatma işaretlerini kullanır. Toplanan veri açılış sırasında diske yazılmaz, bellekte tutulup uygulama etkileşime hazır olduktan sonra gönderilir — aksi halde ölçüm aracı açılışı yavaşlatan şeye dönüşür.
+• **Batch Uploader (SDK içinde)**: Ağ yoksa veriyi kuyruklar, toplu ve sıkıştırılmış gönderir; idempotent uçlar sayesinde tekrar gönderim çift kayıt üretmez.
+• **Cihaz Segmentleyici (Go)**: Ham cihaz modelini bellek ve işlemci sınıfına eşler; "iPhone 12" değil "orta segment, 4GB" düzeyinde gruplama analiz için daha anlamlıdır.
+• **Regresyon Dedektörü (Python)**: Sürüm çiftlerini aynı cihaz sınıfı içinde karşılaştırır. Segment içinde karşılaştırma şarttır: kullanıcı tabanının cihaz karışımı değiştiğinde toplam ortalama, kod hiç değişmeden kayar.
+• **Pano (React)**: Yüzdelik dağılım, aşama kırılımı, sürüm karşılaştırması.
+
+### 2. Veritabanı Mimarisi:
+• **ClickHouse**: Açılış olaylarının ham telemetrisi; yüzdelik sorguları sütun bazlı depoda verimlidir.
+• **PostgreSQL**: Uygulamalar, sürümler, uyarı kuralları ve cihaz sınıfı tanımları.
+• **Redis**: Canlı pano sorguları için önbellek.`,
+            security: `SDK milyonlarca cihazda çalışır; topladığı her fazladan alan bir gizlilik yüküdür.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Veri Minimizasyonu**: Yalnızca zamanlama ölçümleri, cihaz sınıfı ve uygulama sürümü toplanır. Reklam kimliği, konum, kullanıcı kimliği ve cihaz seri numarası hiçbir koşulda toplanmaz.
+• **Kalıcı Kimlik Yok**: Oturumlar rastgele ve kısa ömürlü kimliklerle ayrılır; cihazlar arası veya oturumlar arası takip teknik olarak mümkün değildir.
+• **Uçtan Uca Şifreleme**: Cihaz-sunucu iletişimi TLS 1.3 ve sertifika sabitleme ile korunur.
+• **Mağaza Uyumu**: Toplanan alanlar Apple ve Google gizlilik beyanlarına birebir karşılık gelecek şekilde belgelenir; SDK'nın gizlilik manifestosu yayınlanır.
+• **Örnekleme ve Saklama**: Telemetri örneklenerek toplanır ve ham kayıtlar tanımlı süre sonunda özetlere indirgenir.`
+        }
+    },
+    {
+        id: "offlinesync-kit",
+        title: "OfflineSync Kit",
+        tagline: "Çevrimdışı Öncelikli Mobil Uygulamalar İçin Çakışma Çözümü Hazır Senkronizasyon Katmanı",
+        category: "Mobil Uygulama",
+        categoryKey: "mobile",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "10 Hafta",
+            monetization: "Açık Çekirdek + Kurumsal Destek Lisansı",
+            opportunityScore: "%90 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Yerel Veritabanı", type: "source", sub: "SQLite + Değişiklik Günlüğü" },
+            { id: 2, name: "Sync Engine", type: "service", sub: "CRDT Birleştirme" },
+            { id: 3, name: "Çakışma Çözücü", type: "service", sub: "Politika Tabanlı" },
+            { id: 4, name: "Delta Transport", type: "service", sub: "Sıkıştırılmış Fark" },
+            { id: 5, name: "Sunucu Deposu", type: "storage", sub: "Sürümlenmiş Kayıtlar" },
+            { id: 6, name: "Geliştirici SDK", type: "client", sub: "iOS / Android / RN" }
+        ],
+        step1: {
+            marketGap: `Saha ekipleri, lojistik, sağlık ve tarım gibi alanlarda mobil uygulamanın şebekesiz çalışması bir özellik değil zorunluluk. Ancak çevrimdışı desteği "veriyi yerelde tut, bağlanınca gönder" sanıldığı için ekipler işe kendi senkronizasyon katmanlarını yazarak başlıyor ve aynı duvara çarpıyorlar: **çakışma**. İki teknisyen aynı kaydı farklı yerlerde güncelledi, hangisi kazanacak? "Son yazan kazanır" seçildiğinde sessiz veri kaybı başlıyor ve bu kayıp aylar sonra fark ediliyor. Mevcut çözümler ya belirli bir buluta kilitliyor ya da CRDT gibi doğru ama kullanımı uzmanlık gerektiren ilkel yapılar sunuyor. OfflineSync Kit, çakışma çözümünü **uygulama düzeyinde politika** olarak tanımlanabilir hale getirir: alan bazında "en yüksek değer kazanır", "birleştir", "kullanıcıya sor" gibi kurallar yazılır, alt katman gerisini halleder.`,
+            description: `OfflineSync Kit, çevrimdışı öncelikli mobil uygulamalar için senkronizasyon ve çakışma çözümü kütüphanesidir.
+
+**Temel İşlevler & Özellikler:**
+• **Alan Bazlı Çakışma Politikası**: Her alan için ayrı kural tanımlanır — sayaç alanları toplanır, notlar birleştirilir, durum alanlarında öncelik sırası uygulanır.
+• **Çözülemeyen Çakışmayı Gizlemez**: Politikanın karar veremediği durumda kayıt "çakışma bekliyor" olarak işaretlenir ve kullanıcıya sorulur; sessizce bir taraf seçilmez.
+• **Delta Senkronizasyon**: Tüm kaydı değil yalnızca değişen alanları gönderir; zayıf şebekede veri kullanımı ve süre belirgin şekilde azalır.
+• **Şema Göçü Desteği**: Uygulama güncellenirken çevrimdışı bekleyen eski şemalı kayıtların ne olacağı tanımlanabilir — pratikte en çok veri kaybettiren nokta budur.
+• **Platform Bağımsız**: iOS, Android ve React Native için ortak çekirdek; sunucu tarafı referans uygulaması açık kaynak.`,
+            tags: ["Rust", "SQLite", "CRDT", "Swift", "Kotlin", "TypeScript"]
+        },
+        step2: {
+            architecture: `Çekirdek mantık **bir kez** yazılıp her platforma paylaştırılır; senkronizasyon hatalarını üç ayrı dilde ayrı ayrı ayıklamak sürdürülebilir değildir.
+
+### 1. Sistem Katmanları:
+• **Sync Core (Rust)**: Değişiklik günlüğü, CRDT birleştirme ve politika değerlendirme burada. iOS'a XCFramework, Android'e JNI, React Native'e köprü olarak derlenir.
+• **Yerel Depo (SQLite)**: Uygulama verisi ve yanına yazılan değişiklik günlüğü. Günlük ayrı tutulur çünkü senkronizasyonun kaynağı verinin son hali değil, **ona nasıl gelindiğidir**.
+• **Çakışma Çözücü**: Politikaları alan bazında uygular; karar veremediğinde kaydı işaretler ve uygulamaya bildirir.
+• **Delta Transport (Rust)**: Değişiklikleri sıkıştırıp gruplar, kesintiye dayanıklı yeniden gönderim yapar; her toplu iş idempotenttir.
+• **Sunucu Referansı (Go)**: Sürümlenmiş kayıt deposu ve birleştirme uç noktaları.
+
+### 2. Veritabanı Mimarisi:
+• **SQLite (cihazda)**: Veri + değişiklik günlüğü + senkronizasyon durumu.
+• **PostgreSQL (sunucuda)**: Sürümlenmiş kayıtlar, cihaz kayıtları ve çakışma geçmişi. Çakışma geçmişi tutulur çünkü hangi politikanın pratikte veri kaybettirdiğini ancak geriye bakarak anlarsınız.
+• **Nesne Depolama**: Büyük ekler; senkronizasyon meta verisiyle ayrı taşınır.`,
+            security: `Çevrimdışı çalışan uygulama, veriyi cihazda **uzun süre** taşır — kayıp veya çalınan cihaz asıl tehdittir.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Cihaz Üzerinde Şifreleme**: Yerel veritabanı SQLCipher ile şifrelenir; anahtar platformun güvenli alanında (iOS Keychain / Android Keystore) tutulur ve mümkünse donanım destekli anahtar kullanılır.
+• **Oturum Sonlandırma**: Uzaktan oturum kapatma desteklenir; cihaz bir sonraki bağlantısında yerel veriyi imha eder.
+• **Aktarım Güvenliği**: mTLS ile karşılıklı kimlik doğrulama; her cihazın kendi sertifikası olur ve tek tek iptal edilebilir.
+• **Sunucu Tarafı Yetkilendirme**: Cihazdan gelen her değişiklik sunucuda yeniden yetkilendirilir; istemcinin gönderdiği "bu kaydı değiştirebilirim" iddiasına güvenilmez.
+• **Çakışma Denetim İzi**: Hangi çakışmanın hangi politikayla, hangi cihaz lehine çözüldüğü kaydedilir — veri kaybı şüphesinde tek kanıt budur.`
+        }
+    },
+    {
+        id: "storeloop-aso",
+        title: "StoreLoop",
+        tagline: "Mağaza Yorumlarını Ürün Geriliminin Erken Sinyaline Çeviren Analiz Ajanı",
+        category: "Mobil Uygulama",
+        categoryKey: "mobile",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "Uygulama Başı Abonelik (B2B SaaS)",
+            opportunityScore: "%87 Fırsat Skoru"
+        },
+        diagramNodes: [
+            { id: 1, name: "Mağaza API'leri", type: "source", sub: "App Store + Play Console" },
+            { id: 2, name: "Normalizer", type: "service", sub: "Dil + Sürüm Eşleme" },
+            { id: 3, name: "Tema Çıkarıcı", type: "ai", sub: "Şikayet Kümeleme" },
+            { id: 4, name: "Sürüm İlişkilendirici", type: "service", sub: "Yayın-Şikayet Eşleşmesi" },
+            { id: 5, name: "PostgreSQL", type: "storage", sub: "Yorum + Tema Geçmişi" },
+            { id: 6, name: "Ürün Panosu", type: "client", sub: "Yükselen Temalar" }
+        ],
+        step1: {
+            marketGap: `Mağaza yorumları bir ürün ekibinin sahip olduğu en dolaysız kullanıcı geri bildirimi, ama pratikte neredeyse hiç kullanılmıyor. Sebebi ilgisizlik değil ölçek: günde yüzlerce yorum, onlarca dilde, çoğu "güzel uygulama" ya da beş yıldız. Ekipler ya hiç okumuyor ya da destek biri ara sıra göz atıyor. Mevcut ASO araçları yorumları **sayıyor** — ortalama puan, yorum hacmi, anahtar kelime — ama içindeki şikayetin ne olduğunu ve **hangi sürümle başladığını** söylemiyor. Oysa değerli sinyal tam orada: yeni sürümden sonra belirli bir cihazda beliren, henüz çökme raporuna yansımamış bir sorun ilk olarak yorumlarda görünür. StoreLoop yorumları temalara ayırır, sürümlerle ilişkilendirir ve yükselen şikayetleri henüz küçükken bildirir.`,
+            description: `StoreLoop, mağaza yorumlarını ürün ekibi için eyleme dönüştürülebilir sinyale çeviren bir analiz ajanıdır.
+
+**Temel İşlevler & Özellikler:**
+• **Tema Kümeleme**: Yorumları "giriş yapılamıyor", "pil tüketimi", "bildirim gelmiyor" gibi temalara ayırır; anahtar kelime değil anlam bazlı gruplar.
+• **Sürüm İlişkilendirmesi**: Her temanın hangi sürümle yükselişe geçtiğini gösterir — regresyonun kaynağını daraltır.
+• **Yükseliş Uyarısı**: Bir tema mutlak sayı olarak küçükken bile hızlanıyorsa uyarır; erken sinyal ancak küçükken değerlidir.
+• **Dil Bağımsız**: Yorumlar özgün dilinde işlenir, tema düzeyinde birleştirilir; sadece İngilizce okuyan ekiplerin kaçırdığı pazarlar görünür olur.
+• **Yanıt Taslağı**: Sık temalar için yanıt taslağı önerir; destek ekibinin yükünü azaltır, gönderme kararı insanda kalır.`,
+            tags: ["Python", "PostgreSQL", "pgvector", "FastAPI", "Next.js", "Celery"]
+        },
+        step2: {
+            architecture: `Sistem, dış API'lerin hız sınırlı ve geriye dönük veriyi sınırlı verdiği gerçeğine göre tasarlanır: veri **birikmeli** olarak toplanır.
+
+### 1. Sistem Katmanları:
+• **Ingestion Workers (Python + Celery)**: App Store Connect ve Play Developer API'lerinden yorumları periyodik çeker. Mağazalar geriye dönük olarak sınırlı pencere verdiği için toplama kesintiye uğramamalı; kaçırılan pencere geri getirilemez.
+• **Normalizer**: Yorumu sürüm, ülke, cihaz ve dil ile etiketler. Sürüm bilgisi her zaman gelmez; gelmediğinde yorum tarihi yayın takvimiyle eşleştirilerek tahmin edilir ve bu tahmin olarak işaretlenir.
+• **Tema Çıkarıcı (Python + pgvector)**: Yorum gömülemeleri üzerinden kümeleme yapar; kümelere okunabilir etiket üretilir. Yeni temalar zamanla ortaya çıkabildiği için kümeleme sabit bir taksonomiye zorlanmaz.
+• **Sürüm İlişkilendirici**: Tema hacmini sürüm ve tarih ekseninde karşılaştırır, anlamlı sıçramaları işaretler.
+• **Pano (Next.js)**: Yükselen temalar, sürüm karşılaştırması, örnek yorumlar.
+
+### 2. Veritabanı Mimarisi:
+• **PostgreSQL**: Yorumlar, temalar, sürümler ve uyarı kuralları.
+• **pgvector**: Yorum gömülemeleri; kümeleme ve benzerlik sorguları ayrı bir vektör veritabanı gerektirmeyecek ölçekte.
+• **Redis**: İş kuyruğu ve mağaza API hız sınırı için jeton kovası.`,
+            security: `Yorumlar kamuya açıktır ama yazarları gerçek kişilerdir; toplu işleme onları profillemeye dönüşmemelidir.
+
+### 1. Güvenlik Önlemleri & Standartlar:
+• **Yazar Profillemesi Yok**: Yorum yazarı takma adı tema analizine girmez ve kullanıcı bazlı geçmiş oluşturulmaz. Ürün sinyali temadadır, kişide değil.
+• **Kişisel Veri Redaksiyonu**: Yorum metnindeki e-posta, telefon ve sipariş numarası örüntüleri alım sırasında maskelenir — kullanıcılar destek beklentisiyle bunları sıklıkla yazar.
+• **Erişim Kontrolü**: Uygulama bazlı RBAC; satır düzeyi güvenlik ile bir müşterinin verisi diğerine görünmez.
+• **Mağaza Jetonları**: API kimlik bilgileri şifreli saklanır, minimum kapsamla istenir ve iptal edilebilir.
+• **Saklama Sınırı**: Ham yorum metni tanımlı süre sonunda silinir; tema istatistikleri kalır.`
+        }
     }
 ];

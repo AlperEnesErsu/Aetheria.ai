@@ -17,7 +17,7 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 - **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
 - **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve proje açıklamasını tek tıkla Markdown raporu olarak indirme.
 - **🛡️ Açık Kaynak Güvenlik Korumaları**: İstemci tarafı Cooldown (20s), Saatlik Sorgu Limiti (15/saat) ve Max Output Token sınırlamaları ile kota koruması.
-- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik ve DevOps. Gördüğün projeler hatırlanır; aynı proje arka arkaya gelmez.
+- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik, DevOps, **Web & Ürün Tasarımı** ve **Mobil Uygulama**. Gördüğün projeler hatırlanır; aynı proje arka arkaya gelmez.
 
 ---
 
