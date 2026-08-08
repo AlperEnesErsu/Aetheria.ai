@@ -150,26 +150,71 @@
 
     // Comparison key for titles: case, punctuation and spacing differences should
     // not make "AI Destekli Rapor" and "ai-destekli rapor" look like separate ideas.
+    // This app is Turkish, and plain .toLowerCase() is wrong for Turkish in both
+    // directions: 'I' becomes 'i' instead of 'ı', and 'İ' becomes 'i' followed by a
+    // combining dot (U+0307). That second one was the damaging case — the combining
+    // mark is not a letter, so the punctuation pass turned it into a space and split
+    // the word in half: "TEKNOLOJİLERİ" normalised to "teknoloji leri". An
+    // all-caps title therefore shared *no* words with its own lowercase form and
+    // scored 0 overlap, which is exactly the duplicate the check exists to catch.
+    //
+    // Switching to toLocaleLowerCase('tr') is the obvious fix and it is wrong here:
+    // it also turns the ASCII "AI" into "aı", and this app's titles are full of
+    // English acronyms (AI, API, IoT, CI/CD) that would then stop matching their
+    // own lowercase forms. Since this text is only ever compared, never displayed,
+    // the right move is to stop distinguishing the two letters at all: lowercase
+    // normally, drop the combining dot the 'İ' leaves behind, then fold 'ı' onto
+    // 'i'. "TARIM"/"tarım" and "AI"/"ai" both match, and neither is favoured.
     function normalizeTitle(text) {
         return String(text || '')
             .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')   // combining marks, incl. the İ dot
+            .normalize('NFC')
+            .replace(/ı/g, 'i')
             .replace(/[^\p{L}\p{N}\s]/gu, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    // Turkish is agglutinative, so the same root turns up with different endings:
+    // "Tarım" and "Tarımsal", "Teknoloji" and "Teknolojileri". Exact word equality
+    // called those unrelated and let obvious repeats through. Two words count as
+    // the same root when one is a prefix of the other and the shared prefix is long
+    // enough that the match is not a coincidence.
+    const STEM_MIN = 5;
+
+    function sameRoot(a, b) {
+        if (a === b) return true;
+        const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+        if (shorter.length < STEM_MIN) return false;
+        if (!longer.startsWith(shorter)) return false;
+        // A long tail means these are different words that happen to share an
+        // opening ("kart" / "kartograf"), not one word plus a suffix.
+        return longer.length - shorter.length <= 4;
     }
 
     // How much two titles share, as a fraction of the shorter one. Catches the
     // common near-duplicate ("Akıllı Sulama Ağı" vs "Akıllı Sulama Platformu")
     // that an exact-match check would let through.
     function titleOverlap(a, b) {
-        const words = t => new Set(normalizeTitle(t).split(' ').filter(w => w.length > 3));
+        const words = t => normalizeTitle(t).split(' ').filter(w => w.length > 3);
         const A = words(a);
         const B = words(b);
-        if (A.size === 0 || B.size === 0) return 0;
+        if (A.length === 0 || B.length === 0) return 0;
 
+        // Each word on the shorter side may be claimed once, so a title that
+        // repeats a word cannot inflate its own score past 1.
+        const unclaimed = [...B];
         let shared = 0;
-        for (const w of A) if (B.has(w)) shared++;
-        return shared / Math.min(A.size, B.size);
+        for (const w of A) {
+            const hit = unclaimed.findIndex(other => sameRoot(w, other));
+            if (hit !== -1) {
+                unclaimed.splice(hit, 1);
+                shared++;
+            }
+        }
+        return shared / Math.min(A.length, B.length);
     }
 
     // Human-readable domain names for prompts — the filter keys are not descriptive
@@ -225,6 +270,13 @@
             consoleLabel: 'Anthropic Console',
             origin: 'https://api.anthropic.com',
             models: ['claude-haiku-4-5', 'claude-sonnet-5'],
+            // Anthropic blocks direct browser calls by default precisely because a
+            // key in a browser can be read by anything running on the page. We send
+            // the opt-in header to make the call work at all, so the user should be
+            // told what that opt-in means rather than it happening quietly.
+            browserNote: 'Bu çağrı tarayıcıdan doğrudan yapılır; Anthropic bunu '
+                + 'varsayılan olarak kapatır çünkü anahtar istemcide durur. '
+                + 'Paylaşılan bir bilgisayardaysan saklamayı kapat.',
             // No JSON response mode; the prompt already pins the schema and the
             // shared extractor tolerates a fenced code block around it.
             nativeJsonMode: false

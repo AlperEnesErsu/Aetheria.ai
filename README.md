@@ -38,6 +38,8 @@ Anahtar **hiçbir sunucuya gitmiyor** — bu projede sunucu yok. Yalnızca senin
 
 `test/api-key-safety.test.js` bunların **hepsini** test ediyor; biri bozulursa CI kırılır.
 
+**Claude seçilirse ek bir not:** Anthropic tarayıcıdan doğrudan çağrıyı varsayılan olarak **kapatır** — tam olarak anahtarın istemcide durmasının riskli olması nedeniyle. Çağrının çalışması için `anthropic-dangerous-direct-browser-access` başlığını gönderiyoruz. Bu başlık riski *yaratmıyor*; anahtarı tarayıcıya koymak yaratıyor ve bu, sunucusuz olmayı seçmiş bu projenin baştan kabul ettiği takas. Ama sessizce olmaması için seçici, Claude seçildiğinde bunu ⚠️ ile yazıyor. Sunucu koymaya razıysan doğru çözüm anahtarı orada tutmak; bu proje bilerek o yolu seçmiyor.
+
 > **Yine de:** anahtar tarayıcıda tutulduğu için mutlak gizlilik iddiası doğru olmaz. Ortak bir bilgisayarda çalışıyorsan "Anahtarı bu tarayıcıda sakla" seçeneğini kapat, işin bitince "Anahtarı Sil"e bas. Anahtarın sızdığından şüphelenirsen [AI Studio](https://aistudio.google.com/app/apikey)'dan iptal edip yenisini al — bu her zaman en kesin çözüm.
 
 ---

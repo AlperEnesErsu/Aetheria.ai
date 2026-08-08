@@ -120,7 +120,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
 
     // Shared Community Pool State Management
-    let communityPool = readJson('aetheria_community_pool', null);
+    // readJson only enforces shape when the fallback is itself an array, and this
+    // call passed null to distinguish "never saved" from "saved empty" — so the one
+    // value that most needed the guard was the one that skipped it. A hand-edited
+    // or corrupt entry like {"a":1} is truthy, survived the check below, and then
+    // every pool operation failed on it: the drawer rendered nothing, saving did
+    // nothing, and generation aborted, all without telling the user why.
+    let communityPool = readProjectArray('aetheria_community_pool');
     if (!communityPool) {
         communityPool = (typeof PROJECTS_DATABASE !== 'undefined') ? [...PROJECTS_DATABASE.slice(0, 3)] : [];
         persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
@@ -209,6 +215,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn(`localStorage okunamadı (${key}), varsayılana dönülüyor:`, err);
             return fallback;
         }
+    }
+
+    // Returns a usable array of project-shaped entries, or null when nothing has
+    // been stored yet — the caller seeds the pool in that case. Anything stored but
+    // unusable (an object, a number, a string) is treated as absent rather than
+    // handed on: the alternative is a value that passes a truthiness check and then
+    // breaks every method the rest of the app calls on it.
+    //
+    // Entries are filtered too, not just the container. A pool of [1,2,3] survives
+    // every array method and then renders blank cards with undefined ids.
+    function readProjectArray(key) {
+        const raw = readJson(key, null);
+        if (!Array.isArray(raw)) {
+            if (raw !== null && raw !== undefined) {
+                console.warn(`localStorage bozuk (${key}): dizi bekleniyordu, alınan:`, typeof raw);
+            }
+            return null;
+        }
+        return raw.filter(entry => entry && typeof entry === 'object' && entry.id !== undefined);
     }
 
     // Every write went straight to localStorage, which throws once the origin's
@@ -1239,9 +1264,12 @@ Yanıtı tam olarak şu JSON şemasında ver:
             if (provider.browserBlocked) {
                 providerCostNote.textContent = `🚫 ${provider.blockedReason}`;
             } else {
-                providerCostNote.textContent = provider.free
+                const cost = provider.free
                     ? `💚 ${provider.costNote}`
                     : `💳 ${provider.costNote} Faturayı sen ödersin; kotanı sağlayıcının panelinden sınırla.`;
+                providerCostNote.textContent = provider.browserNote
+                    ? `${cost}\n⚠️ ${provider.browserNote}`
+                    : cost;
             }
         }
         if (btnForgetKey) btnForgetKey.classList.toggle('visible', Boolean(geminiApiKey));

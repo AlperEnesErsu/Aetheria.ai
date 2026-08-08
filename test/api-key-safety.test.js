@@ -157,6 +157,22 @@ test('core.js never receives the credential', () => {
     assert.strictEqual(shaped.authHeader.name, 'x-api-key');
 });
 
+test('the saved pool is read through a validating reader', () => {
+    // readJson only enforces shape when its fallback is an array, and the pool
+    // passed null — so a corrupt entry reached the app as an object and every
+    // pool operation failed on it, silently.
+    assert.ok(/readProjectArray\('aetheria_community_pool'\)/.test(appSource),
+        'proje havuzu doğrulanmadan okunuyor');
+    assert.ok(!/readJson\('aetheria_community_pool'/.test(appSource),
+        'havuz hâlâ korumasız readJson ile okunuyor');
+
+    const reader = appSource.slice(appSource.indexOf('function readProjectArray'));
+    assert.ok(/Array\.isArray\(raw\)/.test(reader.slice(0, 700)),
+        'okuyucu dizi kontrolü yapmıyor');
+    assert.ok(/entry\.id !== undefined/.test(reader.slice(0, 700)),
+        'okuyucu bozuk girdileri elemiyor');
+});
+
 test('each provider key is stored under its own name', () => {
     // One shared slot meant switching vendors silently discarded the other key.
     assert.ok(/aetheria_key_\$\{providerId\}/.test(appSource),
