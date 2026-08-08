@@ -181,7 +181,9 @@
         infrastructure: 'bulut altyapısı, dağıtık sistemler ve performans',
         edtech: 'eğitim teknolojileri',
         sustainability: 'sürdürülebilirlik, enerji ve endüstriyel IoT',
-        devops: 'DevOps ve yazılım geliştirme araçları'
+        devops: 'DevOps ve yazılım geliştirme araçları',
+        design: 'web ve ürün tasarımı, tasarım sistemleri, erişilebilirlik ve tasarım-kod iş akışı',
+        mobile: 'mobil uygulama geliştirme (iOS, Android, çapraz platform)'
     };
 
     // The ideation prompt lives here rather than in app.js so the measurement script
