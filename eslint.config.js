@@ -17,6 +17,7 @@ module.exports = [
                 self: 'readonly',
                 console: 'readonly',
                 localStorage: 'readonly',
+                sessionStorage: 'readonly',
                 fetch: 'readonly',
                 Blob: 'readonly',
                 URL: 'readonly',

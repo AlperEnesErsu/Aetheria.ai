@@ -21,6 +21,26 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 
 ---
 
+## 🔐 API anahtarın nasıl korunuyor
+
+Anahtar **hiçbir sunucuya gitmiyor** — bu projede sunucu yok. Yalnızca senin tarayıcından doğrudan Google'a gidiyor. Bunun ötesinde:
+
+| Önlem | Ne engelliyor |
+|---|---|
+| Anahtar `x-goog-api-key` **başlığında** taşınıyor | Tarayıcı geçmişi, referrer ve proxy loglarına sızmasını |
+| Sayfa yüklenirken **input'a geri yazılmıyor** | Devtools, ekran paylaşımı ve eklentilerin okumasını |
+| `type="password"` + `autocomplete="off"` + `spellcheck="false"` | Otomatik doldurma ve yazım denetimi yoluyla dışarı çıkmasını |
+| Terminal çıktısı **redaksiyondan** geçiyor | Hata mesajı anahtarı yansıtırsa ekran görüntüsüne/hata raporuna girmesini |
+| **Oturumluk saklama** seçeneği | Ortak bilgisayarda kalıcı iz bırakmasını |
+| **"Anahtarı Sil"** butonu | Anahtarın kaldırılamamasını |
+| CSP `connect-src` yalnızca Gemini uç noktası | Anahtarın başka bir adrese gönderilmesini |
+
+`test/api-key-safety.test.js` bunların **hepsini** test ediyor; biri bozulursa CI kırılır.
+
+> **Yine de:** anahtar tarayıcıda tutulduğu için mutlak gizlilik iddiası doğru olmaz. Ortak bir bilgisayarda çalışıyorsan "Anahtarı bu tarayıcıda sakla" seçeneğini kapat, işin bitince "Anahtarı Sil"e bas. Anahtarın sızdığından şüphelenirsen [AI Studio](https://aistudio.google.com/app/apikey)'dan iptal edip yenisini al — bu her zaman en kesin çözüm.
+
+---
+
 ## 💸 Maliyet: sıfır
 
 Bu proje **tamamen ücretsiz** çalışacak şekilde tasarlandı ve öyle kalması test edilerek korunuyor.

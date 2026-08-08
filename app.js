@@ -44,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnHeroSetKey = document.getElementById('btnHeroSetKey');
     const generateButtonLabel = document.getElementById('generateButtonLabel');
     const keyStatus = document.getElementById('keyStatus');
+    const rememberKeyToggle = document.getElementById('rememberKeyToggle');
+    const btnForgetKey = document.getElementById('btnForgetKey');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -125,12 +127,29 @@ document.addEventListener('DOMContentLoaded', () => {
         persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
     }
 
-    let geminiApiKey = localStorage.getItem('aetheria_gemini_key') || '';
-    let useGeminiLiveMode = localStorage.getItem('aetheria_use_gemini') === 'true';
+    // The key can live in localStorage (survives restarts) or sessionStorage (gone
+    // when the tab closes). Session storage is the safer default on a shared or
+    // borrowed machine, so the choice is the user's and is remembered.
+    const KEY_NAME = 'aetheria_gemini_key';
+    let rememberKey = localStorage.getItem('aetheria_remember_key') !== 'false';
 
-    // Initialize UI Settings
-    if (geminiApiKeyInput) geminiApiKeyInput.value = geminiApiKey;
+    let geminiApiKey = readKeyFromStorage();
+    let useGeminiLiveMode = localStorage.getItem('aetheria_use_gemini') === 'true' && Boolean(geminiApiKey);
+
+    function readKeyFromStorage() {
+        try {
+            return sessionStorage.getItem(KEY_NAME) || localStorage.getItem(KEY_NAME) || '';
+        } catch {
+            return '';   // storage blocked entirely
+        }
+    }
+
+    // Initialize UI Settings.
+    // The key deliberately does NOT go back into the input: writing it into the DOM
+    // on every load exposed it to devtools, screen shares and extensions for no
+    // benefit. The field stays empty and only says that a key is stored.
     if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
+    if (rememberKeyToggle) rememberKeyToggle.checked = rememberKey;
     updateGeminiBadgeStatus();
     updateKeyHint();
     updateSavedBadge();
@@ -195,6 +214,16 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-busy', busy ? 'true' : 'false');
     }
 
+    // Strip the live key and anything shaped like a Google API key out of text that
+    // is about to be displayed. Users paste terminal output into bug reports.
+    function redactSecrets(text) {
+        let out = String(text);
+        if (geminiApiKey && geminiApiKey.length > 8) {
+            out = out.split(geminiApiKey).join('[ANAHTAR GİZLENDİ]');
+        }
+        return out.replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]');
+    }
+
     // Terminal Log Writer
     function writeTerminalLog(message, type = 'info') {
         const line = document.createElement('div');
@@ -214,8 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // `message` can carry a raw upstream error body (see describeHttpError), so it
-        // is escaped before it becomes markup.
-        line.innerHTML = `${statusTag} <span>${escapeHtml(message)}</span>`;
+        // is escaped before it becomes markup — and redacted first, in case an error
+        // ever echoes the key back. Defence in depth: nothing today is known to do
+        // that, but a log line is the easiest place for a secret to end up in a
+        // screenshot or a pasted bug report.
+        line.innerHTML = `${statusTag} <span>${escapeHtml(redactSecrets(message))}</span>`;
         terminalBody.appendChild(line);
         terminalBody.scrollTop = terminalBody.scrollHeight;
     }
@@ -936,10 +968,22 @@ Yanıtı tam olarak şu JSON şemasında ver:
     btnCloseStorageWarning.addEventListener('click', () => storageWarning.classList.remove('visible'));
     btnHeroSetKey.addEventListener('click', () => openKeyDialog(btnHeroSetKey));
 
+    btnForgetKey.addEventListener('click', forgetGeminiKey);
+
     // Stale success/error text from a previous visit would be misleading
     function openKeyDialog(trigger) {
         keyStatus.className = 'key-status';
         keyStatus.textContent = '';
+
+        // Never repopulate the field with the real key; say a key exists instead
+        geminiApiKeyInput.value = '';
+        geminiApiKeyInput.placeholder = geminiApiKey
+            ? '•••••••••  kayıtlı anahtar var — değiştirmek için yenisini yapıştır'
+            : 'AIzaSy...';
+
+        btnForgetKey.classList.toggle('visible', Boolean(geminiApiKey));
+        rememberKeyToggle.checked = rememberKey;
+
         openDialogOverlay(feature2Modal, trigger, 'flex');
     }
     btnCloseModal.addEventListener('click', closeDialogOverlay);
@@ -951,19 +995,22 @@ Yanıtı tam olarak şu JSON şemasında ver:
     btnSaveGeminiKey.addEventListener('click', saveGeminiSettings);
 
     async function saveGeminiSettings() {
-        const key = geminiApiKeyInput.value.trim();
+        const typed = geminiApiKeyInput.value.trim();
+        rememberKey = rememberKeyToggle.checked;
+        persist('aetheria_remember_key', rememberKey ? 'true' : 'false');
 
-        // Clearing the field is a deliberate "turn this off"
+        // The field starts empty even when a key is stored, so "empty" means "keep
+        // what is saved" — not "delete it". Deleting is the explicit button; making
+        // an untouched field wipe a working key would be a trap.
+        const key = typed || geminiApiKey;
+
         if (!key) {
-            geminiApiKey = '';
-            useGeminiLiveMode = false;
-            useGeminiApiToggle.checked = false;
-            persist('aetheria_gemini_key', '');
-            persist('aetheria_use_gemini', 'false');
-            applyGeminiSettings();
-            setKeyStatus('Anahtar temizlendi. Örnek projeler gösterilecek.', 'ok');
+            setKeyStatus('Önce bir API anahtarı girin.', 'error');
             return;
         }
+
+        // Scope may have changed even when the key did not
+        writeKeyToStorage(key);
 
         // Kept so a rejected new key does not cost the user a working old one
         const previousKey = geminiApiKey;
@@ -998,12 +1045,15 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 generationConfig: { maxOutputTokens: 1 }
             });
 
-            persistOrWarn('aetheria_gemini_key', geminiApiKey, 'API anahtarı');
+            writeKeyToStorage(geminiApiKey);
             persist('aetheria_use_gemini', 'true');
             applyGeminiSettings();
+            geminiApiKeyInput.value = '';   // do not leave it sitting in the DOM
 
-            setKeyStatus('✓ Anahtar doğrulandı. Yapay zeka üretimi açık.', 'ok');
-            await sleep(1200);          // long enough to read before the dialog closes
+            setKeyStatus(rememberKey
+                ? '✓ Anahtar doğrulandı ve bu tarayıcıda saklandı.'
+                : '✓ Anahtar doğrulandı. Yalnızca bu sekme açık kaldığı sürece tutulacak.', 'ok');
+            await sleep(1400);          // long enough to read before the dialog closes
             closeDialogOverlay();
         } catch (err) {
             // Nothing is written on failure, so a rejected key leaves both memory and
@@ -1011,6 +1061,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
             geminiApiKey = previousKey;
             useGeminiLiveMode = previousMode;
             useGeminiApiToggle.checked = previousMode;
+            writeKeyToStorage(previousKey);
             applyGeminiSettings();
 
             // Dialog stays open so the user can correct what they just typed
@@ -1018,6 +1069,48 @@ Yanıtı tam olarak şu JSON şemasında ver:
         } finally {
             setButtonBusy(btnSaveGeminiKey, false);
         }
+    }
+
+    // One place decides where the key lives, so the two stores can never disagree —
+    // a key left behind in the other one would outlive the user's choice.
+    function writeKeyToStorage(key) {
+        try {
+            sessionStorage.removeItem(KEY_NAME);
+            localStorage.removeItem(KEY_NAME);
+        } catch { /* storage blocked; nothing to clean */ }
+
+        if (!key) return;
+
+        if (rememberKey) {
+            persistOrWarn(KEY_NAME, key, 'API anahtarı');
+        } else {
+            try {
+                sessionStorage.setItem(KEY_NAME, key);
+            } catch {
+                showStorageWarning('API anahtarı');
+            }
+        }
+    }
+
+    // An explicit way out. Clearing the input was the only route before, which is
+    // not something a user would guess, and left them no way to remove a key from a
+    // machine that is not theirs.
+    function forgetGeminiKey() {
+        geminiApiKey = '';
+        useGeminiLiveMode = false;
+        useGeminiApiToggle.checked = false;
+        geminiApiKeyInput.value = '';
+
+        writeKeyToStorage('');
+        persist('aetheria_use_gemini', 'false');
+        applyGeminiSettings();
+
+        // The dialog stays open after deleting, so its controls have to reflect the
+        // new state — offering to delete a key that is already gone is confusing.
+        btnForgetKey.classList.remove('visible');
+        geminiApiKeyInput.placeholder = 'AIzaSy...';
+
+        setKeyStatus('Anahtar silindi. Bu tarayıcıda hiçbir kopyası kalmadı.', 'ok');
     }
 
     function setKeyStatus(message, kind) {
