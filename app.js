@@ -21,7 +21,15 @@ document.addEventListener('DOMContentLoaded', () => {
         buildIdeationPrompt,
         CATEGORY_LABELS,
         evaluateRateLimit,
-        buildBlueprintMarkdown
+        buildBlueprintMarkdown,
+        PROVIDERS,
+        DEFAULT_PROVIDER,
+        getProvider,
+        buildProviderRequest,
+        extractProviderText,
+        parseJsonResponse,
+        readUsageTokens,
+        JSON_ONLY_SUFFIX
     } = window.AetheriaCore;
 
     // DOM Elements
@@ -64,6 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveGeminiKey = document.getElementById('btnSaveGeminiKey');
     const geminiApiKeyInput = document.getElementById('geminiApiKey');
     const useGeminiApiToggle = document.getElementById('useGeminiApiToggle');
+    const providerSelect = document.getElementById('providerSelect');
+    const providerCostNote = document.getElementById('providerCostNote');
+    const providerConsoleLink = document.getElementById('providerConsoleLink');
+    const keyFieldLabel = document.getElementById('keyFieldLabel');
 
     // Result DOM Elements
     const projectCategory = document.getElementById('projectCategory');
@@ -94,34 +106,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const RATE_LIMIT_COOLDOWN_MS = 20000; // 20 seconds minimum delay between Gemini API calls
     const MAX_CALLS_PER_HOUR = 15; // Max 15 Gemini API calls per hour per browser
 
-    // Gemini request configuration.
-    // Pinned model names go stale: gemini-2.5-flash now returns 404 ("no longer
-    // available to new users") and gemini-2.5-flash-lite is gone entirely, so live
-    // mode was dead for anyone with a recently issued key. The -latest aliases are
-    // repointed by Google as models are retired, which keeps this list from
-    // expiring again.
-    const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']; // primary, then fallback
+    // Request configuration. Endpoints, model lists and body shapes are per
+    // provider and live in core.js (PROVIDERS); only the budgets are shared.
     const MAX_OUTPUT_TOKENS = 8192; // must fit the full blueprint JSON
-    const GEMINI_TIMEOUT_MS = 45000;
+    const REQUEST_TIMEOUT_MS = 45000;
 
     // Pass 1 asks for a batch of one-liners; eight gives the local filter room to
     // discard repeats without needing a second round trip.
     const IDEA_BATCH_SIZE = 8;
     const IDEA_MAX_TOKENS = 1024;
 
-    // Reasoning is kept short so it does not eat the output budget. The field name
-    // is generation-specific: 2.5 took thinkingConfig.thinkingBudget, the current
-    // flash models reject that with 400 and take thinkingLevel instead. Measured
-    // with `node scripts/gemini-lab.js --probe-config`. requestGeminiCompletion
-    // drops the whole block and retries if a future model rejects this spelling
-    // too — the field has now changed twice, so it will change again.
-    const THINKING_CONFIG = { thinkingLevel: 'low' };
-
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
 
     // Shared Community Pool State Management
-    let communityPool = readJson('aetheria_community_pool', null);
+    // readJson only enforces shape when the fallback is itself an array, and this
+    // call passed null to distinguish "never saved" from "saved empty" — so the one
+    // value that most needed the guard was the one that skipped it. A hand-edited
+    // or corrupt entry like {"a":1} is truthy, survived the check below, and then
+    // every pool operation failed on it: the drawer rendered nothing, saving did
+    // nothing, and generation aborted, all without telling the user why.
+    let communityPool = readProjectArray('aetheria_community_pool');
     if (!communityPool) {
         communityPool = (typeof PROJECTS_DATABASE !== 'undefined') ? [...PROJECTS_DATABASE.slice(0, 3)] : [];
         persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
@@ -130,11 +135,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // The key can live in localStorage (survives restarts) or sessionStorage (gone
     // when the tab closes). Session storage is the safer default on a shared or
     // borrowed machine, so the choice is the user's and is remembered.
-    const KEY_NAME = 'aetheria_gemini_key';
+    //
+    // Keys are stored per provider. Sharing one slot would mean switching vendors
+    // silently discarded the key for the previous one, and a user with both a
+    // Gemini and a Claude key would have to re-paste on every switch.
+    const LEGACY_KEY_NAME = 'aetheria_gemini_key';
+    const keyNameFor = providerId => `aetheria_key_${providerId}`;
+
     let rememberKey = localStorage.getItem('aetheria_remember_key') !== 'false';
+    let activeProvider = readActiveProvider();
+
+    // Kept for the security tests and for anything that still reads a single name;
+    // it always points at the provider currently selected.
+    let KEY_NAME = keyNameFor(activeProvider);
+
+    migrateLegacyKey();
 
     let geminiApiKey = readKeyFromStorage();
     let useGeminiLiveMode = localStorage.getItem('aetheria_use_gemini') === 'true' && Boolean(geminiApiKey);
+
+    function readActiveProvider() {
+        const stored = localStorage.getItem('aetheria_provider');
+        if (!PROVIDERS[stored] || PROVIDERS[stored].browserBlocked) return DEFAULT_PROVIDER;
+        return stored;
+    }
+
+    // Anyone who used the app before it spoke to more than one vendor has a key
+    // under the old single-slot name. Move it once rather than making them paste
+    // it again after an update they did not ask for.
+    function migrateLegacyKey() {
+        try {
+            for (const store of [sessionStorage, localStorage]) {
+                const legacy = store.getItem(LEGACY_KEY_NAME);
+                if (!legacy) continue;
+                if (!store.getItem(keyNameFor('gemini'))) {
+                    store.setItem(keyNameFor('gemini'), legacy);
+                }
+                store.removeItem(LEGACY_KEY_NAME);
+            }
+        } catch { /* storage blocked; nothing to migrate */ }
+    }
 
     function readKeyFromStorage() {
         try {
@@ -150,6 +190,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // benefit. The field stays empty and only says that a key is stored.
     if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
     if (rememberKeyToggle) rememberKeyToggle.checked = rememberKey;
+    buildProviderOptions();
+    updateProviderUi();
     updateGeminiBadgeStatus();
     updateKeyHint();
     updateSavedBadge();
@@ -173,6 +215,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn(`localStorage okunamadı (${key}), varsayılana dönülüyor:`, err);
             return fallback;
         }
+    }
+
+    // Returns a usable array of project-shaped entries, or null when nothing has
+    // been stored yet — the caller seeds the pool in that case. Anything stored but
+    // unusable (an object, a number, a string) is treated as absent rather than
+    // handed on: the alternative is a value that passes a truthiness check and then
+    // breaks every method the rest of the app calls on it.
+    //
+    // Entries are filtered too, not just the container. A pool of [1,2,3] survives
+    // every array method and then renders blank cards with undefined ids.
+    function readProjectArray(key) {
+        const raw = readJson(key, null);
+        if (!Array.isArray(raw)) {
+            if (raw !== null && raw !== undefined) {
+                console.warn(`localStorage bozuk (${key}): dizi bekleniyordu, alınan:`, typeof raw);
+            }
+            return null;
+        }
+        return raw.filter(entry => entry && typeof entry === 'object' && entry.id !== undefined);
     }
 
     // Every write went straight to localStorage, which throws once the origin's
@@ -221,7 +282,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (geminiApiKey && geminiApiKey.length > 8) {
             out = out.split(geminiApiKey).join('[ANAHTAR GİZLENDİ]');
         }
-        return out.replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]');
+        // Belt and braces: a key can appear in an error body without matching the
+        // one currently in memory (a stale paste, a second provider). One pattern
+        // per vendor key format — Google's AIza..., Anthropic's sk-ant-..., and
+        // OpenAI's sk-... (listed last so the longer Anthropic prefix wins).
+        return out
+            .replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-[0-9A-Za-z_-]{20,}/g, '[ANAHTAR GİZLENDİ]');
     }
 
     // Terminal Log Writer
@@ -287,8 +355,14 @@ document.addEventListener('DOMContentLoaded', () => {
         generateButtonLabel.textContent = live ? 'PROJE ÜRET' : 'PROJE BUL';
 
         if (live) {
+            // Naming the provider matters once more than one is possible: it is the
+            // only place the user can see which vendor their requests are going to.
             keyHint.innerHTML = '';
-            keyHint.append('Yapay zeka üretimi ', Object.assign(document.createElement('strong'), { textContent: 'açık' }), '.');
+            keyHint.append(
+                'Yapay zeka üretimi ',
+                Object.assign(document.createElement('strong'), { textContent: 'açık' }),
+                ` · ${getProvider(activeProvider).label}.`
+            );
             return;
         }
 
@@ -306,11 +380,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update Gemini Header Badge Status
     function updateGeminiBadgeStatus() {
         if (useGeminiLiveMode && geminiApiKey) {
-            btnFeature2Notice.innerHTML = `<span>⚡ Gemini Live (Korumalı)</span>`;
+            // textContent, not innerHTML: the label now carries provider data.
+            btnFeature2Notice.textContent = `⚡ ${getProvider(activeProvider).label} (Korumalı)`;
             btnFeature2Notice.style.borderColor = 'var(--accent-emerald)';
             btnFeature2Notice.style.color = 'var(--accent-emerald)';
         } else {
-            btnFeature2Notice.innerHTML = `<span>⚡ Gemini API Ayarları</span>`;
+            btnFeature2Notice.innerHTML = `<span>⚡ API Ayarları</span>`;
             btnFeature2Notice.style.borderColor = 'rgba(255, 183, 3, 0.3)';
             btnFeature2Notice.style.color = 'var(--accent-amber)';
         }
@@ -547,8 +622,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // it is not: nothing is owed, the daily allowance is simply spent. Saying so
         // matters — the alternative is a user who thinks the app just charged them.
         if (response.status === 429) {
-            return 'Ücretsiz Gemini kotası doldu. Ücret çıkmaz — kota her gün sıfırlanır. ' +
-                   'O zamana kadar örnek projeler gösterilecek.';
+            if (activeProvider === 'gemini') {
+                return 'Ücretsiz Gemini kotası doldu. Ücret çıkmaz — kota her gün sıfırlanır. ' +
+                       'O zamana kadar örnek projeler gösterilecek.';
+            }
+            // The paid providers rate-limit by spend and tier, so the same
+            // reassurance would be false there.
+            return `${getProvider(activeProvider).label} istek sınırına takıldı. ` +
+                   'Biraz bekleyip tekrar deneyin.';
+        }
+
+        if (response.status === 401 || response.status === 403) {
+            return `Anahtar kabul edilmedi (HTTP ${response.status}). ` +
+                   `Seçili sağlayıcı: ${getProvider(activeProvider).label}. ` +
+                   'Anahtarın bu sağlayıcıya ait olduğundan emin olun.';
         }
 
         return `HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
@@ -631,25 +718,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // wording the app ships rather than a copy that can drift.
         const prompt = buildIdeationPrompt(categoryLabel, IDEA_BATCH_SIZE, combo, knownIdeaTitles());
 
-        const data = await requestGeminiCompletion({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: 'application/json',
-                maxOutputTokens: IDEA_MAX_TOKENS,
-                temperature: 1.0,   // higher than the expansion pass: this call exists to explore
-                thinkingConfig: THINKING_CONFIG
-            }
+        const result = await requestModelCompletion(prompt, {
+            maxTokens: IDEA_MAX_TOKENS,
+            temperature: 1.0,   // higher than the expansion pass: this call exists to explore
+            label: 'Fikir listesi'
         });
 
-        const parsed = readJsonCandidate(data, 'Fikir listesi');
+        const parsed = parseJsonResponse(result.text, 'Fikir listesi');
         const ideas = Array.isArray(parsed.ideas) ? parsed.ideas : [];
         if (ideas.length === 0) throw new Error('Fikir listesi boş döndü');
 
-        return {
-            ideas,
-            model: data.__model,
-            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
-        };
+        return { ideas, model: result.model, tokens: result.tokens };
     }
 
     // PASS 2 — expand the chosen one-liner into the full project schema.
@@ -693,17 +772,13 @@ Yanıtı tam olarak şu JSON şemasında ver:
 
 "type" alanı yalnızca şunlardan biri olabilir: source, service, ai, storage, client.`;
 
-        const data = await requestGeminiCompletion({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: 'application/json',
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                temperature: 0.7,
-                thinkingConfig: THINKING_CONFIG
-            }
+        const result = await requestModelCompletion(prompt, {
+            maxTokens: MAX_OUTPUT_TOKENS,
+            temperature: 0.7,
+            label: 'Proje'
         });
 
-        const projectObj = readJsonCandidate(data, 'Proje');
+        const projectObj = parseJsonResponse(result.text, 'Proje');
 
         const shapeError = validateProjectShape(projectObj);
         if (shapeError) throw new Error(`Geçersiz proje yanıtı: ${shapeError}`);
@@ -712,8 +787,8 @@ Yanıtı tam olarak şu JSON şemasında ver:
 
         return {
             project: normalizeProject(projectObj, activeCategoryFilter),
-            model: data.__model,
-            tokens: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0
+            model: result.model,
+            tokens: result.tokens
         };
     }
 
@@ -728,99 +803,124 @@ Yanıtı tam olarak şu JSON şemasında ver:
             '(node scripts/gemini-lab.js --probe-config ile doğrulanabilir)', 'warning');
     }
 
-    // Shared unwrapping for both passes: the API does not guarantee the shape the
-    // original code assumed, so every step that can be missing is checked.
-    function readJsonCandidate(data, label) {
-        const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
-        if (!candidate) {
-            const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
-            throw new Error(blockReason
-                ? `${label}: istek güvenlik filtresine takıldı (${blockReason})`
-                : `${label}: Gemini boş yanıt döndürdü`);
-        }
-        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-            throw new Error(`${label}: yanıt tamamlanamadı (finishReason: ${candidate.finishReason})`);
-        }
+    // POST one prompt to the active provider, walking its model list until one
+    // answers, and hand back plain text plus the accounting the terminal reports.
+    //
+    // The credential is attached here and nowhere else. It travels in whichever
+    // header the provider declares — never in the query string, so it cannot end up
+    // in browser history, referrers or proxy logs.
+    async function requestModelCompletion(prompt, options) {
+        const opts = options || {};
+        const providerId = activeProvider;
+        const provider = getProvider(providerId);
+        const label = opts.label || 'Yanıt';
 
-        const parts = candidate.content && Array.isArray(candidate.content.parts)
-            ? candidate.content.parts
-            : [];
-        const jsonText = parts.map(part => (part && typeof part.text === 'string' ? part.text : '')).join('');
-        if (!jsonText.trim()) throw new Error(`${label}: yanıtta metin bulunamadı`);
+        // Providers with no JSON mode need to be told in the prompt instead.
+        const finalPrompt = provider.nativeJsonMode ? prompt : prompt + JSON_ONLY_SUFFIX;
 
-        try {
-            return JSON.parse(jsonText);
-        } catch {
-            throw new Error(`${label}: geçerli JSON döndürmedi`);
-        }
-    }
-
-    // POST to Gemini, walking the model list until one answers. The API key travels in
-    // the x-goog-api-key header rather than the query string so it does not end up in
-    // browser history, referrers or proxy logs.
-    async function requestGeminiCompletion(requestBody) {
         let lastError = null;
 
-        for (const model of GEMINI_MODELS) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-
+        for (const model of provider.models) {
             try {
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-goog-api-key': geminiApiKey.trim()
-                        },
-                        body: JSON.stringify(requestBody),
-                        signal: controller.signal
-                    }
-                );
-
-                if (response.ok) {
-                    // Tag the payload with the model that actually served it — with a
-                    // fallback list, that is not always GEMINI_MODELS[0].
-                    const payload = await response.json();
-                    payload.__model = model;
-                    return payload;
-                }
-
-                lastError = new Error(`${model}: ${await describeHttpError(response)}`);
-
-                // A 400 with thinkingConfig present is almost always this model
-                // rejecting that field's spelling — it has already changed once
-                // (thinkingBudget -> thinkingLevel) and broke live mode silently.
-                // Drop the block and retry the same model before giving up: a shorter
-                // reasoning budget is an optimisation, not a requirement.
-                if (response.status === 400 && requestBody.generationConfig
-                    && requestBody.generationConfig.thinkingConfig) {
-                    const { thinkingConfig, ...rest } = requestBody.generationConfig;
-                    void thinkingConfig;
-                    onThinkingConfigRejected();
-                    return requestGeminiCompletion({ ...requestBody, generationConfig: rest });
-                }
-
-                // 404 means this particular model is gone or gated for this key, and
-                // 429 is a quota answer for this model — both are exactly what the
-                // fallback list exists for, so keep walking it.
-                // Other 4xx (bad key, bad body) would fail identically on every model.
-                const worthRetrying = response.status === 404 || response.status === 429;
-                if (response.status >= 400 && response.status < 500 && !worthRetrying) {
-                    throw lastError;
-                }
+                const payload = await postToModel(providerId, model, finalPrompt, opts);
+                return {
+                    text: extractProviderText(providerId, payload, label),
+                    model,
+                    tokens: readUsageTokens(providerId, payload)
+                };
             } catch (err) {
-                if (err === lastError) throw err;
-                lastError = err.name === 'AbortError'
-                    ? new Error(`${model}: istek zaman aşımına uğradı (${GEMINI_TIMEOUT_MS / 1000}s)`)
-                    : new Error(`${model}: ${err.message}`);
-            } finally {
-                clearTimeout(timeoutId);
+                lastError = err;
+                // A hard error (bad key, malformed body, refusal) fails identically
+                // on every model in the list, so only keep walking for the two
+                // statuses the fallback list exists for.
+                if (!err.retryNextModel) throw err;
             }
         }
 
-        throw lastError || new Error('Gemini API Hatası');
+        throw lastError || new Error(`${provider.label} API Hatası`);
+    }
+
+    // Key validation only needs to know whether the credential is accepted, so it
+    // checks the HTTP result and deliberately ignores the body. Parsing it would
+    // reject a perfectly good key whenever a one-token answer stopped on the length
+    // limit rather than on its own.
+    async function probeActiveKey() {
+        const provider = getProvider(activeProvider);
+        let lastError = null;
+
+        for (const model of provider.models) {
+            try {
+                await postToModel(activeProvider, model, 'ping', { maxTokens: 16 });
+                return;
+            } catch (err) {
+                lastError = err;
+                if (!err.retryNextModel) throw err;
+            }
+        }
+
+        throw lastError || new Error('Anahtar doğrulanamadı');
+    }
+
+    // One HTTP round trip against one model. Errors carry `retryNextModel` so the
+    // caller can tell "try the next model" from "stop".
+    async function postToModel(providerId, model, prompt, opts, dropThinking) {
+        const shaped = buildProviderRequest(providerId, model, prompt, opts);
+
+        const body = { ...shaped.body };
+        if (dropThinking && body.generationConfig) {
+            const { thinkingConfig, ...rest } = body.generationConfig;
+            void thinkingConfig;
+            body.generationConfig = rest;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(shaped.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...shaped.extraHeaders,
+                    [shaped.authHeader.name]: shaped.authHeader.prefix + geminiApiKey.trim()
+                },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+
+            if (response.ok) return response.json();
+
+            // A 400 while a thinking block is present is almost always this model
+            // rejecting that field's spelling — it has already changed twice
+            // (thinkingBudget -> thinkingLevel) and broke live mode silently each
+            // time. Drop the block and retry: a shorter reasoning budget is an
+            // optimisation, not a requirement.
+            if (response.status === 400 && !dropThinking
+                && shaped.body.generationConfig && shaped.body.generationConfig.thinkingConfig) {
+                onThinkingConfigRejected();
+                return postToModel(providerId, model, prompt, opts, true);
+            }
+
+            const error = new Error(`${model}: ${await describeHttpError(response)}`);
+            // 404 means this model is gone or ungated for this key; 429 is a quota
+            // answer for this model. Both are what the fallback list is for.
+            error.retryNextModel = response.status === 404 || response.status === 429
+                || response.status >= 500;
+            throw error;
+        } catch (err) {
+            if (err instanceof Error && 'retryNextModel' in err) throw err;
+
+            const wrapped = err.name === 'AbortError'
+                ? new Error(`${model}: istek zaman aşımına uğradı (${REQUEST_TIMEOUT_MS / 1000}s)`)
+                // A network-level failure on a browser call to Anthropic or OpenAI
+                // is usually CORS or an ad blocker, not a bad key. Saying "failed to
+                // fetch" alone sent people hunting for a key problem.
+                : new Error(`${model}: ${err.message}`);
+            wrapped.retryNextModel = true;
+            throw wrapped;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     // Render Visual Architecture Flow Graph
@@ -1040,10 +1140,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
         try {
             // A key that is wrong should be reported here, not discovered on the next
             // generation as a silent fall back to the examples.
-            await requestGeminiCompletion({
-                contents: [{ parts: [{ text: 'ping' }] }],
-                generationConfig: { maxOutputTokens: 1 }
-            });
+            await probeActiveKey();
 
             writeKeyToStorage(geminiApiKey);
             persist('aetheria_use_gemini', 'true');
@@ -1108,9 +1205,113 @@ Yanıtı tam olarak şu JSON şemasında ver:
         // The dialog stays open after deleting, so its controls have to reflect the
         // new state — offering to delete a key that is already gone is confusing.
         btnForgetKey.classList.remove('visible');
-        geminiApiKeyInput.placeholder = 'AIzaSy...';
+        updateProviderUi();   // resets the placeholder to this provider's format
 
-        setKeyStatus('Anahtar silindi. Bu tarayıcıda hiçbir kopyası kalmadı.', 'ok');
+        setKeyStatus(
+            `${getProvider(activeProvider).label} anahtarı silindi. Bu tarayıcıda hiçbir kopyası kalmadı.`,
+            'ok');
+    }
+
+    // ---- Sağlayıcı seçimi ---------------------------------------------------
+    // The list is generated from PROVIDERS rather than written into the HTML, so a
+    // provider the request layer cannot actually talk to can never appear here.
+    function buildProviderOptions() {
+        if (!providerSelect) return;
+        providerSelect.innerHTML = '';
+
+        for (const id of Object.keys(PROVIDERS)) {
+            const provider = PROVIDERS[id];
+            const option = document.createElement('option');
+            option.value = id;
+
+            if (provider.browserBlocked) {
+                // Selectable-but-broken is worse than visibly unavailable: the user
+                // would paste a valid key and get a network error that reads like
+                // their key was wrong.
+                option.disabled = true;
+                option.textContent = `${provider.label} — tarayıcıdan kullanılamıyor`;
+            } else {
+                // Free vs paid is the first thing a user needs to know, so it is in
+                // the option text itself and not only in the note underneath.
+                option.textContent =
+                    `${provider.label}${provider.free ? ' — ücretsiz katman' : ' — ücretli'}`;
+            }
+
+            providerSelect.appendChild(option);
+        }
+
+        providerSelect.value = activeProvider;
+    }
+
+    // Everything in the dialog that depends on which vendor is selected: the label,
+    // the placeholder, where to get a key, the cost warning, and whether a key for
+    // *this* provider is already stored. Leaving any of these stale was how the old
+    // single-provider dialog managed to say one thing and do another.
+    function updateProviderUi() {
+        const provider = getProvider(activeProvider);
+
+        if (keyFieldLabel) keyFieldLabel.textContent = provider.label;
+        if (geminiApiKeyInput) {
+            geminiApiKeyInput.placeholder = geminiApiKey
+                ? 'Kayıtlı anahtar var — değiştirmek için yeni anahtar girin'
+                : provider.keyPlaceholder;
+        }
+        if (providerConsoleLink) {
+            providerConsoleLink.href = provider.consoleUrl;
+            providerConsoleLink.textContent = `👉 API anahtarı al (${provider.consoleLabel})`;
+        }
+        if (providerCostNote) {
+            if (provider.browserBlocked) {
+                providerCostNote.textContent = `🚫 ${provider.blockedReason}`;
+            } else {
+                const cost = provider.free
+                    ? `💚 ${provider.costNote}`
+                    : `💳 ${provider.costNote} Faturayı sen ödersin; kotanı sağlayıcının panelinden sınırla.`;
+                providerCostNote.textContent = provider.browserNote
+                    ? `${cost}\n⚠️ ${provider.browserNote}`
+                    : cost;
+            }
+        }
+        if (btnForgetKey) btnForgetKey.classList.toggle('visible', Boolean(geminiApiKey));
+    }
+
+    // Switching providers swaps which stored key is in play. The key for the
+    // provider being left is untouched — a user with two keys should not lose one
+    // by looking at the other.
+    function switchProvider(nextId) {
+        if (!PROVIDERS[nextId] || nextId === activeProvider) return;
+
+        // A disabled <option> cannot normally be picked, but the stored preference
+        // is also a way in — a provider that becomes unreachable must not strand a
+        // returning user on a picker that only produces network errors.
+        if (PROVIDERS[nextId].browserBlocked) {
+            providerSelect.value = activeProvider;
+            setKeyStatus(PROVIDERS[nextId].blockedReason, 'error');
+            return;
+        }
+
+        activeProvider = nextId;
+        KEY_NAME = keyNameFor(activeProvider);
+        persist('aetheria_provider', activeProvider);
+
+        geminiApiKey = readKeyFromStorage();
+        // Live mode is only meaningful with a key for the provider now selected.
+        useGeminiLiveMode = localStorage.getItem('aetheria_use_gemini') === 'true'
+            && Boolean(geminiApiKey);
+        if (useGeminiApiToggle) useGeminiApiToggle.checked = useGeminiLiveMode;
+
+        updateProviderUi();
+        applyGeminiSettings();
+
+        const provider = getProvider(activeProvider);
+        setKeyStatus(geminiApiKey
+            ? `${provider.label} için kayıtlı anahtar bulundu.`
+            : `${provider.label} seçildi. Bu sağlayıcı için henüz anahtar yok.`,
+            geminiApiKey ? 'ok' : 'checking');
+    }
+
+    if (providerSelect) {
+        providerSelect.addEventListener('change', () => switchProvider(providerSelect.value));
     }
 
     function setKeyStatus(message, kind) {
@@ -1125,6 +1326,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
     function applyGeminiSettings() {
         updateGeminiBadgeStatus();
         updateKeyHint();
+        updateProviderUi();
         if (currentProject) setOriginBadge(originBadge.textContent.includes('Örnek'));
     }
 
@@ -1173,7 +1375,9 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 const generated = await generateProjectViaGeminiApi((step) => {
                     if (step.phase === 'ideate') {
                         writeTerminalLog(
-                            `Fikir listesi isteniyor · ${IDEA_BATCH_SIZE} fikir · model: ${GEMINI_MODELS[0]}`, 'agent');
+                            `Fikir listesi isteniyor · ${IDEA_BATCH_SIZE} fikir · ` +
+                            `${getProvider(activeProvider).label} · model: ${getProvider(activeProvider).models[0]}`,
+                            'agent');
                         writeTerminalLog(
                             `Kısıtlar: ${step.combo.problemSource} · ${step.combo.audience} · ` +
                             `${step.combo.technical} · ${step.combo.revenue}`, 'info');

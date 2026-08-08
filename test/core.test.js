@@ -241,6 +241,43 @@ test('titleOverlap scores near-duplicates high and unrelated titles low', () => 
     assert.ok(core.titleOverlap('Akıllı Sulama Ağı', 'Blokzincir Denetim Motoru') < 0.3);
 });
 
+// The app is Turkish, so the two ways Turkish breaks naive text handling are
+// pinned here. Both used to score 0 — a title was not recognised as a repeat of
+// itself, which defeats the whole point of the duplicate check.
+test('normalizeTitle lowercases the Turkish way', () => {
+    // Plain toLowerCase turns 'İ' into 'i' plus a combining dot; the dot is not a
+    // letter, so the punctuation pass split the word: "teknoloji leri".
+    assert.strictEqual(core.normalizeTitle('TEKNOLOJİLERİ'), 'teknolojileri');
+    // ...and it turns 'I' into 'i' rather than 'ı'
+    // The dotted/dotless I pair folds together, so neither spelling is favoured
+    assert.strictEqual(core.normalizeTitle('IŞIK'), core.normalizeTitle('ışık'));
+    assert.strictEqual(core.normalizeTitle('TARIM'), core.normalizeTitle('tarım'));
+
+    // ...without breaking the ASCII acronyms these titles are full of. A Turkish
+    // locale lowercase would turn "AI" into "aı" and stop it matching "ai".
+    assert.strictEqual(core.normalizeTitle('AI Destekli'), core.normalizeTitle('ai destekli'));
+    assert.ok(core.normalizeTitle('API Gateway').startsWith('api'));
+});
+
+test('titleOverlap sees through Turkish case and suffixes', () => {
+    assert.strictEqual(core.titleOverlap('TARIM TEKNOLOJİLERİ', 'tarım teknolojileri'), 1,
+        'aynı başlığın büyük harfli hâli kopya sayılmıyor');
+    // Agglutinative endings: same root, different suffix
+    assert.ok(core.titleOverlap('Tarım Teknolojileri', 'Tarımsal Teknoloji') >= 0.5,
+        'ekli biçimler farklı kabul ediliyor');
+});
+
+test('titleOverlap does not match on a shared opening alone', () => {
+    // The suffix tolerance must not collapse unrelated words that merely start
+    // alike, or every duplicate check becomes a false positive.
+    assert.strictEqual(core.titleOverlap('Kartograf Motoru', 'Kart Yönetimi'), 0);
+    assert.ok(core.titleOverlap('Sulama Ağı', 'Sunucu Ağı') < 0.6);
+});
+
+test('titleOverlap cannot exceed 1 when a title repeats a word', () => {
+    assert.ok(core.titleOverlap('Rapor Rapor Rapor', 'Rapor Motoru') <= 1);
+});
+
 test('buildIdeationPrompt carries the category, count and every axis', () => {
     const combo = core.pickConstraintCombo();
     const p = core.buildIdeationPrompt('eğitim teknolojileri', 8, combo, []);
