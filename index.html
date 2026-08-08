@@ -352,7 +352,8 @@
 
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label for="geminiApiKey">Gemini API Key</label>
-                    <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;">
+                    <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;"
+                           autocomplete="off" spellcheck="false" data-1p-ignore>
                     <small style="color: var(--accent-cyan); display: block; margin-top: 0.4rem;">
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">👉 Ücretsiz Gemini API Key Al (Google AI Studio)</a>
                     </small>
@@ -362,15 +363,27 @@
                     </small>
                 </div>
 
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; background: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; background: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm);">
                     <label for="useGeminiApiToggle" style="font-size: 0.9rem; font-weight: 600; cursor: pointer;">Yapay zeka üretimini kullan</label>
                     <input type="checkbox" id="useGeminiApiToggle" style="width: 18px; height: 18px; cursor: pointer;">
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; background: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm);">
+                    <label for="rememberKeyToggle" style="font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                        Anahtarı bu tarayıcıda sakla
+                        <span style="display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            Kapalıysa yalnızca bu sekme açık kaldığı sürece tutulur
+                        </span>
+                    </label>
+                    <input type="checkbox" id="rememberKeyToggle" checked style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
                 </div>
 
                 <!-- Save result: the dialog used to close with no indication of anything -->
                 <p id="keyStatus" class="key-status" role="status" aria-live="polite"></p>
 
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                    <button type="button" id="btnForgetKey" class="btn-close-modal btn-forget-key"
+                            style="margin-right: auto;">Anahtarı Sil</button>
                     <button id="btnCloseModal" class="btn-close-modal" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">İptal</button>
                     <button id="btnSaveGeminiKey" class="btn-close-modal" style="background: var(--gradient-glow);">Kaydet & Başlat</button>
                 </div>

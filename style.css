@@ -488,6 +488,21 @@ body {
 }
 
 /* Terminal Agent Console */
+.btn-forget-key {
+    display: none;
+    background: transparent;
+    border: 1px solid rgba(255, 71, 87, 0.4);
+    color: var(--accent-rose);
+}
+
+.btn-forget-key.visible {
+    display: inline-block;
+}
+
+.btn-forget-key:hover {
+    background: rgba(255, 71, 87, 0.12);
+}
+
 .key-status {
     display: none;
     margin-bottom: 1rem;
