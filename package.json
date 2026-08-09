@@ -14,7 +14,7 @@
     "test": "node --test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "start": "python -m http.server 3000",
+    "start": "node scripts/dev-server.js 3000",
     "check": "npm run lint && npm test"
   },
   "devDependencies": {

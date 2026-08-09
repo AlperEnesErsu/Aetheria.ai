@@ -373,6 +373,17 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.assign(document.createElement('strong'), { textContent: 'örnek projeler' }),
             ' gösteriliyor. '
         );
+
+        // Someone who already has a key does not need to be told to go get one;
+        // pointing them at the signup flow reads as "your key did not save".
+        if (geminiApiKey) {
+            keyHint.append('Anahtarın kayıtlı, yapay zeka üretimi kapalı. ');
+            keyHint.appendChild(btnHeroSetKey);
+            btnHeroSetKey.textContent = 'Ayarlardan aç';
+            return;
+        }
+
+        btnHeroSetKey.textContent = 'Ücretsiz anahtarını ekle';
         keyHint.appendChild(btnHeroSetKey);
         keyHint.append(' — 30 saniye, kredi kartı gerekmez.');
     }
@@ -1314,6 +1325,31 @@ Yanıtı tam olarak şu JSON şemasında ver:
         providerSelect.addEventListener('change', () => switchProvider(providerSelect.value));
     }
 
+    // This checkbox had no listener at all: ticking it did nothing, and saving a key
+    // forced it back on regardless. A visible control that silently ignores the user
+    // is worse than no control — someone who wanted to keep their key but pause
+    // generation had no way to say so, and no way to tell that they had failed.
+    if (useGeminiApiToggle) {
+        useGeminiApiToggle.addEventListener('change', () => {
+            if (useGeminiApiToggle.checked && !geminiApiKey) {
+                // Nothing to turn on. Bounce the control back rather than leaving it
+                // ticked next to a mode that cannot start.
+                useGeminiApiToggle.checked = false;
+                setKeyStatus(
+                    `Önce ${getProvider(activeProvider).label} için bir anahtar girin.`, 'error');
+                return;
+            }
+
+            useGeminiLiveMode = useGeminiApiToggle.checked;
+            persist('aetheria_use_gemini', useGeminiLiveMode ? 'true' : 'false');
+            applyGeminiSettings();
+
+            setKeyStatus(useGeminiLiveMode
+                ? 'Yapay zeka üretimi açık.'
+                : 'Yapay zeka üretimi kapalı. Anahtarın saklı kalmaya devam ediyor.', 'ok');
+        });
+    }
+
     function setKeyStatus(message, kind) {
         keyStatus.textContent = message;
         keyStatus.className = `key-status visible is-${kind}`;
@@ -1412,8 +1448,17 @@ Yanıtı tam olarak şu JSON şemasında ver:
         if (!projectToRender) {
             isExample = true;
 
-            if (!useGeminiLiveMode || !geminiApiKey) {
+            // Two different states used to share one message, and the message was
+            // wrong for one of them: a user who had saved a key but switched live
+            // mode off was told the key did not exist. Telling someone their key is
+            // missing when it is sitting in storage sends them to re-paste a key
+            // that was never the problem.
+            if (!geminiApiKey) {
                 writeTerminalLog('API anahtarı tanımlı değil — örnek projeler gösteriliyor.', 'info');
+            } else if (!useGeminiLiveMode) {
+                writeTerminalLog(
+                    `${getProvider(activeProvider).label} anahtarı kayıtlı ama yapay zeka üretimi kapalı — ` +
+                    'örnek projeler gösteriliyor. Ayarlardan açabilirsin.', 'info');
             }
 
             const { project, exhausted } = getUnseenExample();

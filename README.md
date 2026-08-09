@@ -95,9 +95,17 @@ Herhangi bir karmaşık paket kurulumuna (npm/node_modules) gerek yoktur.
 
 2. **Yerel sunucuyu başlatın**:
    ```bash
-   python -m http.server 3000
+   npm start
    ```
-   *veya Herhangi bir statik sunucu (npx serve, VS Code Live Server vb.)*
+   Bu, `scripts/dev-server.js`'i çalıştırır (Node, sıfır bağımlılık) ve yanıtlara
+   `Cache-Control: no-store` ekler.
+
+   > ⚠️ **`python -m http.server` ile geliştirme yapmayın.** Hiç önbellek başlığı
+   > göndermediği için tarayıcı `app.js`'i sezgisel olarak önbelleğe alır ve
+   > düzenlemenizden sonra **eski kodu çalıştırmaya devam eder** — düzeltmeniz
+   > hiçbir şey yapmamış gibi görünür. Bu gerçek bir hata avına mal oldu.
+   > Yine de başka bir sunucu kullanacaksanız, kod değişikliğinden sonra
+   > **sert yenileme** yapın (Ctrl+F5) veya sekmeyi kapatıp yeniden açın.
 
 3. Tarayıcınızda **`http://localhost:3000`** adresine gidin.
 
