@@ -152,3 +152,13 @@ test('every project renders a complete blueprint', () => {
         assert.ok(!md.includes('N/A'), `${p.id}: eksik meta yüzünden blueprint'te N/A var`);
     }
 });
+
+test('every project has a valid scope (national or international)', () => {
+    for (const p of projects) {
+        assert.ok(p.scope === 'national' || p.scope === 'international', `${p.id}: geçersiz scope (${p.scope})`);
+    }
+    const nationalCount = projects.filter(p => p.scope === 'national').length;
+    const internationalCount = projects.filter(p => p.scope === 'international').length;
+    assert.ok(nationalCount >= 5, `Yeterli ulusal proje bulunamadı: ${nationalCount}`);
+    assert.ok(internationalCount >= 5, `Yeterli uluslararası proje bulunamadı: ${internationalCount}`);
+});

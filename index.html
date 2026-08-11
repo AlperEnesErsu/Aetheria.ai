@@ -126,6 +126,36 @@
                     Kendi API anahtarınla, seçtiğin alanda özgün proje fikirleri üret; beğendiklerini teknik mimarisiyle birlikte kaydet.
                 </p>
 
+                <!-- Scope & Ecosystem Selector (Ulusal 🇹🇷 / Uluslararası 🌍 / Tümü 🌐) -->
+                <div class="scope-selector-wrapper">
+                    <div class="scope-selector-title">
+                        <span>🎯 Ekosistem ve Pazar Kapsamı</span>
+                    </div>
+                    <div class="scope-selector-container" id="scopeSelector" role="radiogroup" aria-label="Proje Kapsamı ve Ekosistem">
+                        <button type="button" class="scope-btn active" data-scope="all" role="radio" aria-checked="true">
+                            <span class="scope-icon">🌐</span>
+                            <div class="scope-text-group">
+                                <span class="scope-title">Tüm Kapsamlar</span>
+                                <span class="scope-sub">Global & Ulusal Hibrit</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scope-btn" data-scope="national" role="radio" aria-checked="false">
+                            <span class="scope-icon">🇹🇷</span>
+                            <div class="scope-text-group">
+                                <span class="scope-title">Ulusal (Türkiye Odaklı)</span>
+                                <span class="scope-sub">TÜBİTAK • TEKNOFEST • KVKK • GİB • FAST</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scope-btn" data-scope="international" role="radio" aria-checked="false">
+                            <span class="scope-icon">🌍</span>
+                            <div class="scope-text-group">
+                                <span class="scope-title">Uluslararası (Global)</span>
+                                <span class="scope-sub">Global SaaS • SOC2 • GDPR • Stripe</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Category & Domain Filter Bar -->
                 <div class="filter-bar-container" id="filterBar" role="group" aria-label="Kategori filtresi">
                     <button class="filter-btn active" data-category="all">🌐 Tüm Kategoriler</button>
@@ -194,6 +224,7 @@
                     <div class="project-meta-top">
                         <span id="originBadge" class="card-header-badge badge-step1">Aşama 1: Proje Bulundu</span>
                         <span id="projectCategory" class="project-category">Kategori</span>
+                        <span id="projectScopeBadge" class="project-scope-badge">🇹🇷 Ulusal</span>
                         
                         <div class="header-card-actions">
                             <!-- SAVE TO SHARED POOL BUTTON -->

@@ -17,39 +17,84 @@
     'use strict';
 
     // Diagram node types that have a matching .node-* rule in style.css
+    // Diagram node types that have a matching .node-* rule in style.css
     const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
+
+    // Scope definitions for targeting specific market ecosystems
+    const SCOPE_PRESETS = {
+        all: {
+            id: 'all',
+            label: '🌐 Tümü (Hibrit)',
+            badge: '🌐 Hibrit Pazar',
+            description: 'Hem Türkiye pazarında uygulanabilir hem de küresel ölçeklenebilir hibrit projeler'
+        },
+        national: {
+            id: 'national',
+            label: '🇹🇷 Ulusal (Türkiye Odaklı)',
+            badge: '🇹🇷 Ulusal (Türkiye)',
+            description: 'Türkiye şartlarına, regülasyonlarına (KVKK, GİB, e-Devlet), hibe/teşviklerine (TÜBİTAK, TEKNOFEST, KOSGEB) ve yerel sektörel sorunlarına odaklı projeler'
+        },
+        international: {
+            id: 'international',
+            label: '🌍 Uluslararası (Global)',
+            badge: '🌍 Uluslararası (Global)',
+            description: 'Küresel pazara, uluslararası standartlara (SOC2, GDPR, Stripe) ve dünya çapında ölçeklenebilir SaaS/açık kaynak ekosistemine odaklı projeler'
+        }
+    };
 
     // Asked the same question repeatedly, the model returns variations on a handful
     // of favourite ideas. Rotating a constraint combination through the prompt
     // pushes it into a different corner each time: 5^4 = 625 combinations.
     const CONSTRAINT_AXES = {
         problemSource: [
-            'regülasyon ve uyum baskısı',
-            'operasyonel maliyet baskısı',
-            'manuel iş yükü ve tekrar eden süreçler',
-            'birbirinden kopuk veri siloları',
+            'regülasyon ve uyum baskısı (KVKK / GDPR / GİB e-Belge / BDDK)',
+            'operasyonel maliyet ve verimsizlik baskısı',
+            'manuel iş yükü ve tekrarlayan süreçler',
+            'birbirinden kopuk veri siloları ve entegrasyon açığı',
+            'afet, güvenlik ve kriz yönetimi açığı',
             'erişilebilirlik ve kapsayıcılık açığı'
         ],
         audience: [
-            'kurumsal ekipler',
-            'bağımsız profesyoneller ve küçük işletmeler',
-            'son kullanıcılar',
-            'araştırmacılar ve akademi',
-            'kamu kurumları ve STK\'lar'
+            'KOBİ ve yerel işletmeler',
+            'kurumsal şirketler ve ekipler',
+            'bağımsız profesyoneller ve geliştiriciler',
+            'kamu kurumları, belediyeler ve STK\'lar',
+            'araştırmacılar, akademisyenler ve üniversiteler',
+            'son kullanıcılar ve vatandaşlar'
         ],
         technical: [
-            'uçta (edge) çalışma',
-            'gizlilik korumalı işleme',
-            'gerçek zamanlı akış',
-            'çevrimdışı öncelikli tasarım',
-            'uçtan uca otomasyon'
+            'uçta (edge) ve çevrimdışı öncelikli çalışma',
+            'gizlilik korumalı yerel yapay zeka (On-prem / Private LLM)',
+            'gerçek zamanlı veri akışı ve IoT sensör ağı',
+            'mikroservis ve olay güdümlü (Event-Driven) mimari',
+            'otonom yapay zeka ajanı ve iş akışı otomasyonu'
         ],
         revenue: [
             'B2B SaaS aboneliği',
-            'pazaryeri komisyonu',
-            'geliştirici API\'si',
-            'açık çekirdek (open core)',
-            'kullanım bazlı ücretlendirme'
+            'işlem başına komisyon / pazaryeri modeli',
+            'hibe, teşvik ve kurumsal lisanslama (TÜBİTAK/KOSGEB)',
+            'kullanım bazlı (Pay-as-you-go) API ücretlendirmesi',
+            'açık çekirdek (Open Core) ve kurumsal destek'
+        ]
+    };
+
+    const ECOSYSTEM_AXES = {
+        national: [
+            'TÜBİTAK 1512 BİGG ve 1507 KOBİ Ar-Ge hibe desteği',
+            'TEKNOFEST yarışma kategorileri (Sağlık, Tarım, Çevre, Ulaşım, İnsansız Sistemler)',
+            'KOSGEB Ar-Ge, İnovasyon ve Dijitalleşme Fonu',
+            'GİB e-Fatura, e-Arşiv, e-İrsaliye ve Luca/Zirve muhasebe entegrasyonu',
+            'MERNİS, e-Devlet Kapısı ve KPS kimlik doğrulama altyapısı',
+            'Yerli ödeme sistemleri (İyzico, PayTR, FAST, Troy, Papara)',
+            'Deprem, AFAD, Kandilli ve erken uyarı sistemleri',
+            'Akıllı tarım, DSİ sulama otomasyonu ve Çiftçi Kayıt Sistemi (ÇKS)'
+        ],
+        global: [
+            'Global SaaS ve Product Hunt lansman ekosistemi',
+            'Stripe, LemonSqueezy çoklu para birimi ve global vergilendirme',
+            'SOC2 Type II, ISO 27001 ve GDPR / CCPA veri güvenliği',
+            'Multi-region AWS / GCP / Cloudflare Edge dağıtık altyapısı',
+            'Açık kaynak geliştirici araçları (Developer Tooling & Open Core)'
         ]
     };
 
@@ -110,7 +155,10 @@
 
         p.id = (typeof p.id === 'string' && p.id.trim()) ? p.id.trim() : `gemini-${stamp}`;
         p.categoryKey = typeof p.categoryKey === 'string' ? p.categoryKey : fallbackCategoryKey;
-        p.meta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
+        p.scope = (typeof p.scope === 'string' && ['national', 'international', 'all'].includes(p.scope))
+            ? p.scope
+            : (p.meta && p.meta.scope) || 'all';
+        p.meta = (p.meta && typeof p.meta === 'object') ? { ...p.meta } : {};
         p.diagramNodes = Array.isArray(p.diagramNodes)
             ? p.diagramNodes.filter(n => n && typeof n === 'object' && typeof n.name === 'string')
             : [];
@@ -139,12 +187,22 @@
 
     // Draw one value from each constraint axis. Returned as a plain object so the
     // caller can both build a prompt from it and show it to the user.
-    function pickConstraintCombo(random) {
+    function pickConstraintCombo(random, scope = 'all') {
         const rng = typeof random === 'function' ? random : Math.random;
         const combo = {};
         for (const [axis, values] of Object.entries(CONSTRAINT_AXES)) {
             combo[axis] = values[Math.floor(rng() * values.length)];
         }
+
+        if (scope === 'national') {
+            combo.ecosystem = ECOSYSTEM_AXES.national[Math.floor(rng() * ECOSYSTEM_AXES.national.length)];
+        } else if (scope === 'international') {
+            combo.ecosystem = ECOSYSTEM_AXES.global[Math.floor(rng() * ECOSYSTEM_AXES.global.length)];
+        } else {
+            const merged = [...ECOSYSTEM_AXES.national, ...ECOSYSTEM_AXES.global];
+            combo.ecosystem = merged[Math.floor(rng() * merged.length)];
+        }
+
         return combo;
     }
 
@@ -255,9 +313,15 @@
             consoleUrl: 'https://aistudio.google.com/app/apikey',
             consoleLabel: 'Google AI Studio',
             origin: 'https://generativelanguage.googleapis.com',
-            // The -latest aliases are repointed by Google as models retire; pinned
-            // names went 404 once already and killed live mode silently.
-            models: ['gemini-flash-latest', 'gemini-flash-lite-latest'],
+            // Pinned flash models and fallback latest aliases
+            models: [
+                'gemini-2.5-flash',
+                'gemini-2.0-flash',
+                'gemini-flash-latest',
+                'gemini-2.5-flash-lite',
+                'gemini-2.0-flash-lite',
+                'gemini-flash-lite-latest'
+            ],
             nativeJsonMode: true
         },
         anthropic: {
@@ -486,7 +550,7 @@
     // The ideation prompt lives here rather than in app.js so the measurement script
     // exercises the exact text the app sends. A separate copy would drift, and then
     // the diversity numbers would describe a prompt nobody ships.
-    function buildIdeationPrompt(categoryLabel, count, combo, avoidTitles) {
+    function buildIdeationPrompt(categoryLabel, count, combo, avoidTitles, scope = 'all') {
         const avoid = (Array.isArray(avoidTitles) ? avoidTitles : [])
             .filter(t => typeof t === 'string' && t.trim());
 
@@ -495,13 +559,22 @@
               + avoid.map(t => '- ' + t).join('\n')
             : '';
 
-        return `${categoryLabel} alanında ${count} farklı yazılım projesi fikri üret.
+        let scopeInstruction = '';
+        if (scope === 'national') {
+            scopeInstruction = '\nÖZEL ODAK: 🇹🇷 ULUSAL (Türkiye Şartları & Yerel Pazar). Fikirler Türkiye\'deki regülasyonlara (KVKK, GİB, e-Devlet, BDDK), yerli desteklere (TÜBİTAK 1512/1507, TEKNOFEST, KOSGEB) ve yerel sektörel ihtiyaçlara tam uyumlu olsun.';
+        } else if (scope === 'international') {
+            scopeInstruction = '\nÖZEL ODAK: 🌍 ULUSLARARASI (Global Pazar). Fikirler küresel pazara (Global SaaS, Stripe, SOC2, GDPR, Cloudflare Edge, YC/Product Hunt) hitap eden ve dünya çapında ölçeklenebilir olsun.';
+        }
+
+        const ecosystemLine = combo.ecosystem ? `\n- Ekosistem & Pazar açısı: ${combo.ecosystem}` : '';
+
+        return `${categoryLabel} alanında ${count} farklı yazılım projesi fikri üret.${scopeInstruction}
 
 Her fikir şu kısıtlara uysun:
 - Problem kaynağı: ${combo.problemSource}
 - Hedef kullanıcı: ${combo.audience}
 - Teknik yaklaşım: ${combo.technical}
-- Gelir modeli: ${combo.revenue}
+- Gelir modeli: ${combo.revenue}${ecosystemLine}
 
 Kısıtlardan biri bu alana zorlama geliyorsa onu yumuşat, ama tamamen yok sayma.
 Fikirler birbirinden belirgin şekilde farklı problemleri çözsün; aynı problemin
@@ -640,10 +713,13 @@ Yanıtı şu JSON şemasında ver:
         if (!p) return '';
         const meta = p.meta || {};
         const step1 = p.step1 || {};
+        const scope = p.scope || meta.scope || 'all';
+        const scopeLabel = SCOPE_PRESETS[scope] ? SCOPE_PRESETS[scope].badge : '🌐 Hibrit Pazar';
 
-        let doc = `# ${p.title} — Technical Blueprint & Market Analysis\n\n`;
+        let doc = `# ${p.title} — Technical Blueprint & Architecture\n\n`;
         doc += `> **Slogan**: ${p.tagline}\n`;
         doc += `> **Kategori**: ${p.category}\n`;
+        doc += `> **Pazar Kapsamı**: ${scopeLabel}\n`;
         doc += `> **Fırsat Skoru**: ${meta.opportunityScore || 'N/A'}\n`;
         doc += `> **Zorluk Düzeyi**: ${meta.difficulty || 'N/A'}\n`;
         doc += `> **Tahmini MVP Süresi**: ${meta.mvpTime || 'N/A'}\n`;
@@ -666,7 +742,9 @@ Yanıtı şu JSON şemasında ver:
 
     return {
         NODE_TYPES,
+        SCOPE_PRESETS,
         CONSTRAINT_AXES,
+        ECOSYSTEM_AXES,
         CATEGORY_LABELS,
         PROVIDERS,
         DEFAULT_PROVIDER,

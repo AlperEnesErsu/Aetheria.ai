@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyStatus = document.getElementById('keyStatus');
     const rememberKeyToggle = document.getElementById('rememberKeyToggle');
     const btnForgetKey = document.getElementById('btnForgetKey');
+    const scopeSelector = document.getElementById('scopeSelector');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -79,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Result DOM Elements
     const projectCategory = document.getElementById('projectCategory');
+    const projectScopeBadge = document.getElementById('projectScopeBadge');
     const projectTitle = document.getElementById('projectTitle');
     const projectTagline = document.getElementById('projectTagline');
     const projectTags = document.getElementById('projectTags');
@@ -97,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Application State
     let currentProject = null;
     let activeCategoryFilter = 'all';
+    let activeScopeFilter = 'all';
 
     // Ids already shown to this user. Persisted so variety survives a reload —
     // without it, every refresh started the example rotation from scratch.
@@ -562,6 +565,24 @@ document.addEventListener('DOMContentLoaded', () => {
         projectTitle.textContent = currentProject.title;
         projectTagline.textContent = currentProject.tagline;
 
+        // Render Scope Badge
+        if (projectScopeBadge) {
+            const scope = currentProject.scope || (currentProject.meta && currentProject.meta.scope) || 'all';
+            if (scope === 'national') {
+                projectScopeBadge.textContent = '🇹🇷 Ulusal (Türkiye Odaklı)';
+                projectScopeBadge.className = 'project-scope-badge scope-national';
+                projectScopeBadge.style.display = 'inline-flex';
+            } else if (scope === 'international') {
+                projectScopeBadge.textContent = '🌍 Uluslararası (Global)';
+                projectScopeBadge.className = 'project-scope-badge scope-international';
+                projectScopeBadge.style.display = 'inline-flex';
+            } else {
+                projectScopeBadge.textContent = '🌐 Hibrit Kapsam';
+                projectScopeBadge.className = 'project-scope-badge';
+                projectScopeBadge.style.display = 'inline-flex';
+            }
+        }
+
         const meta = currentProject.meta || {};
         metricOpportunity.textContent = meta.opportunityScore || '%95 Fırsat Skoru';
         metricDifficulty.textContent = meta.difficulty || 'Orta Düzey';
@@ -591,11 +612,18 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Filter projects based on selected category
+    // Filter projects based on selected category and scope
     function getFilteredProjects() {
         if (typeof PROJECTS_DATABASE === 'undefined' || PROJECTS_DATABASE.length === 0) return [];
-        if (activeCategoryFilter === 'all') return PROJECTS_DATABASE;
-        return PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter);
+        let list = PROJECTS_DATABASE;
+        if (activeCategoryFilter !== 'all') {
+            list = list.filter(p => p.categoryKey === activeCategoryFilter);
+        }
+        if (activeScopeFilter !== 'all') {
+            const scoped = list.filter(p => p.scope === activeScopeFilter);
+            if (scoped.length > 0) list = scoped;
+        }
+        return list.length > 0 ? list : (activeCategoryFilter === 'all' ? PROJECTS_DATABASE : PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter));
     }
 
     // Pick an example the user has not seen yet (selection logic lives in core.js).
@@ -669,15 +697,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Count the attempt *before* firing it. Recording only successful calls meant
         // a rejected key or a 429 storm consumed neither the cooldown nor the hourly
         // budget, which let a broken configuration hammer the endpoint unthrottled.
-        // One generation is one unit even though it now costs two API calls — the
-        // limiter paces the user, it does not meter Google's quota.
         recordGeminiCall();
 
-        const combo = pickConstraintCombo();
+        const combo = pickConstraintCombo(Math.random, activeScopeFilter);
         const categoryLabel = CATEGORY_LABELS[activeCategoryFilter] || 'yazılım';
 
-        onProgress({ phase: 'ideate', combo });
-        const ideation = await requestIdeas(categoryLabel, combo);
+        onProgress({ phase: 'ideate', combo, scope: activeScopeFilter });
+        const ideation = await requestIdeas(categoryLabel, combo, activeScopeFilter);
 
         const { idea, freshCount, exhausted } = selectFreshIdea(ideation.ideas, knownIdeaTitles());
         if (!idea) throw new Error('Model kullanılabilir fikir döndürmedi');
@@ -693,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         onProgress({ phase: 'expand' });
-        const expansion = await expandIdea(idea, categoryLabel, combo);
+        const expansion = await expandIdea(idea, categoryLabel, combo, activeScopeFilter);
 
         return {
             project: expansion.project,
@@ -724,10 +750,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // PASS 1 — a short list of one-line ideas. Small output, so this is cheap.
-    async function requestIdeas(categoryLabel, combo) {
+    async function requestIdeas(categoryLabel, combo, scope = 'all') {
         // Prompt text lives in core.js so scripts/gemini-lab.js measures the exact
         // wording the app ships rather than a copy that can drift.
-        const prompt = buildIdeationPrompt(categoryLabel, IDEA_BATCH_SIZE, combo, knownIdeaTitles());
+        const prompt = buildIdeationPrompt(categoryLabel, IDEA_BATCH_SIZE, combo, knownIdeaTitles(), scope);
 
         const result = await requestModelCompletion(prompt, {
             maxTokens: IDEA_MAX_TOKENS,
@@ -742,42 +768,61 @@ document.addEventListener('DOMContentLoaded', () => {
         return { ideas, model: result.model, tokens: result.tokens };
     }
 
-    // PASS 2 — expand the chosen one-liner into the full project schema.
-    async function expandIdea(idea, categoryLabel, combo) {
-        const prompt = `Aşağıdaki proje fikrini eksiksiz bir proje önerisine dönüştür.
+    // PASS 2 — expand the chosen one-liner into the full project schema with Senior Architect depth.
+    async function expandIdea(idea, categoryLabel, combo, scope = 'all') {
+        let scopeGuidance = '';
+        if (scope === 'national') {
+            scopeGuidance = `
+ÖZEL EKOSİSTEM VE REGÜLASYON GEREKSİNİMLERİ (🇹🇷 ULUSAL / TÜRKİYE ŞARTLARI):
+- Türkiye Mevzuatı & Entegrasyonlar: KVKK (Kişisel Verileri Koruma Kanunu), GİB e-Belge (e-Fatura / e-Arşiv / e-İrsaliye), MERNİS / e-Devlet Kapısı, BDDK, TCMB FAST / TR-Karekod, Troy veya İyzico / PayTR yerli fintek altyapıları.
+- Hibe & Yarışma Uyumu: TÜBİTAK (1512 BİGG / 1507 KOBİ Ar-Ge), TEKNOFEST yarışma alanları veya KOSGEB Dijitalleşme Fonu.
+- Sektörel Acı Noktaları: Deprem/afet koordinasyonu, akıllı tarım / ÇKS / DSİ, yerel KOBİ/esnaf dijitalleşmesi veya MEB/YKS eğitim ihtiyaçları.`;
+        } else if (scope === 'international') {
+            scopeGuidance = `
+ÖZEL EKOSİSTEM VE REGÜLASYON GEREKSİNİMLERİ (🌍 ULUSLARARASI / GLOBAL):
+- Global Standartlar & Ödeme: Stripe / LemonSqueezy global faturalama, çoklu para birimi ve global vergilendirme.
+- Güvenlik & Uyum: SOC2 Type II, GDPR, CCPA, ISO 27001 kurumsal standartları.
+- Dağıtık Altyapı: Multi-region AWS / GCP / Cloudflare Edge dağıtık mikroservis mimarisi.`;
+        }
 
-FİKİR: ${idea.title}
-AÇIKLAMA: ${idea.summary || ''}
-ALAN: ${categoryLabel}
-BAĞLAM: ${combo.problemSource} · ${combo.audience} · ${combo.technical} · ${combo.revenue}
+        const prompt = `Sen kıdemli bir Baş Yazılım Mimarı ve CTO'sun (Senior Software Architect & CTO).
+Aşağıdaki proje fikrini derin, teknik açıdan sağlam ve detaylı bir teknik şartnameye ve sistem mimarisine dönüştür.${scopeGuidance}
+
+FİKİR ADI: ${idea.title}
+FİKİR ÖZETİ: ${idea.summary || ''}
+KATEGORİ: ${categoryLabel}
+KAPSAM: ${scope === 'national' ? 'Ulusal (Türkiye Odaklı)' : scope === 'international' ? 'Uluslararası (Global)' : 'Tüm Kapsamlar (Hibrit)'}
+MİMARİ KISITLAR: ${combo.problemSource} · ${combo.audience} · ${combo.technical} · ${combo.revenue}
 
 Yanıtı tam olarak şu JSON şemasında ver:
 {
   "title": "${idea.title}",
-  "tagline": "Etkileyici tek cümlelik slogan",
+  "tagline": "Etkileyici ve teknik derinliği olan tek cümlelik slogan",
   "category": "${categoryLabel}",
   "categoryKey": "${activeCategoryFilter}",
+  "scope": "${scope === 'national' ? 'national' : scope === 'international' ? 'international' : 'all'}",
   "meta": {
-     "difficulty": "Orta Düzey veya İleri Düzey",
+     "difficulty": "Orta Düzey, İleri Düzey veya Uzman Düzey",
      "mvpTime": "örn. 6 Hafta",
-     "monetization": "Gelir modeli",
-     "opportunityScore": "örn. %92 Fırsat Skoru"
+     "monetization": "Net gelir modeli (örn. B2B SaaS Lisansı + TÜBİTAK Hibesi)",
+     "opportunityScore": "örn. %96 Fırsat Skoru",
+     "scope": "${scope === 'national' ? 'national' : scope === 'international' ? 'international' : 'all'}"
   },
   "diagramNodes": [
-     { "id": 1, "name": "Bileşen", "type": "source", "sub": "Kısa açıklama" },
-     { "id": 2, "name": "Bileşen", "type": "service", "sub": "Kısa açıklama" },
-     { "id": 3, "name": "Bileşen", "type": "ai", "sub": "Kısa açıklama" },
-     { "id": 4, "name": "Bileşen", "type": "storage", "sub": "Kısa açıklama" },
-     { "id": 5, "name": "Bileşen", "type": "client", "sub": "Kısa açıklama" }
+     { "id": 1, "name": "Girdi / İstemci", "type": "source", "sub": "Kısa açıklama" },
+     { "id": 2, "name": "Servis / Gateway", "type": "service", "sub": "Kısa açıklama" },
+     { "id": 3, "name": "AI / İş Mantığı", "type": "ai", "sub": "Kısa açıklama" },
+     { "id": 4, "name": "Veritabanı / Depolama", "type": "storage", "sub": "Kısa açıklama" },
+     { "id": 5, "name": "Kullanıcı Portali", "type": "client", "sub": "Kısa açıklama" }
   ],
   "step1": {
-     "marketGap": "Problemi, mevcut çözümlerin nerede yetersiz kaldığını ve fırsatı anlat",
-     "description": "Detaylı proje açıklaması ve madde madde özellikler",
-     "tags": ["Teknoloji1", "Teknoloji2", "Teknoloji3"]
+     "marketGap": "Alandaki yapısal boşluğu, mevcut alternatiflerin neden yetersiz kaldığını ve pazar fırsatını derinlemesine analiz et (en az 320 karakter).",
+     "description": "Projenin nasıl çalıştığını, teknik bileşenlerini ve temel yeteneklerini madde madde detaylandır (en az 320 karakter).",
+     "tags": ["Teknoloji1", "Teknoloji2", "Teknoloji3", "Teknoloji4"]
   },
   "step2": {
-     "architecture": "Sistem mimarisi, Clean Architecture katmanları, veritabanı tasarımı",
-     "security": "Güvenlik önlemleri, tehdit modeli, şifreleme ve yetkilendirme"
+     "architecture": "Clean Architecture katmanlarını (Domain, Application, Infrastructure, Presentation), somut teknoloji yığınını (Backend, Frontend, DB, Message Broker), somut veritabanı şeması tablolarını ve API kontratlarını (REST / gRPC / WS) markdown başlıklarıyla eksiksiz açıkla.",
+     "security": "Kimlik doğrulama (Auth & RBAC), veri güvenliği & şifreleme (AES-256, TLS 1.3), OWASP Top 10 tehdit modellemesi ve regülasyon uyumunu (KVKK / GDPR / BDDK / SOC2) markdown başlıklarıyla detaylı açıkla."
   }
 }
 
@@ -861,7 +906,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
 
         for (const model of provider.models) {
             try {
-                await postToModel(activeProvider, model, 'ping', { maxTokens: 16 });
+                await postToModel(activeProvider, model, 'ping', { maxTokens: 32 }, true);
                 return;
             } catch (err) {
                 lastError = err;
@@ -981,6 +1026,26 @@ Yanıtı tam olarak şu JSON şemasında ver:
         // The blob stays alive for the whole document lifetime unless revoked, so every
         // export leaked its payload. Deferred one tick so the download has started.
         setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    // Scope & Ecosystem Selector Handlers
+    if (scopeSelector) {
+        scopeSelector.addEventListener('click', (e) => {
+            const btn = e.target.closest('.scope-btn');
+            if (!btn) return;
+
+            document.querySelectorAll('.scope-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-checked', isActive ? 'true' : 'false');
+            });
+            activeScopeFilter = btn.getAttribute('data-scope') || 'all';
+        });
+
+        // Initialize scope buttons ARIA
+        document.querySelectorAll('.scope-btn').forEach(btn => {
+            btn.setAttribute('aria-checked', btn.classList.contains('active') ? 'true' : 'false');
+        });
     }
 
     // Category Filter Handlers

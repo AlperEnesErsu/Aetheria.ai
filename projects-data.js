@@ -1,174 +1,617 @@
 const PROJECTS_DATABASE = [
+    // =========================================================================
+    // 1. SAĞLIK TEKNOLOJİLERİ & YAPAY ZEKA (health-ai)
+    // =========================================================================
     {
         id: "medivision-ai",
-        title: "MediVision AI",
-        tagline: "Medikal Görüntüleme ve Radyoloji Raporlama Anomali Tespit Platformu",
+        title: "MediVision AI (TİTCK & e-Nabız Uyumlu)",
+        tagline: "Radyoloji ve Medikal Görüntülemede Açıklanabilir Yapay Zeka ile Anomali Tespit ve Triyaj Platformu",
         category: "Sağlık Teknolojileri & Yapay Zeka",
         categoryKey: "health-ai",
+        scope: "national",
         meta: {
             difficulty: "İleri Düzey",
             mvpTime: "8 Hafta",
-            monetization: "Hastane Lisansı (B2B SaaS) + Vaka Başı Ücret",
-            opportunityScore: "%96 Fırsat Skoru"
+            monetization: "Hastane Lisansı (B2B SaaS) + TÜBİTAK 1507 Ar-Ge Hibesi",
+            opportunityScore: "%97 Fırsat Skoru",
+            scope: "national"
         },
         diagramNodes: [
-            { id: 1, name: "PACS / DICOM Sunucusu", type: "source", sub: "Hastane Otomasyonu" },
-            { id: 2, name: "Ingestion Gateway", type: "service", sub: "Go + C-STORE" },
-            { id: 3, name: "AI TensorRT Engine", type: "ai", sub: "Vision Transformers (GPU)" },
-            { id: 4, name: "Grad-CAM Heatmap Service", type: "service", sub: "Açıklanabilir XAI" },
-            { id: 5, name: "PostgreSQL & MinIO", type: "storage", sub: "Şifreli Medikal Depo" },
-            { id: 6, name: "Web Dicom Viewer", type: "client", sub: "CornerstoneJS Portal" }
+            { id: 1, name: "PACS / DICOM Sunucusu", type: "source", sub: "Hastane Otomasyonu & e-Nabız" },
+            { id: 2, name: "STOW-RS Ingestion Gateway", type: "service", sub: "Go + DICOM C-STORE" },
+            { id: 3, name: "Vision Transformers (XAI)", type: "ai", sub: "NVIDIA TensorRT GPU Engine" },
+            { id: 4, name: "Grad-CAM Isı Haritası Servisi", type: "service", sub: "Açıklanabilir Tıbbi Raporlama" },
+            { id: 5, name: "PostgreSQL & MinIO", type: "storage", sub: "AES-256 Şifreli Tıbbi Arşiv" },
+            { id: 6, name: "Web DICOM Görüntüleyici", type: "client", sub: "CornerstoneJS + React Portali" }
         ],
         step1: {
-            marketGap: `Günümüz sağlık sistemlerinde radyologların günlük röntgen, MR ve BT tarama yükü son 5 yılda %40 artmıştır. Mevcut medikal AI çözümleri ya sadece tek bir teşhise (örneğin yalnızca akciğer kanseri) odaklanmakta ya da hastane otomasyon sistemlerine (PACS/DICOM) entegre olamamaktadır. Ayrıca, mevcut yazılımlar doktorlara kararın "neden" alındığını gösteren **Açıklanabilir Yapay Zeka (XAI)** görsel haritalarını sunmamaktadır. MediVision AI, radyoloğu asiste ederek ilk taramayı 3 saniyede gerçekleştirir, anomali bölgelerini ısı haritasıyla (CAM) işaretler ve öncelikli vakaları acil sırasına sokarak doktor eksikliğinden kaynaklanan gecikmeleri ortadan kaldırır.`,
-            description: `MediVision AI, hastane PACS sistemlerine DICOM web protokolü üzerinden sessizce bağlanan yapay zeka ajanıdır. 
+            marketGap: `Türkiye'de kamu ve özel hastanelerde radyolog başına düşen günlük MR, BT ve Röntgen inceleme sayısı OECD ortalamasının 2.5 katına ulaşmıştır. Mevcut hastane bilgi yönetim sistemleri (HBYS/PACS) görüntüleri yalnızca depolar; otomatik anomali sınıflandırması, önceliklendirme (triyaj) ve hekime kararın nedenini gösteren Açıklanabilir Yapay Zeka (XAI - Explainable AI) ısı haritaları sunmaz. Ayrıca yabancı menşeili medikal AI yazılımları Sağlık Bakanlığı e-Nabız, USS ve TİTCK (Tıbbi İlaç ve Cihaz Kurumu) tıbbi cihaz mevzuatına entegre olamamakta ve hasta verilerini yurt dışına çıkarma riski taşımaktadır (KVKK Md. 9 ihlali). MediVision AI, tamamen yerli altyapıda çalışan, KVKK uyumlu ve radyologların iş yükünü %55 azaltan otonom bir triyaj asistanıdır.`,
+            description: `MediVision AI, hastane PACS sunucularına DICOM web protokolüyle bağlanan ve görüntüleri saniyeler içinde analiz eden derin öğrenme tabanlı bir klinik karar destek sistemidir.
 
-**Temel İşlevler & Özellikler:**
-• **Saniyeler İçinde Anomali Tespiti**: Gelen DICOM görüntülerini derin öğrenme modellerinden (Vision Transformers & CNN) geçirerek tümör, kırık, lezyon veya kanama bölgelerini %98 doğrulukla sınıflandırır.
-• **Açıklanabilir Isı Haritaları (Grad-CAM)**: Yapay zekanın kararı verirken görüntünün tam olarak neresine odaklandığını renkli ısı haritası olarak gösterir.
-• **Otomatik Medikal Rapor Taslağı**: Anomali tespit edilen vakalarda uluslararası radyo-terminolojisine (RadLex) uygun Türkçe/İngilizce taslak rapor metni oluşturur.
-• **Acil Vaka Sıralaması (Triage)**: Hayati tehlike arz eden iç kanama veya beyin felci vakalarını radyoloğun öncelik listesinin en üstüne taşır.`,
-            tags: ["Python", "PyTorch", "FastAPI", "DICOM", "Vision Transformers", "React"]
+**Temel Yetenekler & Özellikler:**
+• **Saniyeler İçinde Anomali Tespiti**: DICOM görüntülerini Vision Transformers ve ResNet-50 hibrit mimarisiyle tarayarak lezyon, kırık, iç kanama veya tümör dokusunu %98.4 doğrulukla tespit eder.
+• **Grad-CAM Açıklanabilir Isı Haritası**: Yapay zekanın teşhis kararını verirken görüntünün tam olarak hangi piksellerine odaklandığını renkli ısı katmanı olarak hekime sunar.
+• **RadLex ve Türkçe Medikal Rapor Taslağı**: Tespit edilen bulguları Sağlık Bakanlığı standart terminolojisine ve Türkçe tıbbi literatüre uygun taslak rapor metnine dönüştürür.
+• **Kritik Vaka Triyajı**: Beyin kanaması veya aort diseksiyonu gibi acil müdahale gerektiren hastaları radyoloğun iş listesinin en tepesine otomatik taşır.`,
+            tags: ["Python", "PyTorch", "FastAPI", "DICOM", "Vision Transformers", "React", "KVKK Uyumlu"]
         },
         step2: {
-            architecture: `MediVision AI, yüksek hacimli medikal veriyi (DICOM) sıfır gecikmeyle işlemek için **Event-Driven Microservices** ve **Clean Architecture** prensiplerine dayanır.
+            architecture: `MediVision AI, medikal görüntü verilerini sıfır gecikmeyle işlemek için **Event-Driven Microservices** ve **Clean Architecture (Onion Architecture)** prensiplerine dayanır.
 
 ### 1. Sistem Katmanları:
-• **Ingestion Service (Go)**: Hastane PACS sunucularından C-STORE/STOW-RS protokolü ile DICOM dosyalarını güvenle dinler ve Kafka mesaj kuyruğuna iletir.
-• **AI Inference Service (Python/PyTorch/Triton Server)**: GPU hızlandırmalı TensorRT modelleri ile paralel çıkarım yapar.
-• **Core API (Node.js / NestJS - TypeScript)**: İş mantığı, kullanıcı erişimleri, yetkilendirme ve rapor yönetimi.
-• **Web Portal (React + Vite + CornerstoneJS)**: Radyologların DICOM görüntülerini tarayıcı üzerinden 3B manipüle edebildiği tıbbi görüntüleyici.
+• **Domain Layer**: Hasta, Vaka, DICOM Metadata, Anomali, Radyoloji Raporu temel varlıkları ve iş kuralları.
+• **Application Layer**: Görüntü ön işleme, çıkarım iş akışları (Use Cases), triyaj sıralaması ve e-Nabız senkronizasyon komutları.
+• **Infrastructure Layer**: Go Ingestion Gateway (STOW-RS dinleyici), Triton Inference Server (GPU hızlandırmalı TensorRT modelleri), MinIO S3 ve PostgreSQL adaptörleri.
+• **Presentation Layer**: React 18, CornerstoneJS DICOM görüntüleyici, REST API ve WebSocket canlı bildirim kanalları.
 
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Kullanıcılar, hastaneler, vaka geçmişi ve istatistikler.
-• **MinIO / AWS S3 (Encrypted)**: DICOM dosyaları ve üretilen Grad-CAM ısı haritası görselleri.
-• **Redis**: Oturum yönetimi, sıklıkla erişilen vaka önbelleği ve anlık bildirim kuyrukları.`,
-            security: `Sağlık verileri en yüksek gizlilik standartlarını gerektirir. MediVision AI, **HIPAA** ve **KVKK** uyumlu **Zero-Trust Security (Sıfır Güven)** mimarisiyle korunur.
+### 2. Somut Teknoloji Yığını:
+• **Backend**: Go (Ingestion) + Python FastAPI (Orchestration) + Triton Server
+• **Frontend**: React + TypeScript + CornerstoneJS + Vite + TailwindCSS
+• **Veritabanı & Kuyruk**: PostgreSQL 16 + Redis Cluster + Apache Kafka + MinIO (S3 API)
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **End-to-End Veri Anonimleştirme (De-identification)**: DICOM dosyası sisteme girdiği an hasta adı, T.C. Kimlik No gibi PII (Kişisel Tanımlanabilir Bilgiler) metadata katmanından temizlenir, SHA-256 ile hash'lenmiş rastgele takma adlar (pseudonym) kullanılır.
-• **Veri Şifreleme**: 
-  - *Durağan Veri (Data at Rest)*: AES-256-GCM ile veritabanı ve nesne depolama şifrelemesi.
-  - *Hareketli Veri (Data in Transit)*: TLS 1.3 zorunluluğu ve mTLS (Mutlu TLS) ile mikroservisler arası kimlik doğrulamalı iletişim.
-• **Erişim Kontrolü (RBAC & ABAC)**: Radyolog, Asistan Doktor ve Sistem Yöneticisi için rol tabanlı erişim kontrolü. JWT + OAuth2 + 2FA (Zorunlu İki Faktörlü Doğrulama).
-• **Audit Logging (Denetim İzleri)**: Hangi doktorun hangi hasta görüntüsüne ne zaman baktığı immutable (değiştirilemez) log mimarisiyle (Elasticsearch + Append-Only storage) kaydedilir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`patients\` (id, anonymized_token, birth_year, gender, created_at)
+• \`studies\` (id, patient_id FK, modality, study_date, pacs_uid, status)
+• \`inference_results\` (id, study_id FK, anomaly_detected, confidence_score, heatmap_s3_path, findings_json)
+• \`radiologist_reviews\` (id, study_id FK, doctor_id FK, approved, doctor_notes, reviewed_at)
+
+### 4. API & Protokol Kontratları:
+• \`POST /api/v1/dicom/ingest\`: DICOM C-STORE web hook alımı.
+• \`GET /api/v1/cases/triage-queue\`: Önceliklendirilmiş vaka listesi stream'i.
+• \`WS /ws/v1/alerts\`: Acil iç kanama / kritik vaka anlık hekim bildirim soketi.`,
+            security: `Sağlık Bakanlığı Bilgi Güvenliği Yönergesi ve **KVKK** standartlarına tam uyumlu **Zero-Trust** güvenlik mimarisi uygulanmıştır.
+
+### 1. Kimlik Doğrulama & Yetkilendirme (Auth & RBAC):
+• e-Devlet & e-İmza ile Hekim Doğrulama (OAuth2 / OIDC), JWT Bearer token ve rol bazlı erişim matrisi (Radyolog, Asistan, Başhekim, Sistem Yöneticisi).
+
+### 2. Veri Güvenliği & Şifreleme:
+• **PII De-identification**: DICOM dosyasındaki hasta adı, T.C. Kimlik No gibi kimlik bilgileri belleğe alınır alınmaz SHA-256 HMAC ile takma ada (pseudonym) dönüştürülür.
+• **Durağan & Hareketli Veri**: AES-256-GCM disk şifrelemesi, PostgreSQL TDE (Transparent Data Encryption) ve servisler arası zorunlu mTLS (Mutual TLS 1.3).
+
+### 3. Tehdit Modellemesi & OWASP Önlemleri:
+• Rate limiting (IP & Hekim bazlı), DICOM Parser Buffer-Overflow koruması, CSRF token doğrulama ve SQL Injection'a karşı parameterized ORM mimarisi.
+
+### 4. Denetim İzi & Mevzuat:
+• Değiştirilemez (Append-Only) Audit Trail logları; hangi hekimin hangi hasta kaydını hangi IP ve saatte görüntülediği zaman damgasıyla saklanır.`
         }
     },
     {
-        id: "defishield-agent",
-        title: "DeFiShield Agent",
-        tagline: "Merkeziyetsiz Finans ve Akıllı Sözleşmeler İçin Gerçek Zamanlı AI Güvenlik Ajanı",
-        category: "Web3, Blockchain & Güvenlik",
-        categoryKey: "web3",
+        id: "genomed-pipeline",
+        title: "GenoMed Cloud",
+        tagline: "Yüksek Başarımlı Biyoinformatik Genomik Varyant Analizi ve İlaç Yanıt Tahmin Platformu",
+        category: "Sağlık Teknolojileri & Yapay Zeka",
+        categoryKey: "health-ai",
+        scope: "international",
         meta: {
             difficulty: "Uzman Düzey",
             mvpTime: "10 Hafta",
-            monetization: "B2B Protocol Security Retainer + MEV Revenue",
-            opportunityScore: "%98 Fırsat Skoru"
+            monetization: "Genom Başına İşlem Ücreti (B2B SaaS) + Onkoloji Laboratuvar Lisansı",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Blockchain Nodes", type: "source", sub: "Geth / Reth IPC" },
-            { id: 2, name: "Mempool Listener", type: "service", sub: "Rust (Sub-millisecond)" },
-            { id: 3, name: "Transaction Simulator", type: "ai", sub: "Isolated EVM Fork" },
-            { id: 4, name: "GNN Anomaly Model", type: "ai", sub: "Graph Neural Networks" },
-            { id: 5, name: "ClickHouse & Redis", type: "storage", sub: "Zaman Serisi & Kara Liste" },
-            { id: 6, name: "MEV Mitigation Dispatcher", type: "client", sub: "Flashbots Bundle" }
+            { id: 1, name: "NGS FASTQ / BAM Verisi", type: "source", sub: "Illumina / PacBio Cihazları" },
+            { id: 2, name: "Nextflow Workflow Engine", type: "service", sub: "GATK4 + DeepVariant" },
+            { id: 3, name: "GNN Patoloji & İlaç AI", type: "ai", sub: "Varyant Etki Sınıflandırması" },
+            { id: 4, name: "DuckDB & TileDB", type: "storage", sub: "Sütun Tabanlı VCF Deposu" },
+            { id: 5, name: "Web IGV Genom Tarayıcısı", type: "client", sub: "React + WebGL Chromosome View" }
         ],
         step1: {
-            marketGap: `Web3 ve DeFi protokollerinde sadece 2023-2024 yılları arasında akıllı sözleşme (Smart Contract) açıklarından kaynaklı 3.8 milyar dolar çalındı. Geleneksel güvenlik denetimleri (Audit) statik ve tek seferliktir; kod bir kez dağıtıldıktan sonra meydana gelen yeni manipülasyon tekniklerine (Reentrancy, Flash Loan Saldırıları, Oracle Manipülasyonu) karşı koruma sağlamaz. Piyasadaki mevcut araçlar ise sadece işlem gerçekleştikten *sonra* uyarı vermektedir. DeFiShield Agent, mempool (onay bekleyen işlemler) seviyesinde dinleme yaparak zararlı işlemleri madenciler bloklamadan önce tespit eder ve koruyucu "front-running" işlemleriyle havuzları kilitler.`,
-            description: `DeFiShield, Ethereum, Arbitrum, Solana ve BSC ağlarında blok zincir hareketlerini canlı izleyen otonom bir güvenlik ajanıdır.
+            marketGap: `Yeni Nesil Dizileme (NGS) teknolojilerinin ucuzlamasıyla hastaların tüm genom verileri (WGS/WES) saatler içinde çıkarılabilmektedir; ancak ham genetik veriden (FASTQ/BAM) klinik anlam çıkarmak günler sürmektedir. Biyoinformatik boru hatları dağınık komut satırı araçlarından (GATK, Samtools, BWA) oluşur ve ölçeklenemez. Ayrıca onkologlar için genetik mutasyonların hangi kemoterapi veya akıllı ilaca dirençli olduğunu tahmin eden entegre açıklanabilir modeller eksiktir. GenoMed Cloud, 100 GB'lık ham genom verisini 45 dakikada işleyen, VCF varyantlarını ClinVar ve PharmGKB veritabanlarıyla zenginleştiren bulut tabanlı bir hassas tıp (Precision Medicine) platformudur.`,
+            description: `GenoMed Cloud, onkoloji merkezleri ve genetik tanı laboratuvarları için uçtan uca otomatik varyant çağırma ve klinik raporlama platformudur.
 
-**Temel İşlevler & Özellikler:**
-• **Mempool Saldırı Analizi**: Onaylanmamış işlemleri yapay zeka güvenlik ajanıyla simüle eder, manipülatif (Flash Loan, Sandwich attack) kalıpları tespit eder.
-• **Otonom Pausing (Devre Kesici)**: Bir akıllı sözleşmeye saldırı tespit edildiğinde, ajanın özel güvenlik yetkisiyle (Circuit Breaker) protokolü saniyeler içinde geçici olarak durdurur.
-• **Bytecode & Decompilation Taraması**: Açık kaynak olmayan akıllı sözleşmelerin dahi makine kodunu decompile ederek gizli backdoor veya rug-pull mekanizmalarını ortaya çıkarır.
-• **AI Risk Skoru API**: Web3 cüzdanlarına (MetaMask vb.) entegre olarak kullanıcının etkileşime gireceği sözleşmenin güvenlik skorunu 0-100 arasında canlı gösterir.`,
-            tags: ["Rust", "Solidity", "Python", "Ethers.js", "Web3.py", "Go-Ethereum"]
+**Temel Yetenekler & Özellikler:**
+• **GPU Hızlandırmalı Varyant Çağırma**: DeepVariant ve GATK4 algoritmalarını paralel konteynerlerde çalıştırarak germline ve somatik mutasyonları rekor sürede tespit eder.
+• **Farmakogenomik İlaç Etkileşim Tahmini**: Hastanın CYP450 ve diğer enzim genotiplerine göre ilaç metabolizma hızını ve toksisite riskini hesaplar.
+• **Etkileşimli Genom Gezgini (IGV Web)**: Kromozom haritası üzerinde mutasyon noktalarını WebGL ile sıfır kasmayla görselleştirir.
+• **ACMG Standartlarında Otomatik Klinik Rapor**: Patolojik, Olası Patolojik ve VUS (Belirsiz Önemde Varyant) sınıflandırmasını hekim onayına hazır PDF olarak derler.`,
+            tags: ["Python", "Nextflow", "Rust", "GATK4", "FastAPI", "React", "HIPAA Uyumlu"]
         },
         step2: {
-            architecture: `DeFiShield, milisaniyelerin kritik olduğu blok zincir ortamında **Ultra-Low Latency** ve **High-Throughput** mimarisi kullanır.
+            architecture: `GenoMed Cloud, terabaytlarca genomik veriyi bulutta elastik işlemek için **Serverless HPC & Event-Driven Batch Pipeline** mimarisi kullanır.
 
 ### 1. Sistem Katmanları:
-• **Mempool Listener (Rust)**: WebSocket ve IPC soketleri üzerinden doğrudan validator node'larına (Geth/Reth) bağlı ultra-hızlı blokzincir dinleyici.
-• **Transaction Simulator (Go / Foundry Engine)**: Onay bekleyen işlemleri isolated EVM (Ethereum Virtual Machine) fork'unda milisaniyelik simüle eder.
-• **AI Anomaly Classifier (Python / XGBoost + GNN)**: Graph Neural Networks ile sözleşme bağımlılık grafiklerini ve token akışlarını anomali testine sokar.
-• **Alert & Mitigation Dispatcher (Rust)**: Saldırıyı önleyecek MEV-boost Flashbots işlemlerini doğrudan madencilere özel kanallardan iletir.
+• **Pipeline Orchestrator (Nextflow / AWS Batch)**: Genom boru hattı adımlarını izole Docker konteynerlerinde CPU/GPU optimizasyonuyla koşturur.
+• **Variant Annotation Engine (Rust / htslib)**: Milyonlarca SNP ve Indel varyantını ClinVar, gnomAD ve dbSNP ile mikrosaniyede eşleştirir.
+• **Drug-Gene Interaction AI (Python / PyTorch Geometric)**: Protein yapı modelleri ve heterojen bilgi grafikleriyle ilaç direnç skorlaması yapar.
+• **Frontend Visualization (React 18 + igv.js + WebGL)**: Kromozom kapsama alanlarını canlı render eden web arayüzü.
 
-### 2. Veritabanı Mimarisi:
-• **ClickHouse**: Saniyede milyonlarca blokzincir olayını (event log) depolayan sütun tabanlı ultra hızlı zaman serisi veritabanı.
-• **Redis Cluster**: Onay bekleyen mempool işlemleri ve adres kara listesi için in-memory veri saklama.`,
-            security: `DeFiShield bizzat bir güvenlik ürünü olduğu için mimarisi **Defense-in-Depth (Derinlemesine Savunma)** prensibine dayanır.
+### 2. Somut Teknoloji Yığını:
+• **Orkestrasyon**: Nextflow + Kubernetes + AWS Batch
+• **Core Engine**: Rust + Python FastAPI
+• **Veri Katmanı**: TileDB (Genomik Matrisler) + DuckDB + PostgreSQL
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **HSM (Hardware Security Module) İmzalaması**: Otonom protokol durdurma yetkisine sahip özel anahtarlar (Private Keys) asla sunucu belleğinde tutulmaz; AWS KMS veya YubiHSM 2 donanım modüllerinde saklanır.
-• **Multi-Sig & Timelock Yönetimi**: Ajanın kritik parametre güncellemeleri 3/5 Multi-Signature (Çoklu İmza) ve 24 saatlik Timelock gecikmesi şartına bağlıdır.
-• **Zero-Knowledge Proofs (ZKP)**: İşlem simülasyon sonuçlarının manipüle edilmediğini doğrulayan ZK-SNARK kanıtları üretilir.
-• **Smart Contract Slashing & Anti-Flashloan**: Güvenlik ajanının kendi akıllı sözleşmeleri CertiK ve OpenZeppelin standartlarına göre formal-verification (matematiksel doğrulama) testlerinden geçirilmiştir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`sequencing_samples\` (id, sample_barcode, sequencing_type, status, fastq_s3_uri)
+• \`called_variants\` (id, sample_id FK, chromosome, position, ref_allele, alt_allele, acmg_class)
+• \`drug_recommendations\` (id, sample_id FK, drug_name, efficacy_score, evidence_level)
+
+### 4. API Kontratları:
+• \`POST /api/v1/pipelines/run\`: Yeni genom analiz boru hattı tetikleme.
+• \`GET /api/v1/variants/export-vcf\`: Filtrelenmiş VCF dosyası dışa aktarma.`,
+            security: `Genomik veriler değiştirilemez kişisel kimlik bilgileridir; **HIPAA, GDPR ve ISO 27701** seviyesinde korunur.
+
+### 1. Zero-Knowledge Veri Şifreleme:
+• Genom FASTQ/BAM dosyaları müşteri özel anahtarlarıyla (Customer-Managed Encryption Keys - AWS KMS) AES-256 ile şifrelenir.
+
+### 2. Ayrılmış Kiracı Mimarisi (Tenant Isolation):
+• Her laboratuvarın verisi ve hesaplama pod'ları Kubernetes namespace ve izole VPC düzeyinde birbirinden ayrılır.`
         }
     },
     {
+        id: "pharmascan-ai",
+        title: "PharmaScan AI (İTS & Karekod Entegrasyonlu)",
+        tagline: "Eczaneler ve Hastaneler İçin İlaç Takip Sistemi (İTS) Uyumlu Otonom Etkileşim ve Yan Etki Risk Ajanı",
+        category: "Sağlık Teknolojileri & Yapay Zeka",
+        categoryKey: "health-ai",
+        scope: "national",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "5 Hafta",
+            monetization: "Eczane Başı Aylık Abonelik (B2B SaaS) + Medula Entegrasyon Eklentisi",
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Reçete / İTS Karekod", type: "source", sub: "2D Barkod & e-Reçete No" },
+            { id: 2, name: "İTS & Medula Gateway", type: "service", sub: "Sağlık Bakanlığı SOAP / REST API" },
+            { id: 3, name: "Farmakolojik Çapraz AI", type: "ai", sub: "İlaç-İlaç & İlaç-Besin Etkileşimi" },
+            { id: 4, name: "PostgreSQL & Redis", type: "storage", sub: "TİTCK Prospektüs & Dozaj DB" },
+            { id: 5, name: "Eczacı & Hasta Portali", type: "client", sub: "Flutter Tablet & WhatsApp Ajanı" }
+        ],
+        step1: {
+            marketGap: `Türkiye'de her gün 1.2 milyondan fazla reçete yazılmakta ve çoklu ilaç kullanımı (Polifarmasi) sebebiyle önlenebilir ilaç-ilaç etkileşimleri acil servis başvurularının %12'sini oluşturmaktadır. Eczacıların kullandığı mevcut Medula ve İTS yazılımları yalnızca faturalandırma ve karekod bildirimi yapar; hastanın geçmiş reçetelerindeki aktif maddelerle yeni yazılan ilacın ölümcül etkileşimlerini, besin kısıtlamalarını (örn: Greyfurt-Statin etkileşimi) veya böbrek/karaciğer yetmezliği dozaj uyarılarını sesli/görsel olarak özetlemez. PharmaScan AI, İTS 2D karekodunu kameradan okuyarak saniyeler içinde prospektüs ve farmakolojik veri tabanlarını tarar, eczacıya ve hastanın WhatsApp'ına 'Bu iki ilacı aynı anda içmeyiniz, 3 saat ara veriniz' uyarısını iletir.`,
+            description: `PharmaScan AI, reçeteli ve reçetesiz ilaçların çapraz etkileşim risklerini tespit eden ve hastaya özel akıllı kullanım planı oluşturan yapay zeka eczacılık asistanıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **Anlık Karekod ve e-Reçete Taraması**: İTS karekodunu veya SGK Medula e-Reçete numarasını kameradan okuyarak tüm aktif maddeleri otomatik listeler.
+• **Kritik Çapraz Etkileşim Alarmı**: Kalp, tansiyon, diyabet ve antibiyotik ilaçları arasındaki tehlikeli etkileşimleri renk kodlu uyarılarla (Kırmızı/Sarı) gösterir.
+• **Hastaya Özel WhatsApp Kullanım Takvimi**: Yaşlı ve kronik hastalar için ilaçların sabah/öğle/akşam aç-tok kullanım saatlerini anlaşılır Türkçe WhatsApp mesajı ve sesli not olarak iletir.
+• **TİTCK Geri Çekme & Sahte İlaç Kontrolü**: Sağlık Bakanlığı İTS veritabanından ilacın son kullanma tarihi, toplatma kararı ve orijinalliğini doğrular.`,
+            tags: ["Python", "FastAPI", "Flutter", "İTS Entegrasyonu", "PostgreSQL", "KVKK Uyumlu", "TÜBİTAK 1512"]
+        },
+        step2: {
+            architecture: `PharmaScan AI, hızlı sorgu yanıtları ve yüksek güvenilirlik için **Microservices & In-Memory Graph Caching** mimarisine dayanır.
+
+### 1. Sistem Katmanları:
+• **Barcode Scanner & Ingestion (Go / WebAssembly)**: Eczane barkod okuyucusundan gelen GS1-128 karekod verisini milisaniyede ayrıştırır.
+• **Pharmacology Graph Engine (Python / NetworkX + Neo4j)**: 45.000 aktif madde ve 120.000 farmakolojik etkileşim kuralını barındıran çizge motoru.
+• **Medula & İTS SOAP Gateway (Go)**: SGK ve Sağlık Bakanlığı protokollerini güvenle köprüleyen entegrasyon katmanı.
+• **Mobile/Tablet Interface (Flutter)**: Eczane bankosunda çalışan dokunmatik tablet uygulaması.
+
+### 2. Somut Teknoloji Yığını:
+• **Backend**: Python FastAPI + Go 1.22
+• **Frontend**: Flutter + TypeScript / React
+• **Veritabanları**: PostgreSQL 16 + Redis Enterprise + Neo4j
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`drugs\` (its_barcode PK, commercial_name, active_ingredients_json, manufacturer, atc_code)
+• \`interactions\` (id, substance_a, substance_b, severity_level, clinical_effect_tr, management_tr)
+• \`prescriptions\` (id, pharmacy_gln FK, patient_hash, date_issued, drugs_list_json)
+
+### 4. API Kontratları:
+• \`POST /api/v1/scan/its-barcode\`: Karekod okuma ve anlık prospektüs kontrolü.
+• \`POST /api/v1/prescriptions/check-safety\`: Reçetedeki tüm ilaçların çapraz güvenlik denetimi.`,
+            security: `Hasta reçete ve teşhis bilgileri **KVKK Md. 6** uyarınca özel nitelikli kişisel veridir.
+
+### 1. Hasta Veri Maskeleme:
+• Reçete numarası ve T.C. Kimlik No sunucuda asla düz metin saklanmaz; tek yönlü SHA-256 HMAC ile şifrelenir.
+
+### 2. Eczane Güvenliği & GLN Doğrulama:
+• Sistem yalnızca Sağlık Bakanlığı GLN (Global Location Number) ruhsatına sahip yetkili eczanelerin IP ve e-İmzalarıyla erişimine açıktır.`
+        }
+    },
+
+    // =========================================================================
+    // 2. WEB3, BLOCKCHAIN & GÜVENLİK (web3)
+    // =========================================================================
+    {
+        id: "defishield-agent",
+        title: "DeFiShield Agent",
+        tagline: "Merkeziyetsiz Finans ve Akıllı Sözleşmeler İçin Gerçek Zamanlı AI Mempool Güvenlik ve Tehdit Önleme Ajanı",
+        category: "Web3, Blockchain & Güvenlik",
+        categoryKey: "web3",
+        scope: "international",
+        meta: {
+            difficulty: "Uzman Düzey",
+            mvpTime: "10 Hafta",
+            monetization: "B2B Protocol Security Retainer + Flashbots MEV Revenue",
+            opportunityScore: "%98 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Mempool Listener Nodes", type: "source", sub: "Geth / Reth IPC WebSocket" },
+            { id: 2, name: "Rust EVM Simulator", type: "service", sub: "Revive Fork Engine (Sub-ms)" },
+            { id: 3, name: "Graph Neural Networks (GNN)", type: "ai", sub: "Reentrancy & Flashloan Detector" },
+            { id: 4, name: "ClickHouse & Redis", type: "storage", sub: "Zaman Serisi & Kara Liste DB" },
+            { id: 5, name: "MEV Mitigation Dispatcher", type: "client", sub: "Flashbots Private RPC Bundle" }
+        ],
+        step1: {
+            marketGap: `Web3 ve DeFi ekosisteminde yalnızca son iki yılda akıllı sözleşme (Smart Contract) açıkları, Flash Loan saldırıları ve Oracle manipülasyonları yüzünden 4.2 milyar doların üzerinde fon çalınmıştır. Geleneksel güvenlik denetimleri (Static Code Audits) kod dağıtılmadan önce yapılır ve dağıtım sonrası ortaya çıkan dinamik composability açıklarını koruyamaz. Mevcut izleme araçları ise saldırı blok zincire yazıldıktan sonra bildirim gönderir; bu da fonların kurtarılması için çok geçtir. DeFiShield Agent, mempool (onay bekleyen işlemler havuzu) seviyesinde milisaniyelik analiz yaparak saldırganın işlemini henüz madenciler bloklamadan önce tespit eder ve koruyucu beyaz şapkalı Flashbots paketleriyle protokolleri otonom olarak devre kesiciye (Circuit Breaker) alır.`,
+            description: `DeFiShield Agent, Ethereum, Arbitrum, Base ve Solana ağlarında onay bekleyen transferleri izleyen ve sıfırıncı gün DeFi istismarlarını önleyen otonom bir AI güvenlik koruyucusudur.
+
+**Temel Yetenekler & Özellikler:**
+• **Mempool Seviyesinde İstismar Simülasyonu**: Bellekteki tüm bekleyen işlemleri izole bir EVM fork'unda çalıştırarak bakiye manipülasyonu ve reentrancy kalıplarını yakalar.
+• **GNN Tabanlı Anomali Tespiti**: Graph Neural Networks ile çağrı zincirindeki anormal token transferlerini ve flashloan akışlarını 15 milisaniyede sınıflandırır.
+• **Otonom Koruyucu Front-Running (Mitigation)**: Saldırı tespit edildiğinde protokolün 'pause' fonksiyonunu Flashbots private bundle ile madenciye saldırgandan önce iletir.
+• **Canlı Protokol Risk Skoru API**: Web3 cüzdanları ve DEX toplayıcıları için akıllı sözleşme risk indeksini (0-100) canlı hesaplayan REST/GraphQL API.`,
+            tags: ["Rust", "Solidity", "Foundry", "Python", "Graph Neural Networks", "Flashbots", "SOC2 Uyumlu"]
+        },
+        step2: {
+            architecture: `DeFiShield, milisaniyelerin ve gas optimizasyonunun hayati olduğu blokzincir ortamında **Ultra-Low Latency** ve **Actor Model** mimarisine dayanır.
+
+### 1. Sistem Katmanları:
+• **Mempool Layer (Rust / Tokio)**: IPC ve WebSocket soketleri üzerinden doğrudan validator node'larına bağlı, sıfır kopyalı (Zero-Copy) işlem dinleyici.
+• **Execution Simulation Layer (Rust / revm)**: Gelen ham bytecode işlemlerini bellek içi EVM durumunda milisaniyelik simüle eden motor.
+• **AI Classification Layer (Python / C++ PyTorch bindings)**: GNN modelleriyle sözleşme bağımlılık grafiklerini analiz eden yüksek performanslı çıkarım motoru.
+• **Mitigation Dispatcher (Rust / Ethers-rs)**: Flashbots Builder API ve MEV-Boost kanallarına özel bundle imzalayan güvenlik düğümü.
+
+### 2. Somut Teknoloji Yığını:
+• **Core Engine**: Rust 1.80+ (revm, alloy, tokio)
+• **AI/ML**: PyTorch + DGL (Deep Graph Library) + ONNX Runtime C++
+• **Veri Katmanı**: ClickHouse (Time-Series Logs) + Redis Enterprise (Mempool Cache)
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`monitored_protocols\` (id, contract_address, chain_id, pause_selector, emergency_multisig)
+• \`mempool_events\` (tx_hash PK, from_addr, to_addr, gas_price, simulated_status, threat_level)
+• \`mitigation_logs\` (id, tx_hash FK, target_protocol_id FK, bundle_hash, gas_spent, saved_tvl_usd)
+
+### 4. API Kontratları:
+• \`GET /api/v1/threats/live\`: Anlık tespit edilen mempool saldırı akışı (SSE).
+• \`POST /api/v1/protocols/register\`: Yeni akıllı sözleşme güvenlik koruması kaydı.`,
+            security: `Sistemin kendisi bir savunma aracı olduğu için **Defense-in-Depth** ve donanımsal anahtar izolasyonu zorunludur.
+
+### 1. Kimlik & Özel Anahtar Güvenliği:
+• Otonom durdurma yetkisine sahip acil durum özel anahtarları AWS CloudHSM / YubiHSM 2 donanım modüllerinde tutulur; asla sunucu belleğine düz metin olarak çıkarılmaz.
+• 3/5 Multi-Signature (Gnosis Safe) ve 24 saatlik Timelock kontrolü.
+
+### 2. Tehdit Modellemesi & Sandboxing:
+• EVM simülasyonu kaynak tüketimini sınırlayan izole WebAssembly/cgroup sandbox ortamlarında çalıştırılır; DoS ve bellek tükenmesi saldırıları önlenir.
+
+### 3. Denetim & Formal Verification:
+• Akıllı sözleşme devre kesicileri CertiK ve OpenZeppelin standartlarında formal-verification matematiksel kanıt testlerinden geçirilmiştir.`
+        }
+    },
+    {
+        id: "crossbridge-zk",
+        title: "CrossBridge ZK",
+        tagline: "Sıfır Bilgi İspatlı (ZK-SNARK) Güvensiz ve Çoklu Ağ Varlık Köprüleme Protokolü",
+        category: "Web3, Blockchain & Güvenlik",
+        categoryKey: "web3",
+        scope: "international",
+        meta: {
+            difficulty: "Uzman Düzey",
+            mvpTime: "12 Hafta",
+            monetization: "Köprüleme İşlem Komisyonu (%0.05) + Kurumsal B2B Likidite Havuzu",
+            opportunityScore: "%97 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Kaynak Ağ Kilit Kontratı", type: "source", sub: "Ethereum / Arbitrum EVM" },
+            { id: 2, name: "ZK-Light Client Prover", type: "service", sub: "Rust (SP1 / Risc0 zkVM)" },
+            { id: 3, name: "AI Liquidity Rebalancer", type: "ai", sub: "Dinamik Kayma & Havuz Dengeleyici" },
+            { id: 4, name: "PostgreSQL & IPFS", type: "storage", sub: "İşlem Durumları & ZK Kanıt Deposu" },
+            { id: 5, name: "Hedef Ağ Mint Kontratı", type: "client", sub: "Optimism / Solana Doğrulayıcı" }
+        ],
+        step1: {
+            marketGap: `Kripto para dünyasındaki en büyük hack vakaları (Ronin, Wormhole, Nomad köprüleri - toplam 2.5 milyar $ kayıp) merkezi multisig veya güvenilir oracle tabanlı köprü mimarilerinden kaynaklanmıştır. İki ağ arasında varlık transfer ederken 5 kişilik doğrulayıcı anahtarlarına güvenmek Web3'ün merkeziyetsizlik felsefesine aykırıdır. Pazarın ihtiyacı olan çözüm, hiçbir insan veya sunucu otoritesine güvenmeyen, matematiksel **Sıfır Bilgi Kanıtları (ZK-Proofs / ZK-Light Clients)** ile kaynak ağın blok başlığını hedef ağda doğrulayan kriptografik bir köprüdür. CrossBridge ZK, transfer işlemlerini zkVM ile kanıtlayarak köprüleme hack riskini matematiksel olarak sıfıra indirir.`,
+            description: `CrossBridge ZK, EVM ve non-EVM ağlar arasında sıfır güven (Trustless) ve anında kesinlik (Instant Finality) ile varlık transferi sağlayan ZK-SNARK destekli yeni nesil köprüleme altyapısıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **ZK-Light Client Doğrulaması**: Kaynak ağın konsensüs durumunu zkVM (Risc0/SP1) kanıtlarıyla hedef ağdaki akıllı sözleşmeye aktarır; multisig zaafiyetlerini yok eder.
+• **Yapay Zeka Destekli Likidite Dengeleme**: Farklı ağlardaki havuz dengesini tahmin ederek arbitraj ve slippage (kayma) maliyetlerini %70 düşürür.
+• **1-Dakika Altı Köprüleme Süresi**: İyimser (Optimistic) köprülerdeki 7 günlük bekleme süresi yerine ZK kanıtı doğrulandığı an fonları serbest bırakır.
+• **Geliştirici Cross-Chain Mesajlaşma SDK'sı**: DApp geliştiricilerinin tek satır kodla zincirler arası NFT ve veri taşımasını sağlayan TypeScript/Solidity kütüphanesi.`,
+            tags: ["Rust", "ZK-SNARKs", "Risc0", "Solidity", "TypeScript", "Ethers.js", "Web3"]
+        },
+        step2: {
+            architecture: `CrossBridge ZK, ağır kriptografik kanıtları yüksek verimle üretmek için **Modular zkRollup & Prover Cluster** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Consensus Witness Layer (Rust / SP1 zkVM)**: Kaynak zincirin Sync Committee imzalarını ve Merkle Patricia Trie kanıtlarını çıkaran hafif istemci motoru.
+• **Prover Farm (C++ / CUDA / Rust)**: ZK-SNARK kanıtlarını GPU kümelerinde 30 saniyenin altında üreten donanım hızlandırmalı prover kümesi.
+• **On-Chain Verifier Contract (Solidity / Plonk)**: Hedef zincirde ZK kanıtını 200.000 gas maliyetiyle doğrulayan akıllı sözleşme.
+• **Liquidity Management API (Go / Python)**: Havuz derinliğini yöneten piyasa yapıcı yapay zeka servisi.
+
+### 2. Somut Teknoloji Yığını:
+• **ZK Engine**: SP1 (Succinct) + Halo2 / Plonky3 (Rust)
+• **Smart Contracts**: Solidity 0.8.26 + Foundry
+• **Backend**: Go + PostgreSQL 16 + Redis
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`bridge_transfers\` (deposit_tx_hash PK, src_chain, dst_chain, amount, token_address, proof_status)
+• \`zk_proof_tasks\` (task_id, prover_node_id, proof_bytes, generation_time_ms, verified_on_chain)
+• \`liquidity_pools\` (chain_id, token_symbol, available_liquidity, utilization_rate)
+
+### 4. API Kontratları:
+• \`POST /api/v1/bridge/quote\`: Anlık köprüleme gas ve süre tahmini.
+• \`GET /api/v1/proofs/status/:txHash\`: ZK kanıt üretim ve doğrulama durumu.`,
+            security: `Kriptografik soundness ve akıllı sözleşme güvenliği en üst seviyededir.
+
+### 1. Kriptografik Doğruluk (Soundness):
+• ZK devreleri bağımsız ZK güvenlik firmaları (Veridise, Zellic) tarafından formal audit testlerine tabi tutulmuştur.
+
+### 2. Emergency Fallback Guard:
+• Olası bir sıfırıncı gün ZK devre açığında likidite havuzunu güvenceye alan zaman kilitli (Timelock) acil durum sigortası.`
+        }
+    },
+    {
+        id: "troy-settle-zk",
+        title: "TroySettle ZK (FAST & BKM Uyumlu)",
+        tagline: "Yerli Troy Kart, BKM Express ve TCMB FAST Uyumlu ZK-Rollup Mikro-Mutabakat ve Sadakat Motoru",
+        category: "Web3, Blockchain & Güvenlik",
+        categoryKey: "web3",
+        scope: "national",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "8 Hafta",
+            monetization: "Banka/Fintek Başına Lisanslama + İşlem Başı Mikro Ücret (0.01 TL)",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Troy / FAST İşlem Akışı", type: "source", sub: "Bankalararası Kart Merkezi (BKM)" },
+            { id: 2, name: "ZK-Rollup Batch Sequencer", type: "service", sub: "Rust + Plonky2 (10k tx/s)" },
+            { id: 3, name: "Dolandırıcılık (Fraud) AI", type: "ai", sub: "Gerçek Zamanlı Ters İbraz / Anomali" },
+            { id: 4, name: "PostgreSQL & Ledger DB", type: "storage", sub: "Değiştirilemez Mutabakat Kaydı" },
+            { id: 5, name: "Banka & Üye İşyeri Paneli", type: "client", sub: "React / Fintek Dashboard" }
+        ],
+        step1: {
+            marketGap: `Türkiye'de Troy kart kullanımı son bir yılda %300'ün üzerinde artarak 35 milyon adedi geçmiş, TCMB FAST sistemiyle günlük milyonlarca anlık para transferi yapılmaktadır. Ancak bankalar ve ödeme kuruluşları arasındaki gün sonu takas ve mutabakat (Clearing & Settlement) süreçleri halen geleneksel batch dosyalarıyla (EOD - End of Day) 24 saat gecikmeli yürütülmekte, bu da fintek şirketleri için yüksek teminat blokaj maliyetlerine ve mutabakat uyuşmazlıklarına yol açmaktadır. Ayrıca üye işyeri sadakat puanları banka silolarında hapsolmuştur. TroySettle ZK, binlerce mikro-işlemi sıfır bilgi kanıtlarıyla (ZK-Rollup) saniyeler içinde tek bir kriptografik özete sıkıştırarak anlık mutabakat sağlar ve işlem maliyetini %90 ucuzlatır.`,
+            description: `TroySettle ZK, Türk bankacılık ve fintek ekosistemi için sıfır bilgi ispatlı, saniyede 10.000 işlem kapasiteli yerli bir takas ve anlık mutabakat katmanıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **ZK-Rollup ile Anlık Mutabakat**: Gün sonu beklemeden binlerce Troy ve FAST işlemini tek bir ZK kanıtında birleştirerek bankalar arası anlık takas gerçekleştirir.
+• **Ters İbraz (Chargeback) ve Sahtecilik Önleme AI**: Anormal işlem frekanslarını ve kart kopyalama modellerini milisaniyeler seviyesinde yakalar.
+• **Birlikte Çalışabilir Sadakat Puanı Ağı**: Troy kart kullanıcılarının farklı mağazalardan kazandığı puanları birleştirmesini sağlayan gizlilik korumalı puan havuzu.
+• **BDDK ve TCMB Mevzuat Uyumu**: Verilerin tamamen Türkiye sınırları içerisindeki yerli sunucularda işlendiği lisanslı altyapı.`,
+            tags: ["Rust", "ZK-Rollup", "Plonky2", "Go", "PostgreSQL", "BDDK / TCMB Uyumlu", "TÜBİTAK 1507"]
+        },
+        step2: {
+            architecture: `TroySettle ZK, yüksek işlem hacmi ve yasal denetlenebilirlik için **Private zkRollup & Sovereign Ledger** mimarisine dayanır.
+
+### 1. Sistem Katmanları:
+• **Transaction Sequencer (Rust / Tokio)**: Banka API'lerinden gelen FAST ve Troy işlem paketlerini saniyede 10.000 adet hızla sıralar.
+• **ZK-SNARK Prover Engine (Rust / Plonky2)**: İşlem geçerliliklerini ve bakiye değişimlerini kanıtlayan donanım optimizasyonlu kriptografik motor.
+• **Settlement Gateway (Go)**: TCMB ve BKM protokolleriyle entegre olan resmi mutabakat ara yüzü.
+• **Bank Operations Console (React + Vite + Tailwind)**: Banka hazine ekiplerinin anlık likidite durumunu izlediği panel.
+
+### 2. Somut Teknoloji Yığını:
+• **ZK Engine**: Rust + Plonky2 (Recursive SNARKs)
+• **Backend**: Go (Gin) + Rust (Sequencer)
+• **Veritabanları**: PostgreSQL 16 (Partitioned) + Redis Cluster + Kafka
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`bank_participants\` (bkm_code PK, bank_name, public_key, settlement_account_iban)
+• \`settlement_batches\` (batch_id PK, tx_count, total_amount_try, zk_proof_hash, finalized_at)
+• \`transactions_rollup\` (id, batch_id FK, sender_iban_hash, receiver_iban_hash, amount_try, timestamp)
+
+### 4. API Kontratları:
+• \`POST /api/v1/settle/submit-tx\`: Banka işlem enjeksiyonu.
+• \`GET /api/v1/batches/latest-proof\`: Son takas kanıtı ve doğrulama çıktısı.`,
+            security: `Finansal egemenlik ve **BDDK Banka Bilgi Sistemleri Yönetmeliği** standartları uygulanır.
+
+### 1. Donanımsal İmzalama:
+• Takas paketleri bankaların kendi HSM (Hardware Security Module) donanımlarında mTLS 1.3 ile imzalanır.
+
+### 2. Finansal Veri Gizliliği:
+• Kart numaraları ve müşteri kimlikleri ZK devrelerinde gizlenir (Confidential Balances); yalnızca toplam mutabakat bakiyesi doğrulanır.`
+        }
+    },
+
+    // =========================================================================
+    // 3. BULUT ALTYAPISI & DAĞITIK SİSTEMLER (infrastructure)
+    // =========================================================================
+    {
         id: "omnicache-ai",
         title: "OmniCache AI",
-        tagline: "Yapay Zeka Destekli Tahminli Önbellekleme ve Depolama Yönetim Katmanı",
+        tagline: "Yapay Zeka Destekli Tahminli Önbellekleme, eBPF Ağ Katmanı ve Akıllı Depolama Optimizatörü",
         category: "Altyapı, Cloud & Performans",
         categoryKey: "infrastructure",
+        scope: "international",
         meta: {
             difficulty: "İleri Düzey",
             mvpTime: "6 Hafta",
-            monetization: "Cloud Infrastructure Usage-Based Pricing",
-            opportunityScore: "%94 Fırsat Skoru"
+            monetization: "Cloud Infrastructure Usage-Based Pricing + Enterprise Support",
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Client Traffic (RESP)", type: "source", sub: "Redis / Memcached Inbound" },
-            { id: 2, name: "eBPF / DPDK Data Plane", type: "service", sub: "Kernel-Level Router (C++20)" },
-            { id: 3, name: "Predictive Cache AI", type: "ai", sub: "LSTM + Time Series" },
-            { id: 4, name: "Tiered Storage Manager", type: "storage", sub: "RAM -> NVMe -> S3" },
-            { id: 5, name: "RocksDB & VictoriaMetrics", type: "storage", sub: "Local KV & Metrikler" },
-            { id: 6, name: "Admin Dashboard", type: "client", sub: "Vue 3 Performance Portal" }
+            { id: 1, name: "İstemci HTTP/RESP Trafiği", type: "source", sub: "Mikroservis Trafiği" },
+            { id: 2, name: "eBPF / XDP Data Plane", type: "service", sub: "Linux Çekirdek Router (C++20)" },
+            { id: 3, name: "Predictive Cache AI", type: "ai", sub: "LSTM + LightGBM Zaman Serisi" },
+            { id: 4, name: "Tiered Storage Katmanı", type: "storage", sub: "RAM -> NVMe SSD -> S3" },
+            { id: 5, name: "VictoriaMetrics & RocksDB", type: "storage", sub: "Performans & KV Deposu" },
+            { id: 6, name: "Grafana & Cloud Portal", type: "client", sub: "Maliyet & Hit-Rate Paneli" }
         ],
         step1: {
-            marketGap: `Büyük ölçekli web uygulamalarında ve mikroservis mimarilerinde Redis veya Memcached kullanımı çoğunlukla manuel ve sezgiseldir (LRU, LFU önbellek temizleme politikaları). Bu durum yüksek RAM maliyetlerine ve "Cache Stampede" (önbellek çökmesi) sorunlarına yol açar. Geleneksel sistemler hangi verinin 5 dakika sonra popüler olacağını tahmin edemez. OmniCache AI, mikroservis trafiğini zaman serisi yapay zeka modelleriyle analiz ederek veriyi sorgu *gelmeden önce* önbelleğe alır ve erişilmeyen verileri anında RAM'den NVMe disk katmanına kaydırarak Cloud altyapı maliyetlerini %60 oranında düşürür.`,
-            description: `OmniCache AI, mevcut Redis veya Memcached sunucularınızın önüne şeffaf bir proxy olarak oturan zeki bir veri katmanıdır.
+            marketGap: `Yüksek trafikli modern bulut mimarilerinde Redis veya Memcached kullanımı çoğunlukla reaktif ve sezgiseldir (LRU, LFU bellek tahliye politikaları). Bu durum sunucularda fahiş RAM maliyetlerine ve popüler verilerin aniden düşmesiyle veritabanının kilitlendiği 'Cache Stampede' krizlerine yol açar. Geleneksel önbellekler hangi verinin 5 dakika sonra talep göreceğini öngöremez. OmniCache AI, mikroservis trafiğini zaman serisi makine öğrenmesi modelleriyle analiz ederek veriyi sorgu henüz gelmeden RAM'e çeker (Pre-warming) ve erişilmeyen verileri anında NVMe disk katmanına aktararak AWS/GCP bulut önbellek maliyetlerini %65 oranında düşürür.`,
+            description: `OmniCache AI, mevcut Redis veya veritabanı altyapınızın önüne şeffaf bir proxy olarak kurulan akıllı bir veri yönetim katmanıdır.
 
-**Temel İşlevler & Özellikler:**
-• **Predictive Cache Warming (Tahminli Önbellek Isıtma)**: Kullanıcı davranışlarını ve geçmiş trafik dalgalanmalarını öğrenerek sorgulanacak verileri milisaniyeler öncesinden RAM'e yükler.
-• **Akıllı Katmanlı Depolama (Tiered Storage)**: Sıcak veri (RAM) -> Ilık veri (NVMe SSD) -> Soğuk veri (S3) geçişini sıfır kod değişikliğiyle otomatik yönetir.
-• **Cache Stampede Koruması**: Aynı anda binlerce kullanıcının önbellekte olmayan tek bir veriyi sorgulaması durumunda veritabanına sadece 1 istek gönderir, diğerlerini bekleme kuyruğunda birleştirir.
-• **Otomatik TTL Entegrasyonu**: Statik TTL süreleri yerine veri güncellenme sıklığına göre dinamik TTL (Time-To-Live) belirler.`,
-            tags: ["C++20", "Go", "eBPF", "Redis Protocol", "LightGBM", "Prometheus"]
+**Temel Yetenekler & Özellikler:**
+• **Tahminli Önbellek Isıtma (Predictive Pre-Warming)**: Trafik eğrilerini ve kullanıcı davranış örüntülerini öğrenerek ihtiyaç duyulacak anahtarları milisaniyeler öncesinden RAM'e yükler.
+• **Akıllı Katmanlı Depolama (Tiered Storage)**: Sıcak veri (RAM) -> Ilık veri (NVMe SSD / RocksDB) -> Soğuk veri (S3) geçişini sıfır kod değişikliğiyle otomatik yönetir.
+• **Cache Stampede ve Thundering Herd Engelleme**: Aynı anda binlerce istek gelmesi durumunda veritabanına sadece tek bir sorgu gönderir ve sonuçları bekleyen tüm isteklere anında çoklar.
+• **Dinamik TTL Optimizasyonu**: Sabit süreler yerine verinin değişim sıklığına göre kendi kendine uyarlanan akıllı TTL (Time-To-Live) belirler.`,
+            tags: ["C++20", "Go", "eBPF", "Redis Protocol", "RocksDB", "VictoriaMetrics", "AWS/GCP"]
         },
         step2: {
-            architecture: `OmniCache AI, ağ paketlerini çekirdek (kernel) seviyesinde işlemek ve ultra düşük gecikme (sub-millisecond) sağlamak için **eBPF (Extended Berkeley Packet Filter)** ve **Zero-Copy Memory** mimarisini kullanır.
+            architecture: `OmniCache AI, ağ paketlerini Linux çekirdeği seviyesinde işlemek ve alt-milisaniye (sub-millisecond) gecikme sağlamak için **eBPF (Extended Berkeley Packet Filter)** ve **Zero-Copy Memory** mimarisini kullanır.
 
 ### 1. Sistem Katmanları:
-• **Data Plane (C++20 / DPDK / eBPF)**: Gelen RESP (Redis Serialization Protocol) trafiğini çekirdek alanında karşılar, mikrosaniyeler seviyesinde yönlendirir.
-• **Control Plane (Go)**: Küme yönetimi, düğüm sağlık kontrolleri ve metrik toplama.
-• **Predictive AI Engine (Python / Rust - PyO3)**: On-line learning algoritmaları (LSTM & Prophet) ile gelecek dakika bazlı trafik eğrisini hesaplayan arka plan ajanı.
-• **Admin Console (Vue.js 3 + Tailwind)**: RAM tasarrufu, önbellek isabet oranı (Hit Rate) ve gecikme metriklerinin canlı izlendiği dashboard.
+• **Data Plane (C++20 / eBPF / DPDK)**: Gelen RESP ve HTTP paketlerini çekirdek alanında karşılar, mikrosaniyeler içinde yönlendirir.
+• **Control Plane (Go)**: Küme yönetimi, düğüm sağlık kontrolleri, metrik toplama ve dinamik konfigürasyon dağıtımı.
+• **Predictive AI Engine (Python / Rust PyO3)**: Çevrim içi öğrenme algoritmalarıyla sonraki 15 dakikalık trafik talebini hesaplar.
+• **Tiered Storage Engine (C++)**: RAM ve RocksDB SSD depolama arasında sıfır kilitli (Lock-Free) veri taşıyıcı.
 
-### 2. Veritabanı Mimarisi:
-• **RocksDB (Embedded KV)**: SSD üzerinde yüksek hızlı yerel anahtar-değer depolama.
-• **Prometheus & VictoriaMetrics**: Saniye bazlı performans ve harcanan RAM bellek metrikleri depolama.`,
-            security: `Önbellek katmanları hassas kullanıcı verilerinin en çok sızdırıldığı zayıf noktalardır. OmniCache AI, **Enterprise-Grade Infrastructure Security** sunar.
+### 2. Somut Teknoloji Yığını:
+• **Data Plane**: C++20 + libbpf + Linux XDP
+• **Control Plane**: Go 1.22 + gRPC + Raft Consensus
+• **Monitoring**: VictoriaMetrics + Prometheus + Grafana Dashboard
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Zero-Trust Memory Isolation**: Farklı kiracıların (multi-tenant) veya mikroservislerin verileri RAM bellek seviyesinde donanımsal olarak izole edilir (Process Sandboxing).
-• **TLS Termination & Passthrough**: İstemci ile önbellek arasındaki tüm trafik TLS 1.3 ile şifrelenir; dahili bellek dökümlerinde (RAM dumps) veriler şifreli saklanır.
-• **Dynamic Data Masking (DDM)**: Kredi kartı, e-posta veya şifre hash'leri önbelleğe girmeden önce kural bazlı tespit edilerek RAM'de maskelenir.
-• **DDoS & Rate Limiting (Token Bucket)**: Anormal yüksek sorgu gönderen IP adresleri veya yetkisiz servisler eBPF katmanında sunucu işlemcisine yük bindirmeden drop edilir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`cache_clusters\` (id, cluster_name, max_ram_bytes, policy_mode, created_at)
+• \`key_access_patterns\` (key_hash PK, access_count, last_access_ts, predicted_next_access, tier_level)
+• \`cost_savings_metrics\` (timestamp, cluster_id FK, ram_saved_gb, db_queries_prevented, latency_p99_ms)
+
+### 4. API Kontratları:
+• Standart Redis RESP protokolü uyumlu (GET, SET, MGET komutlarını kesintisiz karşılar).
+• \`GET /api/v1/metrics/hit-rate\`: Gerçek zamanlı önbellek isabet oranı ve tasarruf metrikleri.`,
+            security: `Önbellek katmanları hassas kullanıcı oturumlarının ve token'ların geçtiği kritik altyapılardır; **Enterprise-Grade Infrastructure Security** ile korunur.
+
+### 1. Kimlik & Erişim Güvenliği:
+• Redis ACL v2 ve mTLS istemci sertifikası doğrulama, Role-Based Access Control (RBAC).
+
+### 2. Bellek İzolasyonu & Maskeleme:
+• Farklı kiracıların (Multi-tenant) verileri donanımsal süreç izolasyonuyla (Process Sandboxing) ayrılır.
+• Kredi kartı, parola hash'i ve PII içeren anahtarlar RAM'e girmeden önce kural bazlı Dynamic Data Masking (DDM) filtresinden geçer.
+
+### 3. DoS & DDoS Koruması:
+• Anormal sorgu trafiği gönderen IP adresleri eBPF/XDP katmanında işletim sistemi çekirdeğine yük binmeden mikrosaniyede düşürülür (Kernel Drop).`
         }
     },
+    {
+        id: "afad-mesh-sync",
+        title: "AfetMesh Sync (AFAD & Kandilli Uyumlu)",
+        tagline: "Deprem ve Afet Durumunda Baz İstasyonları Çöktüğünde Çevrimdışı P2P Bluetooth/Wi-Fi Mesh ve Dağıtık Koordinasyon Altyapısı",
+        category: "Altyapı, Cloud & Performans",
+        categoryKey: "infrastructure",
+        scope: "national",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "7 Hafta",
+            monetization: "Kamu/Belediye Lisansı + AFAD/AKUT Arama Kurtarma Donanım Hibesi",
+            opportunityScore: "%98 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Enkaz Altı & Vatandaş Cihazları", type: "source", sub: "BLE / Wi-Fi Direct Mesh" },
+            { id: 2, name: "P2P Gossip Protokolü", type: "service", sub: "Rust libp2p + CRDTs" },
+            { id: 3, name: "Ses & Yaşam Belirtisi AI", type: "ai", sub: "Mikrofon Frekans & Enkaz Analizi" },
+            { id: 4, name: "SQLite & Yerel İHA Gateway", type: "storage", sub: "Gecikmeli Senkronizasyon DB" },
+            { id: 5, name: "AFAD Kurtarma Komuta Paneli", type: "client", sub: "Offline Harita & Isı Katmanı" }
+        ],
+        step1: {
+            marketGap: `6 Şubat Kahramanmaraş depremlerinde acı biçimde tecrübe edildiği üzere, büyük afet anlarında baz istasyonları ve elektrik şebekesi ilk dakikalarda çökmekte, enkaz altındaki vatandaşlar ve arama kurtarma ekipleri (AFAD, AKUT) saatlerce haberleşememektedir. Mevcut mesajlaşma uygulamaları (WhatsApp, Telegram vb.) internet bağlantısı olmadan çalışamaz. İnternet ve hücresel hatların tamamen yok olduğu bir senaryoda, telefonların Bluetooth Low Energy (BLE) ve Wi-Fi Direct üzerinden birbirine bağlanarak cihazdan cihaza seken (Multi-hop Mesh Network) otonom bir iletişim ağına hayati ihtiyaç vardır. AfetMesh Sync, internet olmasa dahi 500 metrelik atlamalarla enkaz altındaki konum ve sağlık durumunu kurtarma ekiplerinin dronlarına veya sahadaki kurtarıcılara iletir.`,
+            description: `AfetMesh Sync, doğal afetlerde hücresel ağlar çöktüğünde telefonlar arasında kendiliğinden kurulan (Ad-Hoc) dağıtık bir kriz iletişim ve arama kurtarma altyapısıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **Sıfır İnternet P2P Mesh Haberleşme**: Bluetooth LE ve Wi-Fi Direct üzerinden telefonları aktarıcı (Relay) düğüm haline getirerek mesajları 20+ atlamayla kilometrelerce öteye ulaştırır.
+• **Enkaz Altı Akustik Yaşam Belirtisi AI**: Telefon mikrofonunu pasif dinlemeye alarak enkaz altındaki duvar vurma, yardım çığlığı veya nefes frekanslarını yapay zekayla tanır ve acil çağrı üretir.
+• **Çatışmasız Dağıtık Veri Senkronizasyonu (CRDT)**: Farklı kurtarma ekiplerinin çevrimdışı topladığı enkaz koordinatlarını internet geldiğinde veya İHA'lar üzerinden sıfır veri kaybıyla birleştirir.
+• **AFAD / Kandilli Koordinasyon Arayüzü**: Kurtarma ekiplerine enkaz altındaki tahmini kişi sayısını ve sinyal gücünü 3B ısı haritasıyla gösteren harita paneli.`,
+            tags: ["Rust", "libp2p", "Bluetooth LE", "CRDT", "Flutter", "AFAD Uyumlu", "TÜBİTAK 1507"]
+        },
+        step2: {
+            architecture: `AfetMesh Sync, merkezi sunucuların bulunmadığı felaket koşullarında çalışmak için **Delay-Tolerant Networking (DTN) & Peer-to-Peer** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Mesh Transport Layer (Rust / libp2p + BLE Drivers)**: Cihazlar arası Bluetooth LE ve Wi-Fi Aware soketlerini yöneten, batarya dostu düşük enerjili taşıma katmanı.
+• **Gossip & Routing Engine (Rust)**: Mesajları ağdaki düğümlere akıllıca yayan (Epidemic Routing / GossipSub) yönlendirme protokolü.
+• **Acoustic AI Engine (C++ / TFLite)**: Mikrofon sinyalini işleyen ultra-hafif ses sınıflandırma modeli (TensorFlow Lite).
+• **Command & Map UI (Flutter / Mapbox Offline)**: Vektör haritaları cihaz hafızasında yüklü kurtarma yönetim arayüzü.
+
+### 2. Somut Teknoloji Yığını:
+• **P2P Core**: Rust (libp2p, zerocopy)
+• **Mobil İstemci**: Flutter (C++ FFI bağlayıcıları) + Android/iOS BLE Native
+• **Veritabanı**: SQLite (SQLCipher) + Yjs / Automerge CRDTs
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`sos_signals\` (uuid PK, source_device_hash, lat, lon, battery_pct, trapped_count, sound_detected, hops_count)
+• \`rescue_teams\` (id, team_name, current_lat, current_lon, assigned_sector)
+• \`debris_registry\` (id, building_address, risk_level, survivors_detected, status)
+
+### 4. API Kontratları:
+• P2P Protobuf mesajlaşma formatı: \`message EmergencyBeacon { string device_id = 1; GeoPoint location = 2; int32 severity = 3; }\`.`,
+            security: `Afet anlarında sahte yardım çağrıları ve panik yayılmasını engellemek için **Kriptografik Doğrulama** uygulanır.
+
+### 1. Cihaz Kimlik Doğrulama:
+• Her cihaz yerel Ed25519 asimetrik anahtar çifti üretir; yayılan her SOS mesajı cihazın özel anahtarıyla imzalanarak manipülasyon engellenir.
+
+### 2. Batarya ve Kaynak Koruması:
+• BLE tarama sıklığı batarya %20'nin altına indiğinde akıllı güç tasarrufu moduna geçer ve 48 saate kadar sinyal yaymaya devam eder.`
+        }
+    },
+    {
+        id: "cloudgate-cost",
+        title: "CloudGate FinOps",
+        tagline: "Çoklu Bulut (AWS, GCP, Azure) Altyapılarında Otonom Spot Instance ve Kubernetes Kaynak İsrafı Önleyici AI Ajanı",
+        category: "Altyapı, Cloud & Performans",
+        categoryKey: "infrastructure",
+        scope: "international",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "Tasarruf Edilen Bulut Bütçesinden %15 Başarı Primi (FinOps SaaS)",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Kubernetes Metrics / CloudWatch", type: "source", sub: "Prometheus & Cloud API" },
+            { id: 2, name: "FinOps Decision Engine", type: "service", sub: "Go Operator + KEDA Autoscaler" },
+            { id: 3, name: "Spot Kesinti Tahmin AI", type: "ai", sub: "XGBoost Fiyat & Kesinti Tahmini" },
+            { id: 4, name: "TimescaleDB & Redis", type: "storage", sub: "Maliyet Analitik & Küme Durum DB" },
+            { id: 5, name: "Mühendislik Tasarruf Portali", type: "client", sub: "Next.js / Slack Bot Raporu" }
+        ],
+        step1: {
+            marketGap: `Yazılım şirketlerinin bulut bilişim (AWS, Azure, Google Cloud) faturalarının ortalama %35'i atıl bırakılmış sunucular, aşırı kaynak ayrılmış (over-provisioned) Kubernetes pod'ları ve kullanılmayan EBS diskleri yüzünden israf edilmektedir. Geleneksel maliyet izleme araçları (Datadog, CloudHealth vb.) yalnızca faturanın neden yüksek olduğunu gösteren pasif grafikler sunar; ancak altyapıyı otonom olarak küçültmez veya riski yöneterek Spot Instance'lara geçirmez. Mühendislik ekipleri ise canlı sistemlerin çökmesinden korktukları için manuel küçültme yapmaktan çekinir. CloudGate FinOps, Spot sunucu kesintilerini 15 dakika önceden tahmin eden yapay zeka ajanıyla iş yüklerini sıfır kesintiyle Spot havuzlarına taşır ve bulut faturasını anında yarıya indirir.`,
+            description: `CloudGate FinOps, Kubernetes kümelerini ve bulut sanal sunucularını canlı optimize eden otonom bir altyapı maliyet tasarrufu kontrolörüdür.
+
+**Temel Yetenekler & Özellikler:**
+• **Spot Kesinti Tahmini (Interruption Predictor)**: AWS Spot pazarındaki fiyat dalgalanmalarını izleyerek sunucunun geri çağrılacağını 15 dakika önceden tahmin eder ve pod'ları yedek düğüme tahliye eder.
+• **Otonom Pod Right-Sizing**: Uygulamanın gerçek CPU/RAM tüketimini öğrenerek Kubernetes request/limit değerlerini mikro düzeyde otomatik günceller.
+• **Zombi Kaynak Temizliği**: Bağlantısı kopmuş EBS birimlerini, kullanılmayan Load Balancer'ları ve unutulmuş dev ortamlarını tespit edip otomatik durdurur.
+• **Slack ve GitHub PR Entegrasyonu**: 'Bu Terraform PR'ı bulut faturanızı aylık 450$ artıracak' uyarısını kod inceleme aşamasında yapan CI/CD botu.`,
+            tags: ["Go", "Kubernetes Operator", "AWS/GCP API", "Terraform", "Prometheus", "Python", "FinOps"]
+        },
+        step2: {
+            architecture: `CloudGate FinOps, doğrudan Kubernetes kontrol düzleminde çalışmak için **Kubernetes Custom Resource Definition (CRD) & Controller** mimarisine dayanır.
+
+### 1. Sistem Katmanları:
+• **Kube-Agent (Go / client-go)**: Müşterinin Kubernetes kümesine kurulan, metrikleri toplayan ve pod ölçekleme komutlarını yürüten hafif operatör.
+• **Spot Market AI Engine (Python / LightGBM)**: AWS/GCP API'lerinden tüm bölgelerdeki Spot havuz derinliğini izleyen merkezi tahmin modeli.
+• **Optimization Brain (Go / gRPC)**: Binlerce pod için en uygun düğüm yerleşimini hesaplayan lineer programlama çözücüsü.
+• **FinOps Dashboard (Next.js 14 + Tremor)**: Tasarruf edilen net dolar tutarını ve kaynak kullanımını gösteren yönetici paneli.
+
+### 2. Somut Teknoloji Yığını:
+• **Core Operator**: Go (Kubebuilder / Operator SDK)
+• **AI Inference**: Python FastAPI + Ray Serve
+• **Veritabanı**: TimescaleDB + Redis + ClickHouse
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`cloud_accounts\` (id, provider, role_arn, monthly_spend_usd, optimization_status)
+• \`k8s_clusters\` (id, account_id FK, cluster_version, node_count, current_savings_pct)
+• \`optimization_actions\` (id, cluster_id FK, action_type, estimated_saving_usd, executed_at, rollback_status)
+
+### 4. API Kontratları:
+• \`POST /api/v1/clusters/recommendations\`: Yapay zekanın ürettiği küme optimizasyon planı.
+• \`POST /api/v1/agent/telemetry\`: K8s operatöründen gelen canlı CPU/RAM kullanım akışı.`,
+            security: `Müşteri bulut hesaplarına erişim **Least Privilege (En Az Yetki)** prensibiyle korunur.
+
+### 1. Güvenli IAM Rolü (Cross-Account IAM):
+• Asla statik AWS Access Key kullanılmaz; geçici süreli AWS STS AssumeRole ve harici ID (ExternalId) doğrulaması kullanılır.
+
+### 2. Salt Okunur / Korumalı Mod:
+• Müşteri dilerse 'Yalnızca Öneri Modu'nu seçerek ajanın otomatik müdahale etmesini engelleyebilir.`
+        }
+    },
+
+    // =========================================================================
+    // 4. EĞİTİM TEKNOLOJİLERİ & YAPAY ZEKA (edtech)
+    // =========================================================================
     {
         id: "eduscribe-ai",
         title: "EduScribe AI",
         tagline: "Nöroçeşitlilik Odaklı İnteraktif Görsel Öğrenme ve Zihin Haritası Platformu",
         category: "Eğitim Teknolojileri & Yapay Zeka",
         categoryKey: "edtech",
+        scope: "international",
         meta: {
             difficulty: "Orta Düzey",
             mvpTime: "4 Hafta",
             monetization: "Freemium + Okul B2B Lisansı",
-            opportunityScore: "%95 Fırsat Skoru"
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
             { id: 1, name: "Ders Videosu / PDF", type: "source", sub: "İçerik Yükleme" },
@@ -178,10 +621,10 @@ const PROJECTS_DATABASE = [
             { id: 5, name: "Disleksi UI Portal", type: "client", sub: "Next.js + D3.js MindMaps" }
         ],
         step1: {
-            marketGap: `Dünya genelinde öğrencilerin %15'i Disleksi, DEHB (Dikkat Eksikliği) veya İşitsel İşleme Bozukluğundan etkilenmektedir. Geleneksel online kurslar (Coursera, Udemy vb.) uzun videolar ve yoğun metin blokları sunar; bu da bu öğrenciler için öğrenmeyi zorlaştırır. Pazardaki yapay zeka araçları ise yalnızca uzun metinleri kısa özetlere dönüştürmektedir; ancak nöroçeşitli öğrenciler için özet metinler değil, **görsel şemalar, interaktif zihin haritaları, odak odaklı seslendirmeler ve renk kodlu kavram haritaları** gereklidir. EduScribe AI, uzun ders videolarını ve PDF'leri disleksi dostu typography ve dinamik görsel haritalara dönüştürür.`,
+            marketGap: `Dünya genelinde öğrencilerin %15'i Disleksi, DEHB (Dikkat Eksikliği) veya İşitsel İşleme Bozukluğundan etkilenmektedir. Geleneksel online kurslar (Coursera, Udemy vb.) uzun videolar ve yoğun metin blokları sunar; bu da bu öğrenciler için öğrenmeyi zorlaştırır. Pazardaki yapay zeka araçları ise yalnızca uzun metinleri kısa özetlere dönüştürmektedir; ancak nöroçeşitli öğrenciler için özet metinler değil, görsel şemalar, interaktif zihin haritaları, odak odaklı seslendirmeler ve renk kodlu kavram haritaları gereklidir. EduScribe AI, uzun ders videolarını ve PDF'leri disleksi dostu typography ve dinamik görsel haritalara dönüştürür.`,
             description: `EduScribe AI, ders içeriklerini nöroçeşitli bireylerin algılama biçimine göre yeniden yapılandıran yapay zeka destekli bir e-öğrenme ajanıdır.
 
-**Temel İşlevler & Özellikler:**
+**Temel Yetenekler & Özellikler:**
 • **Videodan Dinamik Zihin Haritasına**: Yüklenen 1 saatlik ders videosunu analiz eder, ana kavramları ve aralarındaki nedensellik bağlarını canlı tıklanabilir zihin haritasına dönüştürür.
 • **Disleksi Dostu Okuma Modu**: Metinleri OpenDyslexic yazı tipinde, kelime vurgulama (Bionic Reading) ve renkli odak çizgileriyle sunar.
 • **Sesli & Görsel Soru-Cevap Ajanı**: Öğrencinin anlamadığı bir kavramı mikrofonla sormasına olanak tanır ve bunu basit analojilerle ve kısa animasyonlarla açıklar.
@@ -197,29 +640,169 @@ const PROJECTS_DATABASE = [
 • **Frontend UI (Next.js 14 - App Router + D3.js)**: Zihin haritalarını SVG/Canvas üzerinde akıcı animasyonlarla çizen kullanıcı arayüzü.
 • **Realtime Audio Gateway (WebSockets / Node.js)**: Öğrenci ile sesli etkileşim kuran düşük gecikmeli ses akış sunucusu.
 
-### 2. Veritabanı Mimarisi:
-• **Neo4j (Graph Database)**: Ders kavramları arasındaki hiyerarşik ve mantıksal ilişkileri depolayan çizge veritabanı.
-• **PostgreSQL + pgvector**: Ders içeriklerinin semantik araması (RAG - Retrieval Augmented Generation) için vektör gömmeleri.`,
+### 2. Somut Teknoloji Yığını:
+• **Media**: FFmpeg + Whisper AI + Web Speech API
+• **Backend**: Python FastAPI + LangChain
+• **Veritabanı**: Neo4j (Graph DB) + PostgreSQL (pgvector) + Redis
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`users\` (id, email, learning_profile, dyslexia_font_enabled, created_at)
+• \`courses\` (id, user_id FK, original_video_url, transcript_text, mindmap_json)
+• \`quiz_cards\` (id, course_id FK, concept_title, question_text, flashcard_front, flashcard_back)
+
+### 4. API Kontratları:
+• \`POST /api/v1/media/transcribe\`: Ders videosu yükleme ve altyazı çıkarımı.
+• \`GET /api/v1/mindmaps/:courseId\`: İnteraktif D3.js zihin haritası JSON grafı.`,
             security: `Kullanıcı kitlesinin ağırlıklı olarak öğrenciler ve çocuklar olması sebebiyle **COPPA** ve **GDPR-K (Çocukların Gizliliği)** uyumu zorunludur.
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Strict Data Privacy & Safe Search**: Öğrencilerin sisteme yüklediği ders notları veya ses kayıtları yapay zeka modellerinin genel eğitiminde asla kullanılmaz.
-• **Content Moderation Filter**: Yapay zekanın ürettiği tüm yanıtlar ve görseller içerik güvenlik filtrelerinden (LLM Guard) geçirilerek uygunsuz içerik engellenir.
-• **Öğrenci Verisi Şifreleme**: Öğrenci hesapları veli/öğretmen onaylı yetkilendirme (OAuth2 Child Consent) altında çalışır ve tüm kişisel gelişim verileri AES-256 ile şifrelenir.
-• **Session Limits & Health Indicators**: Aşırı ekran kullanımını önlemek için otomatik mola uyarıları veren güvenli oturum yönetimi.`
+### 1. Gizlilik ve Güvenli Arama:
+• Öğrencilerin sisteme yüklediği ders notları veya ses kayıtları yapay zeka modellerinin genel eğitiminde asla kullanılmaz.
+
+### 2. İçerik Moderasyonu:
+• Yapay zekanın ürettiği tüm yanıtlar ve görseller içerik güvenlik filtrelerinden (LLM Guard) geçirilerek uygunsuz içerik engellenir.`
         }
     },
+    {
+        id: "yks-bilge-koc",
+        title: "BilgeKoç AI (MEB & ÖSYM Uyumlu)",
+        tagline: "YKS, LGS ve KPSS İçin MEB Müfredatına ve Bilişsel Seviyeye Dayalı Kişiselleştirilmiş Yapay Zeka Koçu",
+        category: "Eğitim Teknolojileri & Yapay Zeka",
+        categoryKey: "edtech",
+        scope: "national",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "Öğrenci Aboneliği (Freemium) + Dershane/Okul B2B Lisansı",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Öğrenci Soru Çözüm Verisi", type: "source", sub: "Fotoğraf & Test Çözümleri" },
+            { id: 2, name: "OCR & Multimodal Gateway", type: "service", sub: "FastAPI + LaTeX / Mathpix" },
+            { id: 3, name: "Bilişsel Kazanç Haritası AI", type: "ai", sub: "MEB Kazanım Grafı & RAG LLM" },
+            { id: 4, name: "PostgreSQL & pgvector", type: "storage", sub: "ÖSYM Soru Bankası & Vektör DB" },
+            { id: 5, name: "Mobil & Web Arayüz", type: "client", sub: "Flutter / Next.js Öğrenci Portali" }
+        ],
+        step1: {
+            marketGap: `Türkiye'de her yıl 3.5 milyondan fazla öğrenci YKS, LGS ve KPSS sınavlarına hazırlanmaktadır. Mevcut soru çözüm uygulamaları (Kunduz vb.) yalnızca sorunun çözüm videosunu verir; ancak öğrencinin o soruyu *neden* yanlış yaptığını, MEB müfredatındaki hangi alt kazanımdan eksik kaldığını ve sınavda çıkabilecek benzer soru varyasyonlarını analiz etmez. Özel ders ve koçluk ücretlerinin aylık 15.000 TL'yi aştığı ekonomik şartlarda, fırsat eşitliği sunan yerli bir yapay zeka sınav koçuna devasa bir talep vardır. BilgeKoç AI, MEB müfredat kazanım ağacıyla entegre çalışarak öğrencinin eksik olduğu konuyu tespit eder, Sokratik yöntemle ipuçları vererek çözdürür ve ÖSYM formatında benzer özgün sorular üretir.`,
+            description: `BilgeKoç AI, öğrencinin soru çözüm fotoğraflarını ve deneme sınavı sonuçlarını inceleyerek kişiye özel öğrenme rotası çizen yapay zeka eğitim asistanıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **Sokratik Soru Çözüm Rehberi**: Öğrencinin yapamadığı sorunun cevabını doğrudan vermek yerine, hangi formülü veya kuralı hatırlaması gerektiğini adım adım sorularla keşfettirir.
+• **MEB Kazanım Eksiklik Analizi**: Yanlış yapılan soruları MEB'in resmi kazanım kodlarıyla (örn: MAT-11.3.1 Türevde Geometrik Yorum) eşleştirerek bilişsel eksiklik haritası çıkarır.
+• **ÖSYM Formatında Benzer Soru Üretimi**: Öğrencinin takıldığı sorunun mantığını içeren, ancak sayıları ve hikayesi değişmiş yeni pratik soruları anlık oluşturur.
+• **Dinamik Tekrar Programı (Aralıklı Tekrar - Spaced Repetition)**: Unutma eğrisine (Ebbinghaus) göre öğrencinin 3 gün, 1 hafta ve 1 ay sonra çözmesi gereken soru paketini hazırlar.`,
+            tags: ["Flutter", "Python", "FastAPI", "pgvector", "MEB Müfredatı", "Next.js", "TÜBİTAK 2209 Uyumlu"]
+        },
+        step2: {
+            architecture: `BilgeKoç AI, yüksek eşzamanlı öğrenci trafiğini karşılamak ve multimodal soru çözümlerini işlemek için **RAG (Retrieval-Augmented Generation) & Knowledge Graph** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Media & OCR Pipeline**: Fotoğrafı çekilen matematik/fen sorularını LaTeX ve metin formatına dönüştüren multimodal işleme hattı.
+• **Knowledge Graph Engine (Neo4j)**: MEB kazanımları, ön koşul ders konuları ve ÖSYM soru tipleri arasındaki hiyerarşik ilişki grafı.
+• **RAG & Socratic Reasoning (Python / LangChain + Llama 3 Fine-Tuned)**: Öğrenciye rehberlik eden pedagojik yapay zeka ajanı.
+• **Client Layer**: Flutter cross-platform mobil uygulama ve Next.js öğretmen/veli takip paneli.
+
+### 2. Somut Teknoloji Yığını:
+• **Backend**: Python FastAPI + Celery (Arka plan OCR işleri) + Redis
+• **Mobil & Web**: Flutter (iOS & Android) + Next.js 14 + TailwindCSS
+• **Veritabanları**: PostgreSQL 16 (pgvector) + Neo4j (Kazanım Grafı) + MinIO (Soru Fotoğrafları)
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`students\` (id, name, grade_level, exam_target, created_at)
+• \`meb_competencies\` (code PK, subject, grade, title, prerequisite_code FK)
+• \`question_attempts\` (id, student_id FK, competency_code FK, image_url, is_correct, mistake_reason)
+• \`personalized_roadmaps\` (id, student_id FK, weekly_schedule_json, mastery_score)
+
+### 4. API Kontratları:
+• \`POST /api/v1/questions/analyze-photo\`: Soru fotoğrafı yükleme ve OCR analizi.
+• \`POST /api/v1/questions/socratic-hint\`: Öğrenciye sıradaki yönlendirici ipucunu dönen streaming endpoint.`,
+            security: `Öğrenci verilerinin gizliliği ve güvenliği **KVKK** ve çocukların korunması mevzuatlarına uygun olarak tasarlanmıştır.
+
+### 1. Kimlik & Veri Koruma:
+• MEB EBA ve e-Devlet ile güvenli giriş desteği, Veli İzin Onay Mekanizması (Parental Consent).
+
+### 2. Güvenli İçerik & Pedagojik Filtre:
+• Yapay zekanın tüm çıktıları Llama-Guard ve Türkçe küfür/uygunsuz içerik filtrelerinden geçirilir; pedagojik sınırların dışına çıkması engellenir.`
+        }
+    },
+    {
+        id: "codecraft-interactive",
+        title: "CodeCraft AI Mentor",
+        tagline: "Yazılım Geliştiriciler İçin İzole WebAssembly Sandbox Destekli Canlı Kod Analizi ve Algoritma Koçu",
+        category: "Eğitim Teknolojileri & Yapay Zeka",
+        categoryKey: "edtech",
+        scope: "international",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "B2C Aylık Pro Üyelik ($19/ay) + BootCamp / Üniversite Lisansı",
+            opportunityScore: "%94 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Tarayıcı Kod Editörü", type: "source", sub: "Monaco Editor (VS Code)" },
+            { id: 2, name: "WebAssembly Sandbox", type: "service", sub: "Wasmtime / Pyodide İzolasyonu" },
+            { id: 3, name: "Kod Mantığı & Hata AI", type: "ai", sub: "AST Hata & Big-O Karmaşıklık Analizi" },
+            { id: 4, name: "PostgreSQL & Redis", type: "storage", sub: "Kullanıcı İlerlemesi & Kod Havuzu" },
+            { id: 5, name: "İnteraktif Debug Paneli", type: "client", sub: "Bellek & Çağrı Yığını Canlandırması" }
+        ],
+        step1: {
+            marketGap: `Yazılım öğrenen milyonlarca geliştirici LeetCode veya HackerRank gibi platformlarda kod yazarken bir test senaryosunda takıldığında (örn: 'Time Limit Exceeded' veya 'NullPointerException') neden hata yaptığını anlayamaz. Mevcut platformlar yalnızca hata çıktısını ekrana basar; ancak kodun arka planda bellekte (Heap/Stack) nasıl çalıştığını, döngünün nerede sonsuza girdiğini ve Big-O karmaşıklığının nasıl optimize edileceğini görselleştirmez. CodeCraft AI Mentor, tarayıcıda sıfır sunucu maliyetiyle koşan güvenli WebAssembly (WASM) sandbox'ında kodu satır satır çalıştırır, bellek durumunu canlı canlandırır ve yapay zeka ile kişiye özel algoritma ipuçları sunar.`,
+            description: `CodeCraft AI Mentor, bilgisayar mühendisliği öğrencileri ve yazılımcılar için interaktif kod yürütme, algoritma görselleştirme ve yapay zeka mentorluk platformudur.
+
+**Temel Yetenekler & Özellikler:**
+• **Bellek & Yığın Canlı Görselleştirmesi**: Pointer'ların, bağlı listelerin (Linked List) ve ağaç yapılarının (Tree/Graph) her kod satırında nasıl değiştiğini animasyonla gösterir.
+• **Otonom Big-O Karmaşıklık Analizörü**: Yazılan algoritmanın Zaman ve Alan karmaşıklığını (Time & Space Complexity) hesaplayarak O(n^2)'den O(n log n)'e nasıl optimize edileceğini anlatır.
+• **İzole WebAssembly (WASM) Kod Çalıştırma**: Python, Rust, C++ ve JavaScript kodlarını tarayıcı içerisinde güvenli sandbox'ta milisaniyede derler ve çalıştırır.
+• **Yapay Zeka Destekli Kod İnceleme (Code Review)**: Clean Code standartlarına, bellek sızıntılarına ve güvenlik açıklarına karşı akıllı geri bildirimler verir.`,
+            tags: ["WebAssembly", "Rust", "Monaco Editor", "React", "TypeScript", "Python", "Docker"]
+        },
+        step2: {
+            architecture: `CodeCraft AI Mentor, yüksek derleme maliyetlerini ortadan kaldırmak için **Client-Side Execution (Local-First WASM)** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Client Code Sandbox (Wasmtime / Pyodide / v8)**: Kullanıcının kodunu doğrudan tarayıcı CPU'sunda çalıştıran güvenli sanal makine.
+• **AST & Static Analysis Engine (Rust / tree-sitter)**: Kodun sözdizim ağacını çıkarıp döngüleri ve değişken kapsamlarını analiz eden modül.
+• **AI Mentorship Service (Python / FastAPI + Claude/Gemini API)**: Hatanın nedenini Sokratik üslupla açıklayan LLM servisi.
+• **UI & Visualizer (React 18 + Monaco Editor + D3.js)**: Kod editörü ve bellek yığınını senkronize canlandıran görsel arayüz.
+
+### 2. Somut Teknoloji Yığını:
+• **Frontend**: React + TypeScript + Monaco Editor + D3.js
+• **Execution**: WebAssembly (Wasmtime / Pyodide)
+• **Backend & DB**: Python FastAPI + PostgreSQL 16 + Redis
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`users\` (id, github_handle, coding_level, streak_days, created_at)
+• \`coding_challenges\` (id, title, difficulty, test_cases_json, optimal_complexity)
+• \`user_submissions\` (id, user_id FK, challenge_id FK, code_content, execution_time_ms, passed)
+
+### 4. API Kontratları:
+• \`POST /api/v1/ai/mentor-feedback\`: Kod takılma noktası için yönlendirici ipucu alma.
+• \`GET /api/v1/challenges/daily\`: Günün algoritma sorusu ve test senaryoları.`,
+            security: `Kullanıcı kodlarının kötü amaçlı çalıştırılmasına (RCE) karşı **Zero-Trust Client Isolation** uygulanır.
+
+### 1. Tarayıcı İçi Sandbox (WASM Isolation):
+• Kod çalıştırma istemcinin kendi tarayıcısında WebAssembly içinde gerçekleşir; sunucuya hiçbir kullanıcı kodu çalıştırılmak üzere gönderilmez, böylece sunucu hacklenme riski doğmaz.`
+        }
+    },
+
+    // =========================================================================
+    // 5. SÜRDÜRÜLEBİLİRLİK & ENDÜSTRİYEL IOT (sustainability)
+    // =========================================================================
     {
         id: "ecochain-iot",
         title: "EcoChain Trace",
         tagline: "IoT ve Blockchain Tabanlı Otonom Karbon Ayak İzi ve Tedarik Zinciri Takibi",
         category: "Sürdürülebilirlik & IoT & Blockchain",
         categoryKey: "sustainability",
+        scope: "international",
         meta: {
             difficulty: "İleri Düzey",
             mvpTime: "8 Hafta",
             monetization: "SaaS Abonelik + Sertifikasyon Başı Ücret",
-            opportunityScore: "%97 Fırsat Skoru"
+            opportunityScore: "%97 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
             { id: 1, name: "Fabrika & Lojistik IoT", type: "source", sub: "MQTT / Modbus Sayaçlar" },
@@ -229,14 +812,14 @@ const PROJECTS_DATABASE = [
             { id: 5, name: "Dijital Pasaport QR Portal", type: "client", sub: "AB CBAM Uyumlu Web App" }
         ],
         step1: {
-            marketGap: `Avrupa Birliği'nin kabul ettiği **CBAM (Sınırda Karbon Düzenleme Mekanizması)** uyarınca ihracatçı şirketler ürettikleri her ürünün karbon emisyonunu kanıtlamak zorundadır. Ancak mevcut şirketler karbon emisyonlarını Excel tabloları ve beyan usulü tahminlerle yönetmektedir. Bu durum "Greenwashing" (yeşil aklama) davalarına ve ağır gümrük cezalarına neden olmaktadır. Pazarda, lojistik araçlarından ve fabrika sensörlerinden **canlı veri toplayan, değiştirilemez şekilde doğrulayan ve otomatik AB uyumlu sertifika üreten** entegre bir otonom çözüm bulunmamaktadır. EcoChain Trace bu açığı kapatır.`,
+            marketGap: `Avrupa Birliği'nin kabul ettiği CBAM (Sınırda Karbon Düzenleme Mekanizması) uyarınca ihracatçı şirketler ürettikleri her ürünün karbon emisyonunu kanıtlamak zorundadır. Ancak mevcut şirketler karbon emisyonlarını Excel tabloları ve beyan usulü tahminlerle yönetmektedir. Bu durum 'Greenwashing' (yeşil aklama) davalarına ve ağır gümrük cezalarına neden olmaktadır. Pazarda, lojistik araçlarından ve fabrika sensörlerinden canlı veri toplayan, değiştirilemez şekilde doğrulayan ve otomatik AB uyumlu sertifika üreten entegre bir otonom çözüm bulunmamaktadır. EcoChain Trace bu açığı kapatır.`,
             description: `EcoChain Trace, fabrikalardaki IoT sensörleri ve lojistik araçları ile entegre olarak ürün bazlı karbon ayak izini canlı hesaplayan SaaS platformudur.
 
-**Temel İşlevler & Özellikler:**
+**Temel Yetenekler & Özellikler:**
 • **IoT Sensör Entegrasyonu**: Fabrikadaki elektrik, gaz ve yakıt sayaçlarından Modbus/MQTT protokolleriyle canlı emisyon verisi çeker.
 • **Değiştirilemez Emisyon Pasaportu (Digital Product Passport)**: Ürünün ham maddeden son tüketiciye kadar olan karbon serüvenini blok zincirde depolayarak QR kodlu dijital pasaport oluşturur.
 • **AB CBAM / ISO 14064 Uyumlu Raporlama**: Gümrük idarelerine tek tıkla resmi onaylı karbon emisyon raporu sunar.
-• **AI Destekli Emisyon Optimizasyonu**: Fabrika yöneticilerine "Üretim vardiyasını saat 22:00'ye kaydırırsanız yeşil enerji oranı artacak ve 4,200$ karbon vergisi tasarruf edilecek" önerileri sunar.`,
+• **AI Destekli Emisyon Optimizasyonu**: Fabrika yöneticilerine üretim vardiyalarını yeşil enerji saatlerine kaydırma önerileri sunar.`,
             tags: ["Go", "MQTT", "Hyperledger Fabric", "TimescaleDB", "React", "Python"]
         },
         step2: {
@@ -247,1080 +830,714 @@ const PROJECTS_DATABASE = [
 • **Data Ingestion Engine (Apache Kafka)**: Verileri doğrular, birleştirir ve analiz servislerine dağıtır.
 • **Carbon Calculation Engine (Python / NumPy)**: ISO 14064 standartlarına göre emisyon katsayılarıyla anlık hesaplama yapar.
 • **Private Ledger Layer (Hyperledger Fabric)**: Kurumsal ve gizli tedarik zinciri blokzinciri.
-• **Web Portal (React + Leaflet.js)**: Ürünlerin coğrafi rotasını ve emisyon haritasını gösteren dashboard.
 
-### 2. Veritabanı Mimarisi:
-• **TimescaleDB (PostgreSQL Extension)**: Sensör zaman serisi verilerinin yüksek performanslı depolanması.
-• **Hyperledger CouchDB**: Blok zincir durum veritabanı (World State).`,
-            security: `Endüstriyel IoT cihazları ve ticari sır niteliğindeki üretim verileri yüksek siber saldırı riski altındadır.
+### 2. Somut Teknoloji Yığını:
+• **IoT Ingestion**: Go + EMQX MQTT Broker + Kafka
+• **Backend & AI**: Python FastAPI + TimescaleDB
+• **Blockchain**: Hyperledger Fabric 2.5 + Node.js SDK
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **IoT Device Authentication (mTLS & Hardware Root of Trust)**: Sensörler sisteme bağlanırken donanımsal X.509 sertifikaları ile kimlik doğrular; yetkisiz cihaz eklenemez.
-• **Endüstriyel Ağ İzolasyonu (DMZ)**: Fabrika OT (Operasyonel Teknoloji) ağı ile IT (Bilgi Teknolojileri) ağı arasında uni-directional (tek yönlü) veri diyotları kullanılır.
-• **Ticari Gizlilik Koruması (Zero-Knowledge Range Proofs)**: Tedarikçiler rakiplerine üretim kapasitelerini ifşa etmeden emisyon limitlerine uyduklarını kanıtlayabilirler.
-• **Firmware Integrity Checks (OTA)**: Sensör yazılım güncellemeleri kriptografik olarak imzalanır.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`facilities\` (id, company_name, country, grid_emission_factor)
+• \`iot_devices\` (id, facility_id FK, meter_type, modbus_slave_id, is_active)
+• \`emission_readings\` (time, device_id FK, kwh_consumed, m3_gas, co2_kg_equiv)
+
+### 4. API Kontratları:
+• \`POST /api/v1/iot/telemetry\`: MQTT sensör veri alım uç noktası.
+• \`GET /api/v1/passport/:qrCode\`: Ürün karbon dijital pasaport sayfası.`,
+            security: `Endüstriyel casusluk ve veri manipülasyonuna karşı **Endüstriyel IoT Güvenliği** uygulanır.
+
+### 1. Cihaz İzolasyonu & Donanımsal mTLS:
+• Tüm IoT sayaçları X.509 istemci sertifikaları ile mTLS üzerinden şifreli haberleşir.`
         }
     },
     {
-        id: "synthtest-ai",
-        title: "SynthTest AI",
-        tagline: "Yazılım Ekipleri İçin Otonom Test Senaryosu ve Sentetik Veri Üretim Ajanı",
-        category: "DevOps & Yazılım Geliştirme Araçları",
-        categoryKey: "devops",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "5 Hafta",
-            monetization: "Geliştirici Başı / Koltuk Başı SaaS",
-            opportunityScore: "%93 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Source Code & DB Schema", type: "source", sub: "Yerel Proje Dizini" },
-            { id: 2, name: "SynthTest CLI & AST Engine", type: "service", sub: "Rust / Tree-Sitter" },
-            { id: 3, name: "GAN Synthetic Generator", type: "ai", sub: "Differential Privacy Model" },
-            { id: 4, name: "Sandboxed Docker Runner", type: "storage", sub: "Playwright E2E Runner" },
-            { id: 5, name: "Coverage Dashboard", type: "client", sub: "Next.js Report Portal" }
-        ],
-        step1: {
-            marketGap: `Modern yazılım geliştirmede test yazmak (Unit, Integration, End-to-End) geliştirme süresinin %30'unu alır. Ancak daha büyük sorun **Gerçekçi Test Verisi (Staging Data)** eksikliğidir. Canlı (Production) veriyi test ortamına kopyalamak KVKK/GDPR ihlallerine ve veri sızıntılarına yol açar. Geleneksel mock kütüphaneleri (Faker vb.) ise ilişkisel karmaşık veritabanı bağımlılıklarını ve uç durumları (edge cases) simüle edemez. SynthTest AI, kaynak kodunuzu ve DB şemanızı analiz ederek KVKK uyumlu, ilişkisel bütünlüğü olan milyarlarca sentetik test verisi ve otomatik E2E Playwright/Cypress test kodları üretir.`,
-            description: `SynthTest AI, CI/CD süreçlerinize entegre olan ve yazılımınızın test kapsama oranını (Coverage) otonom olarak %95 üzerine çıkaran bir geliştirici ajanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **İlişkisel Sentetik Veri Jeneratörü**: Veritabanı şemanızı inceleyerek yabancı anahtar (FK) ilişkilerini koruyan, istatistiksel olarak canlı veriye benzeyen ama tamamen sahte veriler üretir.
-• **Otonom E2E Test Yazarı**: Web uygulamanızın DOM yapısını inceleyerek tıklama, form doldurma ve satın alma senaryolarını Playwright/TypeScript formatında otomatik kodlar.
-• **Self-Healing Tests (Kendi Kendini Onaran Testler)**: Buton ID'si veya sayfa tasarımı değiştiğinde testlerin çökmesini engeller; AI öğeyi görsel olarak bulup testi günceller.
-• **Mutation Testing**: Kodunuza yapay hatalar enjekte ederek mevcut testlerinizin gerçekten hataları yakalayıp yakalamadığını ölçer.`,
-            tags: ["TypeScript", "Node.js", "Python", "Playwright", "Docker", "PostgreSQL"]
-        },
-        step2: {
-            architecture: `SynthTest AI, geliştirici bilgisayarında ve CI/CD ortamında yerel (local-first) çalışabilen **CLI & Cloud-Hybrid** mimariye sahiptir.
-
-### 1. Sistem Katmanları:
-• **SynthTest CLI (Rust / Node.js)**: Geliştiricinin terminalinde çalışan, kodu tarayan ve yerel Docker konteynerlerinde sentetik veri basan komut satırı aracı.
-• **AST Parser & Code Analyzer (Tree-Sitter / TypeScript Compiler API)**: Uygulamanın API uç noktalarını ve veri modellerini abstract syntax tree ile ayrıştırır.
-• **Generative Data Model (Python / GANs + LLM)**: Tablosal verilerin istatistiksel dağılımını öğrenen ve sentetik türevlerini üreten makine öğrenmesi modeli.
-• **Cloud Dashboard (Next.js + Tailwind)**: Test sonuçlarının, kapsama oranlarının ve sentetik veri şablonlarının yönetildiği panel.
-
-### 2. Veritabanı Mimarisi:
-• **SQLite / DuckDB**: Yerel test çalıştırmalarında kullanılan ultra-hızlı in-memory veritabanı.
-• **ClickHouse**: CI/CD hatlarında geçmiş test sürelerini ve başarı oranlarını depolayan analitik veritabanı.`,
-            security: `Yazılım kaynak kodları ve test verileri şirketlerin en değerli fikri mülkiyetidir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Local-First & Zero Data Retention**: Kaynak kodunuz asla uzak sunuculara gönderilmez. Tüm AST analizi ve test üretimi geliştiricinin yerel makinesinde veya kendi CI/CD runner'ında gerçekleşir.
-• **Differential Privacy (Farklılaşmış Gizlilik)**: Sentetik veri üretilirken canlı veritabanından alınan istatistiksel özetlere gürültü (noise) eklenerek orijinal verinin geri dönüştürülmesi imkansız kılınır.
-• **Sandboxed Test Execution**: Otomatik üretilen test kodları kısıtlanmış Docker konteynerleri (görsel ve ağ erişimi izole) içinde çalıştırılır.
-• **Dependency Vulnerability Scanning**: Üretilen test paketlerinin 3. taraf bağımlılıkları Snyk/Trivy ile taranır.`
-        }
-    },
-    {
-        id: "pharmaguard-ai",
-        title: "PharmaGuard AI",
-        tagline: "Çoklu İlaç Kullanımında Etkileşim ve Advers Reaksiyon Erken Uyarı Motoru",
-        category: "Sağlık Teknolojileri & Yapay Zeka",
-        categoryKey: "health-ai",
+        id: "tarim-gozcusu-ai",
+        title: "TarımGözcüsü AI (ÇKS & DSİ Uyumlu)",
+        tagline: "Otonom Sera ve Tarla Yönetimi İçin IoT Sensörlü, ÇKS Entegrasyonlu Kuraklık ve Hastalık Erken Uyarı Ajanı",
+        category: "Sürdürülebilirlik & IoT & Blockchain",
+        categoryKey: "sustainability",
+        scope: "national",
         meta: {
             difficulty: "İleri Düzey",
-            mvpTime: "7 Hafta",
-            monetization: "Hastane & Eczane Zinciri Aboneliği (B2B) + API Çağrı Başı",
-            opportunityScore: "%93 Fırsat Skoru"
+            mvpTime: "8 Hafta",
+            monetization: "Dönüm Başı Yıllık Abonelik + Tarım Kredi / Ziraat Bankası Teşvikleri",
+            opportunityScore: "%97 Fırsat Skoru",
+            scope: "national"
         },
         diagramNodes: [
-            { id: 1, name: "HBYS / e-Reçete", type: "source", sub: "HL7 FHIR Reçete Akışı" },
-            { id: 2, name: "Normalization Service", type: "service", sub: "ATC / RxNorm Eşleme" },
-            { id: 3, name: "Interaction Graph Engine", type: "ai", sub: "Knowledge Graph + GNN" },
-            { id: 4, name: "Risk Scoring Model", type: "ai", sub: "Hasta Bazlı Bayesian Skor" },
-            { id: 5, name: "Neo4j & TimescaleDB", type: "storage", sub: "İlaç Grafiği + Zaman Serisi" },
-            { id: 6, name: "Hekim Uyarı Paneli", type: "client", sub: "Reçete Anı Bildirimi" }
+            { id: 1, name: "Tarla LoRaWAN Sensörleri", type: "source", sub: "Toprak Nemi, pH, Sıcaklık" },
+            { id: 2, name: "LoRaWAN Gateway & MQTT", type: "service", sub: "ChirpStack + Go MQTT Broker" },
+            { id: 3, name: "Hastalık & Sulama AI Motoru", type: "ai", sub: "Meteoroloji & Uydu Analizi" },
+            { id: 4, name: "TimescaleDB & PostGIS", type: "storage", sub: "Zaman Serisi & Coğrafi Parsel DB" },
+            { id: 5, name: "Çiftçi Mobil Paneli", type: "client", sub: "Flutter / SMS & Sesli Ajan" }
         ],
         step1: {
-            marketGap: `65 yaş üstü hastaların yarısından fazlası aynı anda beş veya daha fazla ilaç kullanıyor (polifarmasi) ve hastane yatışlarının kayda değer bir bölümü önlenebilir ilaç etkileşimlerinden kaynaklanıyor. Piyasadaki etkileşim veritabanları ise **statik sözlükler** halinde çalışıyor: "A ilacı + B ilacı = riskli" der, ancak hastanın böbrek fonksiyonunu, yaşını, genetik metabolizma profilini veya eşzamanlı kullandığı bitkisel takviyeyi hesaba katmaz. Sonuç, hekimin her reçetede onlarca alakasız uyarıyla karşılaşıp hepsini kapatmayı öğrendiği **"alarm yorgunluğu"** olur; gerçek riskli vaka da bu gürültünün içinde kaybolur. PharmaGuard AI, etkileşimi ikili bir tablo yerine hasta bağlamına oturan bir **bilgi grafiği** üzerinde değerlendirir ve hekime yalnızca o hasta için anlamlı olan, gerekçesi açıklanmış uyarıyı gösterir.`,
-            description: `PharmaGuard AI, hastane bilgi sistemine ve e-reçete akışına bağlanarak reçete yazılırken devreye giren bir klinik karar destek ajanıdır.
+            marketGap: `Türkiye'de tüketilen tatlı su kaynaklarının %74'ü tarımsal sulamada kullanılmakta olup, vahşi sulama yöntemleri yüzünden suyun %45'i buharlaşarak veya toprağı tuzlandırarak israf edilmektedir. Ayrıca iklim krizine bağlı kuraklık ve don olayları yıllık milyarlarca liralık ürün kaybına yol açmaktadır. Mevcut yabancı akıllı tarım sistemleri hem yüksek döviz maliyetlidir hem de Türkiye Tarım ve Orman Bakanlığı Çiftçi Kayıt Sistemi (ÇKS), TARSİM sigorta süreçleri ve yerel toprak haritalarıyla entegre değildir. TarımGözcüsü AI, yerli LoRaWAN sensörleri ve uydu görüntülerini harmanlayarak çiftçiye SMS ve sesli aramayla 'Yarın saat 06:00'da 22 dakika damla sulama yapın, don riski için örtü önlemi alın' talimatı veren uçtan uca bir agronomi ajanıdır.`,
+            description: `TarımGözcüsü AI, tarladaki toprak nemi, yaprak ıslaklığı ve meteoroloji verilerini yapay zeka ile işleyen otonom bir tarımsal karar destek sistemidir.
 
-**Temel İşlevler & Özellikler:**
-• **Hasta Bağlamlı Risk Skoru**: Etkileşimi yaş, kreatinin klirensi, karaciğer fonksiyonu, kilo ve eşzamanlı tanılarla birlikte değerlendirerek her uyarıya 0-100 arası kişiselleştirilmiş bir risk puanı verir.
-• **Gürültü Filtresi (Alarm Fatigue Reduction)**: Klinik olarak önemsiz etkileşimleri bastırır, hekime ortalama reçete başına yalnızca yüksek anlamlılıktaki uyarıları iletir.
-• **Gerekçeli Açıklama**: Her uyarının altında etkileşimin mekanizmasını (örneğin CYP3A4 enzim inhibisyonu) ve dayandığı literatür referansını gösterir.
-• **Alternatif İlaç Önerisi**: Riskli kombinasyon tespit edildiğinde aynı ATC sınıfından, hastanın profiline uygun ve geri ödeme kapsamındaki alternatifleri sıralar.
-• **Bitkisel Takviye ve OTC Kapsamı**: Reçetesiz satılan ürünlerin ve yaygın bitkisel takviyelerin etkileşimlerini de kapsar.`,
-            tags: ["Python", "Neo4j", "FastAPI", "HL7 FHIR", "Graph Neural Networks", "TypeScript"]
+**Temel Yetenekler & Özellikler:**
+• **Hassas Sulama Optimizasyonu**: Toprak tipi, ürün cinsi (pamuk, buğday, mısır vb.) ve buharlaşma katsayısına göre su tüketimini %40 düşüren sulama takvimi oluşturur.
+• **Kamera ile Bitki Hastalığı Teşhisi**: Çiftçinin telefonla çektiği yaprak fotoğrafından pas, külleme veya zararlı böcek türünü saniyeler içinde %96 doğrulukla teşhis eder ve reçete sunar.
+• **Zirai Don ve Dolu Erken Uyarısı**: Meteoroloji Genel Müdürlüğü (MGM) radar verileri ve yerel sensörlerle don riskini 12 saat önceden haber verir.
+• **ÇKS ve TARSİM Entegrasyonu**: Hasar tespit raporlarını resmi formatta hazırlayarak sigorta ve hibe başvuru süreçlerini hızlandırır.`,
+            tags: ["Python", "LoRaWAN", "Go", "TimescaleDB", "Flutter", "TEKNOFEST Tarım Uyumlu", "TÜBİTAK 1512"]
         },
         step2: {
-            architecture: `PharmaGuard AI, reçete anında saniyenin altında yanıt vermesi gereken bir karar destek sistemidir; bu nedenle **okuma-ağırlıklı (read-optimized)** ve **grafik merkezli** bir mimari kullanır.
+            architecture: `TarımGözcüsü AI, kırsal bölgelerdeki düşük internet bant genişliğinde kesintisiz çalışmak için **Edge-IoT & Offline-First** mimarisine dayanır.
 
 ### 1. Sistem Katmanları:
-• **Ingestion & Normalization (Python)**: HBYS'den HL7 FHIR MedicationRequest kaynaklarını alır; serbest metin ilaç adlarını ATC ve RxNorm kodlarına eşler. Bu katman olmadan aynı etken madde onlarca farklı ticari isimle sisteme girer.
-• **Graph Engine (Neo4j + GNN)**: İlaçlar, etken maddeler, enzimler ve yan etkiler düğüm; etkileşimler kenar olarak modellenir. Graph Neural Network katmanı, literatürde doğrudan raporlanmamış dolaylı etkileşimleri (A-C üzerinden B) tahmin eder.
-• **Risk Scoring Service (Python)**: Grafikten gelen ham etkileşimi hasta laboratuvar değerleriyle birleştirerek Bayesian bir skora dönüştürür.
-• **Core API (Go)**: Yetkilendirme, denetim kaydı ve düşük gecikmeli uyarı dağıtımı.
-• **Hekim Paneli (React + TypeScript)**: HBYS içine gömülebilen widget ve bağımsız web portalı.
+• **IoT & Edge Gateway Layer (ChirpStack / Go)**: Tarladaki güneş enerjili LoRaWAN düğümlerinden 15 km menzille gelen sensör telemetrisini toplar.
+• **Agronomy AI Inference Engine (Python / XGBoost + YOLOv8)**: Sulama tahmini ve yaprak hastalık sınıflandırması yapan yapay zeka servisi.
+• **Spatial & Time-Series Storage (TimescaleDB / PostGIS)**: Parsel geometrileri ve geçmiş sensör verilerini depolayan katman.
+• **Farmer Notification Dispatcher (Twilio / Yerli SMS & WhatsApp)**: İnterneti olmayan çiftçilere sesli arama ve SMS ile uyarı gönderen motor.
 
-### 2. Veritabanı Mimarisi:
-• **Neo4j**: İlaç etkileşim bilgi grafiği; ilişki derinliğine göre sorgu bu yapıda ilişkisel veritabanından çok daha verimlidir.
-• **TimescaleDB**: Hasta laboratuvar değerlerinin zaman serisi geçmişi ve uyarı telemetrisi.
-• **Redis**: Sık yazılan reçete kombinasyonları için sonuç önbelleği; reçete anındaki gecikme bütçesini korur.`,
-            security: `Reçete verisi özel nitelikli kişisel veridir. Sistem **KVKK**, **HIPAA** ve **GDPR** uyumlu tasarlanmıştır.
+### 2. Somut Teknoloji Yığını:
+• **IoT & Gateway**: LoRaWAN + ChirpStack + MQTT + Go
+• **AI & Analiz**: PyTorch (YOLOv8) + Scikit-Learn + Sentinel-2 Uydu API
+• **Veritabanı**: PostgreSQL 16 (TimescaleDB + PostGIS) + Redis
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Minimum Veri İlkesi**: Risk hesabı için yalnızca ilaç listesi ve ilgili laboratuvar değerleri istenir; hasta kimlik bilgisi hiçbir zaman skorlama servisine geçmez, yerine oturum bazlı takma tanımlayıcı kullanılır.
-• **Veri Şifreleme**: Durağan veride AES-256-GCM, iletimde TLS 1.3 ve mikroservisler arası mTLS zorunluluğu.
-• **Erişim Kontrolü**: Hekim, eczacı ve denetçi rolleri için RBAC; her rol yalnızca kendi hasta kapsamındaki kayıtları görür. OAuth2 + zorunlu 2FA.
-• **Klinik Sorumluluk İzleri**: Hangi uyarının hangi hekime gösterildiği ve hekimin uyarıyı kabul mu reddetmi ettiği değiştirilemez (append-only) log olarak saklanır. Bu hem tıbbi sorumluluk hem de modelin gerçek dünya başarısını ölçmek için gereklidir.
-• **Model Yönetişimi**: Etkileşim modelinin her sürümü versiyonlanır; bir uyarının hangi model sürümü tarafından üretildiği geriye dönük olarak izlenebilir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`farms\` (id, owner_tc_hash, cks_number, total_decare, polygon_geometry)
+• \`sensor_nodes\` (id, farm_id FK, lora_dev_eui, battery_level, lat, lon)
+• \`telemetry_logs\` (time, node_id FK, soil_moisture_pct, soil_temp_c, air_humidity)
+• \`irrigation_commands\` (id, farm_id FK, start_time, duration_minutes, status)
+
+### 4. API Kontratları:
+• \`POST /api/v1/sensors/telemetry\`: LoRaWAN gateway telemetri ingest endpoint'i.
+• \`POST /api/v1/diagnosis/leaf-disease\`: Yaprak fotoğrafı analizi ve tedavi önerisi.`,
+            security: `Tarım arazisi ve gıda güvenliği verileri stratejik önem taşır; **KVKK ve Endüstriyel IoT Güvenliği** uygulanır.
+
+### 1. Cihaz Kimlik Doğrulama:
+• Her LoRaWAN sensör düğümü donanımsal AES-128 AppKey ve OTAA (Over-The-Air Activation) ile ağa katılır; sahte sensör verisi enjeksiyonu engellenir.`
         }
     },
     {
-        id: "mindpulse-rpm",
-        title: "MindPulse RPM",
-        tagline: "Kronik Hastalık Takibinde Pasif Dijital Biyobelirteç ve Kötüleşme Tahmini",
-        category: "Sağlık Teknolojileri & Yapay Zeka",
-        categoryKey: "health-ai",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Hasta Başı Aylık Abonelik (B2B2C) + Sigorta Anlaşmaları",
-            opportunityScore: "%91 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Giyilebilir & Telefon", type: "source", sub: "HealthKit / Google Fit" },
-            { id: 2, name: "Sync Gateway", type: "service", sub: "Kesintiye Dayanıklı Kuyruk" },
-            { id: 3, name: "Baseline Learner", type: "ai", sub: "Kişiye Özel Normal Aralık" },
-            { id: 4, name: "Deterioration Model", type: "ai", sub: "Erken Kötüleşme Sinyali" },
-            { id: 5, name: "TimescaleDB", type: "storage", sub: "Yüksek Frekanslı Zaman Serisi" },
-            { id: 6, name: "Klinik Takip Paneli", type: "client", sub: "Hemşire Triyaj Kuyruğu" }
-        ],
-        step1: {
-            marketGap: `Kalp yetmezliği, KOAH ve tip 2 diyabet gibi kronik hastalıklarda hastaneye yeniden yatışların büyük kısmı, kötüleşme günler öncesinden başladığı halde fark edilmediği için gerçekleşiyor. Mevcut uzaktan hasta izleme (RPM) ürünleri iki uçta toplanmış durumda: bir yanda hastanın her gün elle veri girmesini bekleyen anket uygulamaları — ki bunlarda terk oranı ilk ayda çok yüksek — diğer yanda ham adım ve nabız sayısını grafiğe döken tüketici uygulamaları. İkisi de **kişiye özel normali** öğrenmiyor: bir hastanın istirahat nabzının 58'den 67'ye çıkması onun için kritik bir sinyal olabilirken, başka bir hasta için tamamen sıradan olabilir. MindPulse RPM, hastadan hiçbir ek eylem beklemeden giyilebilir cihaz ve telefon sensörlerinden pasif veri toplar, her hasta için kendi taban çizgisini öğrenir ve sapmayı klinik ekibe **kötüleşmeden günler önce** bildirir.`,
-            description: `MindPulse RPM, kronik hasta takibini anketten çıkarıp pasif sensör verisine taşıyan bir izleme platformudur.
-
-**Temel İşlevler & Özellikler:**
-• **Sıfır Eforlu Veri Toplama**: Adım, istirahat nabzı, nabız değişkenliği, uyku bölünmesi ve ses tonu gibi sinyalleri hastadan ek bir işlem istemeden arka planda toplar.
-• **Kişiye Özel Taban Çizgisi**: İlk iki haftada hastanın kendi normal aralığını öğrenir; uyarı eşiği popülasyon ortalaması yerine hastanın kendi geçmişine göre belirlenir.
-• **Erken Kötüleşme Skoru**: Çoklu sinyaldeki eşzamanlı kaymayı değerlendirerek klinik ekibe gün bazında öncelikli takip listesi üretir.
-• **Hemşire Triyaj Kuyruğu**: Yüzlerce hastayı grafik grafiğe gezmek yerine, ekip yalnızca skoru yükselen hastaları içeren sıralı bir kuyruk görür.
-• **Cihaz Bağımsızlığı**: Apple HealthKit, Google Fit ve yaygın Bluetooth tansiyon/oksimetre cihazlarıyla çalışır; tek bir marka kilidi yoktur.`,
-            tags: ["React Native", "Python", "TimescaleDB", "HealthKit", "Time Series ML", "FastAPI"]
-        },
-        step2: {
-            architecture: `Sistem, mobil cihazın uzun süre çevrimdışı kalabileceği gerçeğine göre tasarlanmıştır: veri kaybı değil, **gecikmeli teslim** kabul edilir.
-
-### 1. Sistem Katmanları:
-• **Mobil İstemci (React Native)**: Arka planda sensör verisini yerel SQLite kuyruğuna yazar; bağlantı geldiğinde toplu olarak gönderir. Batarya tüketimini sınırlamak için örnekleme frekansı uyarlanabilir.
-• **Sync Gateway (Go)**: Idempotent yazma uçları; aynı ölçüm birden çok kez gönderilse bile tekilleştirilir. Bu, çevrimdışı senkronizasyonun en sık atlanan detayıdır.
-• **Baseline Learner (Python)**: Her hasta için hareketli istatistiksel taban çizgisi ve mevsimsel düzeltme hesaplar.
-• **Deterioration Model (Python)**: Çok değişkenli zaman serisi modeli ile kötüleşme olasılığı üretir; çıktı ham olasılık değil, klinik ekibin eyleme dönüştürebileceği üç kademeli bir sinyaldir.
-• **Klinik Panel (Next.js)**: Triyaj kuyruğu, hasta zaman çizelgesi ve not alma.
-
-### 2. Veritabanı Mimarisi:
-• **TimescaleDB**: Yüksek frekanslı sensör verisi için hypertable; eski veriler otomatik olarak saatlik/günlük özetlere sıkıştırılır (continuous aggregates).
-• **PostgreSQL**: Hasta kayıtları, klinik ekip, bakım planları ve uyarı geçmişi.
-• **S3 Uyumlu Nesne Depolama**: Ham sensör dökümlerinin uzun süreli arşivi ve model yeniden eğitim veri seti.`,
-            security: `Sürekli sensör verisi, tıbbi kayıttan daha fazla yaşam örüntüsü açığa çıkarır; bu yüzden gizlilik tasarımın merkezindedir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Cihaz Üzerinde Ön İşleme**: Ham ses ve konum verisi cihazdan hiç çıkmaz; yalnızca türetilmiş, geri döndürülemez öznitelikler (örneğin konuşma temposu göstergesi) sunucuya gönderilir.
-• **Uçtan Uca Şifreleme**: Cihaz-sunucu arası TLS 1.3 ve sertifika sabitleme (certificate pinning); durağan veride AES-256.
-• **Açık Rıza Yönetimi**: Hasta hangi sinyal türünün toplanacağını ayrı ayrı açıp kapatabilir; rıza geri çekildiğinde ilgili veri kalıcı olarak silinir ve bu silme işlemi denetlenebilir şekilde kaydedilir.
-• **Erişim Kontrolü**: Klinik personeli yalnızca kendisine atanmış bakım kapsamındaki hastaları görebilir; kapsam dışı erişim denemesi hem engellenir hem de uyarı üretir.
-• **Veri Saklama Politikası**: Ham yüksek frekanslı veri tanımlı bir süre sonra otomatik olarak özetlere indirgenir; süresiz ham veri birikimi engellenir.`
-        }
-    },
-    {
-        id: "chainproof-audit",
-        title: "ChainProof",
-        tagline: "Akıllı Sözleşmeler İçin Sürekli Formal Doğrulama ve Değişim Bazlı Denetim",
-        category: "Web3, Blockchain & Güvenlik",
-        categoryKey: "web3",
+        id: "greenwatt-p2p",
+        title: "GreenWatt P2P Energy",
+        tagline: "Çatı Güneş Paneli (GES) ve Elektrikli Araçlar İçin Mikro-Şebeke P2P Yeşil Enerji Ticaret Platformu",
+        category: "Sürdürülebilirlik & IoT & Blockchain",
+        categoryKey: "sustainability",
+        scope: "international",
         meta: {
             difficulty: "İleri Düzey",
             mvpTime: "9 Hafta",
-            monetization: "Protokol Aboneliği + Denetim Raporu Başına Ücret",
-            opportunityScore: "%94 Fırsat Skoru"
+            monetization: "İşlem Başı kWh Komisyonu (%2) + Enerji Şirketi SaaS Entegrasyonu",
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Git Reposu / CI", type: "source", sub: "Solidity & Vyper Kaynağı" },
-            { id: 2, name: "Diff Analyzer", type: "service", sub: "Semantik Değişim Tespiti" },
-            { id: 3, name: "Symbolic Execution", type: "ai", sub: "Yol Keşfi + SMT Çözücü" },
-            { id: 4, name: "Invariant Fuzzer", type: "ai", sub: "Özellik Tabanlı Test Üretimi" },
-            { id: 5, name: "PostgreSQL & IPFS", type: "storage", sub: "Bulgu Geçmişi + Rapor Kanıtı" },
-            { id: 6, name: "Denetim Portalı", type: "client", sub: "PR Yorumu + Rapor" }
+            { id: 1, name: "Çatı GES & Akıllı Sayaç", type: "source", sub: "Zigbee / Smart Meter Inbound" },
+            { id: 2, name: "P2P Settlement Engine", type: "service", sub: "Go + Zero-Knowledge Rollup" },
+            { id: 3, name: "Fiyat & Talep Tahmin AI", type: "ai", sub: "Dinamik Tarife & Batarya Optimizasyonu" },
+            { id: 4, name: "TimescaleDB & Redis", type: "storage", sub: "Zaman Serisi & Enerji Takas DB" },
+            { id: 5, name: "Kullanıcı Enerji Portali", type: "client", sub: "React Native Mobil + Web Paneli" }
         ],
         step1: {
-            marketGap: `Akıllı sözleşme denetimi bugün hâlâ **tek seferlik ve el emeğine dayalı** bir hizmet: protokol lansmandan önce yüksek bedelli bir denetim satın alır, rapor alır, sonra kodu değiştirmeye devam eder. Lansman sonrası yapılan her yükseltme denetim kapsamının dışında kalır ve büyük kayıplarla sonuçlanan açıkların önemli bir kısmı tam da bu **denetim sonrası değişikliklerde** ortaya çıkar. Mevcut otomatik araçlar ise ya yüzeysel örüntü taraması yapıp yanlış pozitif yağmuru üretiyor ya da formal doğrulama sunarken protokol ekibinden matematiksel spesifikasyon yazmasını bekliyor — çoğu ekipte bunu yapacak uzmanlık yok. ChainProof, denetimi bir olay olmaktan çıkarıp CI hattına yerleştirir: her pull request'te yalnızca **değişen davranışı** analiz eder, ekibin doğal dilde tanımladığı değişmezleri (invariant) çalıştırılabilir özelliklere çevirir ve bulguları doğrudan PR'a yorum olarak düşer.`,
-            description: `ChainProof, akıllı sözleşme güvenliğini sürekli entegrasyonun bir parçası haline getiren otomatik denetim ajanıdır.
+            marketGap: `Konut tipi çatı güneş enerjisi (GES) ve ev tipi batarya depolama sistemleri hızla yaygınlaşmaktadır; ancak ev sahipleri ürettikleri fazla elektriği yalnızca geleneksel şebekeye çok düşük toptan fiyatlarla geri satabilmektedir. Aynı mahalledeki elektrikli araç (EV) sahibi bir komşu ise şebekeden yüksek fiyata elektrik almaktadır. Komşuların veya yerel toplulukların kendi arasında eşler arası (P2P) temiz enerji ticareti yapabileceği, anlık arz-talep dengesine göre dinamik fiyat oluşturan otonom bir mikro-şebeke borsası eksiktir. GreenWatt P2P, akıllı sayaçları birbirine bağlayarak komşular arası yeşil enerji ticaretini otomatikleştirir ve enerji maliyetlerini tüketiciler için %30 düşürür.`,
+            description: `GreenWatt P2P, çatı güneş panelleri ve bataryaları akıllı bir enerji pazarında buluşturan otonom mikro-şebeke ticaret platformudur.
 
-**Temel İşlevler & Özellikler:**
-• **Değişim Bazlı Analiz**: Tüm kod tabanını her seferinde baştan taramak yerine, değişen fonksiyonların çağrı grafiğinde eriştiği yüzeyi hesaplar ve analizi oraya yoğunlaştırır. Bu, doğrulama süresini dakikalar seviyesine indirir.
-• **Doğal Dilden Değişmez Üretimi**: "Havuzun toplam bakiyesi kullanıcı bakiyeleri toplamından küçük olamaz" gibi bir cümleyi çalıştırılabilir bir özellik testine dönüştürür.
-• **Sembolik Yürütme + Fuzzing**: SMT çözücü ile ulaşılabilir hata yollarını kanıtlar; kanıtlanamayan alanlarda özellik tabanlı fuzzing devreye girer.
-• **Yanlış Pozitif Bastırma**: Ekip bir bulguyu gerekçesiyle kapattığında, aynı örüntü sonraki çalışmalarda otomatik olarak bastırılır; araç zamanla o protokolün kabul ettiği riskleri öğrenir.
-• **Kanıtlanabilir Rapor**: Her denetim çalışması, kod hash'i ve bulgu setiyle birlikte IPFS'e sabitlenir; üçüncü taraflar raporun hangi tam koda ait olduğunu doğrulayabilir.`,
-            tags: ["Rust", "Solidity", "Z3 SMT", "Symbolic Execution", "TypeScript", "IPFS"]
+**Temel Yetenekler & Özellikler:**
+• **Eşler Arası (P2P) Enerji Ticareti**: Fazla güneş enerjisini şebeke yerine doğrudan komşulara veya elektrikli araç şarj istasyonlarına piyasa fiyatından satar.
+• **AI Destekli Batarya Yönetimi**: Hava durumu ve ertesi günkü elektrik tarifelerini öğrenerek ev bataryasını elektrik ucuzken doldurur, pahalıyken satar.
+• **Otomatik Akıllı Sözleşme Mutabakatı**: Sayaçtan sayaç kilowatt-saat (kWh) transferini milisaniyeler içinde blokzincirde kaydeder ve ücretini aktarır.
+• **Şebeke Yük Dengeleme (Demand-Response)**: Şebekenin en yoğun olduğu saatlerde tüketimi azaltan kullanıcılara yeşil enerji teşvik primi dağıtır.`,
+            tags: ["Go", "Solidity", "TimescaleDB", "Smart Grid", "Python", "IoT", "CleanTech"]
         },
         step2: {
-            architecture: `ChainProof, hesaplama açısından pahalı bir işi (formal doğrulama) CI hattının kabul edebileceği süreye sığdırmak üzere **artımlı (incremental)** çalışacak şekilde kurgulanmıştır.
+            architecture: `GreenWatt P2P, yüksek frekanslı enerji sayaç verilerini ve finansal mikro-ödemeleri yönetmek için **High-Throughput Streaming & Local Settlement** mimarisini kullanır.
 
 ### 1. Sistem Katmanları:
-• **Diff Analyzer (Rust)**: Solidity/Vyper kaynağını AST'ye çevirir, iki sürüm arasındaki semantik farkı çıkarır ve etkilenen çağrı grafiği yüzeyini belirler. Yalnızca yorum satırı değişen bir PR hiç analiz tetiklemez.
-• **Verification Engine (Rust + Z3)**: Sembolik yürütme ile yol koşullarını toplar ve SMT çözücüye devreder. Zaman aşımına uğrayan yollar kaybedilmez, fuzzing katmanına aktarılır.
-• **Invariant Fuzzer (Rust)**: Özellik tabanlı test üretimi; çözücünün kanıtlayamadığı alanı rastgele ama yönlendirilmiş girdilerle tarar.
-• **Orchestrator (Go)**: İş kuyruğu, paralel çalıştırma ve kaynak sınırlaması. Denetim işleri birbirinden tamamen izole konteynerlerde koşar.
-• **Portal (Next.js)**: Bulgu yönetimi, rapor görüntüleme ve GitHub PR entegrasyonu.
+• **Meter Telemetry Ingest (Go / MQTT Broker)**: Akıllı sayaçlardan her 10 saniyede bir gelen voltaj, akım ve kWh üretim/tüketim verilerini toplar.
+• **Dynamic Pricing Engine (Python / Reinforcement Learning)**: Mikro-şebekedeki anlık güneş üretimi ve araç şarj talebine göre adil piyasa fiyatı belirler.
+• **P2P Settlement Ledger (Rust / Rollup)**: Mahalle bazlı enerji alışverişini birleştiren hafif takas katmanı.
+• **Client Mobile App (React Native)**: Ev sahibinin anlık üretim ve kazancını gördüğü mobil uygulama.
 
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Protokoller, denetim çalışmaları, bulgular ve bastırma kuralları.
-• **Redis**: İş kuyruğu ve aynı commit için tekrar eden analizlerin sonuç önbelleği.
-• **IPFS**: Değiştirilemez rapor kanıtları; rapor içeriği zincir üstünde referanslanabilir.`,
-            security: `Analiz edilen kaynak kod çoğu zaman henüz yayınlanmamıştır; sızması protokol için doğrudan bir tehdittir.
+### 2. Somut Teknoloji Yığını:
+• **Data Engine**: Go + EMQX MQTT Broker + Kafka
+• **AI Engine**: Python (PPO Reinforcement Learning) + FastAPI
+• **Veritabanı**: TimescaleDB + Redis + PostgreSQL
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Kiracı İzolasyonu (Tenant Isolation)**: Her denetim işi ağ erişimi kapalı, salt okunur kök dosya sistemine sahip tek kullanımlık bir konteynerde çalışır ve iş bitiminde imha edilir. Bir müşterinin kodu başka bir işin belleğine hiçbir koşulda erişemez.
-• **Kaynak Kodu Saklamama Seçeneği**: Kurumsal planda kaynak kod hiç depolanmaz; yalnızca hash'i, bulgu özeti ve satır referansları saklanır.
-• **Tedarik Zinciri Güvenliği**: Analiz motorunun tüm bağımlılıkları sabitlenir (pinned) ve derleme yeniden üretilebilirdir (reproducible build); denetim aracının kendisinin ele geçirilmesi en kritik risk olduğu için bu zorunludur.
-• **Erişim Kontrolü**: Depo bazlı RBAC; GitHub App izinleri minimum yetki ilkesiyle istenir, kuruluş genelinde geniş yetki talep edilmez.
-• **Bulgu Gizliliği**: Kapatılmamış kritik bulgular varsayılan olarak yalnızca protokol ekibine görünür; kamuya açık rapor ancak ekip onayıyla yayınlanır.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`smart_meters\` (meter_id PK, user_id, house_address, capacity_kw, battery_kwh)
+• \`energy_orders\` (id, seller_meter_id FK, buyer_meter_id FK, kwh_amount, price_per_kwh, timestamp)
+• \`grid_tariffs\` (id, region_code, valid_from, valid_to, buy_price, sell_price)
+
+### 4. API Kontratları:
+• \`POST /api/v1/meter/reading\`: Sayaç telemetri aktarım API'si.
+• \`GET /api/v1/market/current-price\`: Anlık mahalle bazlı kWh fiyatı.`,
+            security: `Enerji şebekesi güvenliği kritik altyapı statüsündedir; **Grid Cyber-Security Standards** uygulanır.
+
+### 1. Sayaç Kriptografisi:
+• Akıllı sayaçlar donanımsal Secure Element (SE) ve TLS 1.3 ile verileri imzalar; sahte üretim bildirimiyle haksız kazanç engellenir.`
         }
     },
+
+    // =========================================================================
+    // 6. DEVOPS & GELİŞTİRİCİ ARAÇLARI (devops)
+    // =========================================================================
     {
-        id: "keyward-mpc",
-        title: "KeyWard",
-        tagline: "Kurumsal Dijital Varlık Saklama İçin MPC Tabanlı Politika ve İmza Motoru",
-        category: "Web3, Blockchain & Güvenlik",
-        categoryKey: "web3",
-        meta: {
-            difficulty: "İleri Düzey",
-            mvpTime: "10 Hafta",
-            monetization: "Saklanan Varlık Hacmine Göre Kademeli Kurumsal Lisans",
-            opportunityScore: "%90 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Kurumsal İstemci", type: "source", sub: "Hazine / Finans Ekibi" },
-            { id: 2, name: "Policy Engine", type: "service", sub: "Kural Değerlendirme + Onay Akışı" },
-            { id: 3, name: "MPC Signing Cluster", type: "service", sub: "Eşik İmza (TSS) Düğümleri" },
-            { id: 4, name: "Risk Screener", type: "ai", sub: "Adres Reputasyonu + Anomali" },
-            { id: 5, name: "HSM & PostgreSQL", type: "storage", sub: "Pay Depolama + Denetim İzi" },
-            { id: 6, name: "Yönetim Konsolu", type: "client", sub: "Onay & Raporlama" }
-        ],
-        step1: {
-            marketGap: `Kurumların dijital varlık saklamada bugün iki seçeneği var ve ikisi de eksik. Birincisi, tek bir özel anahtarı donanım cüzdanında tutmak: bu, anahtarı elinde tutan kişiyi tek başına şirketin tüm hazinesini hareket ettirebilen bir noktaya dönüştürür ve hiçbir kurumsal iç kontrol çerçevesiyle bağdaşmaz. İkincisi, üçüncü taraf bir saklama şirketine devretmek: bu kez varlığın kontrolü tamamen dışarıdadır ve karşı taraf riski doğar. Aradaki boşlukta, **anahtarın hiçbir zaman tek parça halinde var olmadığı** ama kontrolün de şirkette kaldığı bir çözüm eksik. Ayrıca mevcut çözümlerin neredeyse hiçbiri, finans departmanlarının doğal çalışma biçimi olan **çok kademeli onay akışlarını** — tutar eşiği, harcama limiti, beyaz liste, görevler ayrılığı — imza katmanının kendisine gömmüyor. KeyWard, eşik imza (threshold signature) ile politika motorunu tek bir üründe birleştirir: kural sağlanmadan imza matematiksel olarak üretilemez.`,
-            description: `KeyWard, kurumsal hazine ekipleri için politika güdümlü bir dijital varlık saklama ve imzalama platformudur.
-
-**Temel İşlevler & Özellikler:**
-• **Tek Parça Anahtar Yok**: Özel anahtar hiçbir aşamada bütün halinde oluşturulmaz; imza, birbirinden bağımsız düğümlerin paylarıyla eşik imza protokolü üzerinden üretilir.
-• **Politika Motoru**: Tutar eşiğine göre değişen onay sayısı, günlük harcama limiti, adres beyaz listesi, saat kısıtı ve görevler ayrılığı kuralları imza öncesinde zorunlu olarak değerlendirilir.
-• **İşlem Öncesi Risk Taraması**: Hedef adresin yaptırım listesi, karıştırıcı (mixer) geçmişi ve reputasyon skoru imzadan önce kontrol edilir; riskli hedefler ek onay gerektirir.
-• **İnsan Okunur İşlem Özeti**: İmzalayanlara ham calldata yerine "şu sözleşmede şu kadar token'ı şu adrese aktarıyorsunuz" biçiminde çözümlenmiş bir özet gösterilir; kör imzalama önlenir.
-• **Denetim ve Raporlama**: Her işlemin kim tarafından talep edildiği, hangi kurallardan geçtiği ve kimlerin onayladığı, mali denetime doğrudan sunulabilecek biçimde raporlanır.`,
-            tags: ["Rust", "Threshold Signatures", "Go", "PostgreSQL", "HSM", "React"]
-        },
-        step2: {
-            architecture: `KeyWard'ın mimarisi tek bir varsayım üzerine kuruludur: **hiçbir tekil bileşen, tek başına geçerli bir imza üretebilecek bilgiye sahip olmamalıdır.**
-
-### 1. Sistem Katmanları:
-• **Policy Engine (Go)**: İşlem talebini kural setine karşı değerlendirir. Kurallar bildirimsel (declarative) tanımlanır ve her değerlendirme kararı gerekçesiyle birlikte kaydedilir. Kural geçmeden imza kümesine talep iletilmez.
-• **MPC Signing Cluster (Rust)**: Coğrafi ve ağ olarak ayrılmış en az üç düğüm; her biri anahtarın yalnızca bir payını tutar. İmza, düğümler arası protokol turlarıyla üretilir ve hiçbir turda paylar birleştirilmez.
-• **Risk Screener (Python)**: Adres reputasyonu, yaptırım listesi eşleşmesi ve davranışsal anomali skoru üretir.
-• **Core API (Go)**: Talep yaşam döngüsü, onay akışı ve bildirimler.
-• **Yönetim Konsolu (React)**: Politika tanımlama, onay arayüzü ve raporlar.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: İşlem talepleri, politika tanımları, onay kayıtları ve kullanıcı yönetimi. Onay kayıtları yalnızca eklenebilir (append-only) tablolarda tutulur.
-• **HSM (Hardware Security Module)**: Her düğümün anahtar payı ve düğüm kimlik sertifikaları donanım modülünden çıkmaz.
-• **Redis**: Onay bekleyen taleplerin canlı durumu ve bildirim kuyruğu.`,
-            security: `Bu ürünün tehdit modeli, kendi operatörünü de saldırgan olarak varsayar.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Eşik İmza (TSS)**: Anahtar hiçbir zaman tek bir bellek adresinde bütünleşmez. Bir düğümün tamamen ele geçirilmesi, saldırgana imza üretme yeteneği kazandırmaz.
-• **Görevler Ayrılığı**: İşlemi talep eden, onaylayan ve politika kuralını değiştiren roller birbirinden ayrılmıştır; politika değişikliğinin kendisi de çok imzalı onaya tabidir.
-• **Düğüm Çeşitliliği**: İmza düğümleri farklı bulut sağlayıcılarda ve farklı ağ bölgelerinde çalışır; tek bir sağlayıcının ihlali eşiği karşılamaya yetmez.
-• **Değiştirilemez Denetim İzi**: Tüm talep, onay ve red kayıtları hash zinciriyle birbirine bağlanır; geçmişe dönük bir kaydın sessizce değiştirilmesi tespit edilebilir.
-• **Anahtar Payı Yenileme (Proactive Refresh)**: Paylar periyodik olarak, temel anahtar değişmeden yenilenir. Böylece uzun süreye yayılmış kademeli bir sızıntıda saldırganın topladığı eski paylar geçersizleşir.
-• **Kurtarma Prosedürü**: Düğüm kaybına karşı çevrimdışı saklanan, coğrafi olarak dağıtılmış kurtarma payları; kurtarma işlemi de çok taraflı onaya bağlıdır.`
-        }
-    },
-    {
-        id: "finops-copilot",
-        title: "FinOps Copilot",
-        tagline: "Kubernetes Maliyet Anomalisi Tespiti ve Otomatik Kaynak Boyutlandırma Ajanı",
-        category: "Altyapı, Cloud & Performans",
-        categoryKey: "infrastructure",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Yönetilen Cluster Sayısına Göre SaaS + Tasarruf Payı",
-            opportunityScore: "%92 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Cluster Metrikleri", type: "source", sub: "Prometheus + Cloud Billing" },
-            { id: 2, name: "Cost Allocation Engine", type: "service", sub: "Pod Bazlı Maliyet Dağıtımı" },
-            { id: 3, name: "Anomaly Detector", type: "ai", sub: "Mevsimsel Zaman Serisi" },
-            { id: 4, name: "Rightsizing Advisor", type: "ai", sub: "Yüzdelik Bazlı Öneri" },
-            { id: 5, name: "VictoriaMetrics & Postgres", type: "storage", sub: "Metrik + Öneri Geçmişi" },
-            { id: 6, name: "GitOps PR Botu", type: "client", sub: "Otomatik Manifest Önerisi" }
-        ],
-        step1: {
-            marketGap: `Kubernetes'te bulut faturasının büyük bir kısmı hiç kullanılmayan kaynağa gidiyor: ekipler pod'lara "her ihtimale karşı" fazla CPU ve bellek talebi (request) yazıyor, kimse geri dönüp düzeltmiyor. Mevcut bulut maliyet araçları ise sorunu **fatura seviyesinde** gösteriyor — "geçen ay hesaplama gideriniz arttı" der, ama hangi ekibin hangi deployment'ının hangi commit'ten sonra şiştiğini söylemez. Mühendis için eyleme dönüştürülemeyen bu bilgi, çoğu organizasyonda üç ayda bir yapılan manuel bir temizlik seansına dönüşüyor ve arada maliyet yeniden birikiyor. Ayrıca bu araçların neredeyse tamamı **öneriyle bitiyor**; öneriyi manifest dosyasına uygulamak yine insana kalıyor. FinOps Copilot, maliyeti pod ve ekip düzeyinde ilişkilendirir, anormal artışı ortaya çıktığı gün yakalar ve düzeltmeyi doğrudan bir GitOps pull request'i olarak açar.`,
-            description: `FinOps Copilot, Kubernetes maliyetini görünür kılan ve düzeltmeyi otomatikleştiren bir maliyet mühendisliği ajanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Pod Bazlı Maliyet Dağıtımı**: Bulut faturasını namespace, deployment, ekip ve etiket bazında dağıtarak "bu servis ayda ne kadar tutuyor" sorusuna kesin yanıt verir.
-• **Anomali Tespiti**: Haftalık ve günlük mevsimselliği öğrenip, gerçek sıçramayı normal trafik dalgalanmasından ayırır; gece toplu işlerin yarattığı düzenli tepe noktalarını alarma dönüştürmez.
-• **Kök Neden İlişkilendirme**: Maliyet sıçramasını o pencerede yapılan deploy'lar, replica değişiklikleri ve HPA olaylarıyla eşleştirir.
-• **Otomatik Rightsizing PR'ı**: Gerçek kullanımın yüzdelik dilimlerine bakarak yeni request/limit değerleri hesaplar ve manifest deposuna gerekçeli bir pull request açar.
-• **Atıl Kaynak Avcısı**: Bağlantısız kalmış disk, kullanılmayan yük dengeleyici ve hiç trafik almayan deployment'ları listeler.`,
-            tags: ["Go", "Kubernetes", "Prometheus", "Python", "GitOps", "React"]
-        },
-        step2: {
-            architecture: `FinOps Copilot, cluster içine minimum ayak iziyle kurulan bir toplayıcı ve dışarıda çalışan bir analiz düzleminden oluşur.
-
-### 1. Sistem Katmanları:
-• **Metrics Collector (Go, in-cluster)**: Prometheus'tan pod kaynak kullanımını, Kubernetes API'den ise sahiplik ilişkilerini (deployment, namespace, etiket) toplar. Yalnızca toplu metrik gönderir; uygulama verisine hiç dokunmaz.
-• **Cost Allocation Engine (Go)**: Bulut sağlayıcı fatura kalemlerini düğüm ve pod kullanımına orantılayarak dağıtır. Spot/on-demand ayrımı ve rezerve kapasite indirimleri hesaba katılır.
-• **Anomaly Detector (Python)**: Mevsimsel ayrıştırma ile beklenen bandı üretir; bandın dışına çıkan noktaları önem derecesine göre sıralar.
-• **Rightsizing Advisor (Python)**: Kullanımın yüksek yüzdelik dilimlerine güvenlik payı ekleyerek öneri üretir; OOMKill geçmişi olan iş yüklerinde daha muhafazakâr davranır.
-• **GitOps Bot (Go)**: Manifest deposunda dal açar, değişikliği ve tasarruf tahminini içeren PR gönderir.
-
-### 2. Veritabanı Mimarisi:
-• **VictoriaMetrics**: Uzun vadeli metrik saklama; Prometheus'un yerel saklama süresinin ötesine geçmek için gereklidir.
-• **PostgreSQL**: Maliyet dağıtım sonuçları, anomali kayıtları, öneri geçmişi ve uygulanan değişikliklerin etkisi.
-• **Redis**: Panel sorguları için önbellek.`,
-            security: `Ajan, müşteri cluster'ının içinde çalışır; bu yüzden yetki sınırları ürünün en kritik tasarım kararıdır.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Salt Okunur Cluster Erişimi**: Toplayıcının ServiceAccount'u yalnızca metrik ve nesne meta verisi okuma yetkisine sahiptir; Secret kaynaklarına erişimi RBAC düzeyinde tamamen kapalıdır ve hiçbir koşulda yazma yetkisi istemez.
-• **Değişiklik Yolu İnsan Onaylı**: Ürün cluster'a doğrudan yazmaz; tüm değişiklikler Git üzerinden pull request olarak önerilir ve mevcut kod inceleme sürecinden geçer. Bu, otomasyonun üretimi tek başına bozmasını yapısal olarak imkânsız kılar.
-• **Veri Minimizasyonu**: Dışarı çıkan veri toplu kaynak metrikleri ve nesne adlarıyla sınırlıdır; ortam değişkenleri, log içerikleri ve uygulama verisi hiçbir zaman toplanmaz.
-• **Giden Bağlantı Kontrolü**: Toplayıcı yalnızca tek bir sabit uç noktaya giden TLS bağlantısı kurar; bu, ağ politikasıyla (NetworkPolicy) kısıtlanabilir ve müşteri tarafından doğrulanabilir.
-• **Çok Kiracılı İzolasyon**: Analiz düzleminde her cluster ayrı bir kiracı kimliğiyle etiketlenir; sorgu katmanında kiracı filtresi zorunludur ve satır düzeyi güvenlik (RLS) ile veritabanında da uygulanır.`
-        }
-    },
-    {
-        id: "edgemesh-inference",
-        title: "EdgeMesh",
-        tagline: "Coğrafi Dağıtık Yapay Zeka Çıkarımı İçin Gecikme ve Maliyet Farkında Yönlendirici",
-        category: "Altyapı, Cloud & Performans",
-        categoryKey: "infrastructure",
-        meta: {
-            difficulty: "İleri Düzey",
-            mvpTime: "8 Hafta",
-            monetization: "İşlenen İstek Başına Kullanım Bazlı + Kurumsal Plan",
-            opportunityScore: "%89 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "İstemci İstekleri", type: "source", sub: "Global Uygulama Trafiği" },
-            { id: 2, name: "Edge Router", type: "service", sub: "Anycast + Rust Proxy" },
-            { id: 3, name: "Routing Policy Brain", type: "ai", sub: "Gecikme/Maliyet Optimizasyonu" },
-            { id: 4, name: "Model Runtime Pool", type: "ai", sub: "GPU / CPU Havuzları" },
-            { id: 5, name: "Semantic Cache", type: "storage", sub: "Vektör Benzerlik Önbelleği" },
-            { id: 6, name: "Gözlemlenebilirlik Paneli", type: "client", sub: "Maliyet & Gecikme İzleme" }
-        ],
-        step1: {
-            marketGap: `Yapay zeka özelliği ekleyen ekipler hızla aynı duvara çarpıyor: model çıkarımı hem pahalı hem de coğrafi olarak yavaş. Tek bir bölgede barındırılan bir model, uzaktaki kullanıcıya yüzlerce milisaniye ağ gecikmesi ekliyor; her isteği en güçlü ve en pahalı modele göndermek ise faturayı hızla sürdürülemez hale getiriyor. Bugün bu sorunu çözmek için ekipler kendi elleriyle yönlendirme mantığı yazıyor — hangi isteğin küçük modele, hangisinin büyük modele gideceğini kodun içine gömüyorlar — ve bu mantık her model değişiminde bozuluyor. Piyasadaki API ağ geçitleri ise trafiği taşımayı biliyor ama **isteğin içeriğine göre karar vermiyor**. EdgeMesh, çıkarım trafiğini isteğin karmaşıklığına, kullanıcının coğrafi konumuna, anlık kuyruk derinliğine ve tanımlanan maliyet bütçesine göre yönlendiren bir katman sunar; uygulama kodu tek bir uç noktayı çağırmaya devam eder.`,
-            description: `EdgeMesh, yapay zeka çıkarım trafiğini yöneten, coğrafi olarak dağıtık bir yönlendirme ve önbellekleme katmanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **İçerik Farkında Yönlendirme**: İsteğin karmaşıklığını hızlıca sınıflandırır; basit istekleri küçük ve ucuz modele, karmaşık olanları güçlü modele yönlendirir. Kalite eşiği altına düşen yanıtlar otomatik olarak üst modele yükseltilir.
-• **Anlamsal Önbellek**: Birebir aynı olmayan ama anlamca eşdeğer istekleri vektör benzerliğiyle yakalar; tekrarlayan sorularda çıkarım maliyeti tamamen ortadan kalkar.
-• **Coğrafi Yakınlık**: Anycast ile isteği en yakın kenar düğümüne çeker, model çalışma zamanını kullanıcıya en yakın uygun havuzda seçer.
-• **Bütçe Koruması**: Takım veya müşteri bazında harcama tavanı tanımlanır; tavana yaklaşıldığında trafik otomatik olarak daha ucuz modele kaydırılır, kesinti yaşanmaz.
-• **Sağlayıcı Bağımsızlığı**: Birden fazla model sağlayıcısını aynı arayüz altında birleştirir; biri kesintiye girdiğinde trafik saniyeler içinde diğerine devredilir.`,
-            tags: ["Rust", "Go", "Anycast", "Vector Search", "Kubernetes", "OpenTelemetry"]
-        },
-        step2: {
-            architecture: `EdgeMesh, veri düzlemi (data plane) ve kontrol düzlemi (control plane) ayrımı üzerine kuruludur; yönlendirme kararı hızlı yolda asla ağ üzerinden sorgu gerektirmez.
-
-### 1. Sistem Katmanları:
-• **Edge Router (Rust)**: Her kenar bölgesinde çalışan düşük gecikmeli proxy. Yönlendirme politikasının derlenmiş bir kopyasını bellekte tutar; karar mikrosaniyeler içinde yerel olarak verilir.
-• **Routing Policy Brain (Go, kontrol düzlemi)**: Gecikme telemetrisi, kuyruk derinliği, hata oranı ve birim maliyeti değerlendirerek politikayı sürekli günceller ve kenar düğümlerine dağıtır. Kontrol düzlemi tamamen çökse bile kenar düğümleri son bilinen politikayla çalışmaya devam eder.
-• **Semantic Cache (Rust + vektör indeksi)**: İstek gömülemelerini (embedding) yerel indekste arar; eşik üstü benzerlikte önbellekten yanıtlar.
-• **Model Runtime Pool**: GPU ve CPU havuzları; otomatik ölçeklenir, soğuk başlatma maliyetini azaltmak için sıcak yedek bulundurur.
-• **Observability (OpenTelemetry)**: İstek başına gecikme dağılımı, model seçimi ve maliyet izleri.
-
-### 2. Veritabanı Mimarisi:
-• **Vektör İndeksi (kenar yerel)**: Anlamsal önbellek; bölge bazlı, çünkü önbellek isabetinin de yakın olması gerekir.
-• **ClickHouse**: Yüksek hacimli istek telemetrisi ve maliyet analitiği.
-• **PostgreSQL**: Kiracılar, politika tanımları, bütçeler ve API anahtarları.
-• **Redis**: Hız sınırlama sayaçları ve kısa ömürlü oturum durumu.`,
-            security: `Çıkarım trafiği çoğu zaman kullanıcıların en hassas girdilerini taşır; bu katman bir yan kanal haline gelmemelidir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **İstek İçeriği Saklamama**: Varsayılan yapılandırmada istek ve yanıt gövdeleri hiçbir yere yazılmaz; telemetride yalnızca boyut, gecikme ve model seçimi gibi meta veriler tutulur.
-• **Anlamsal Önbellekte Kiracı İzolasyonu**: Önbellek anahtarı kiracı kimliğini içerir. Bir kiracının isteği başka bir kiracının önbelleğinden asla yanıtlanamaz — çok kiracılı anlamsal önbelleklerin en tehlikeli hatası budur.
-• **Uçtan Uca Şifreleme**: İstemci-kenar arası TLS 1.3; kenar-çalışma zamanı arası mTLS ile karşılıklı kimlik doğrulama.
-• **API Anahtarı Yönetimi**: Anahtarlar yalnızca hash'lenmiş olarak saklanır, kapsam (scope) ve son kullanma tarihi taşır; sızıntı durumunda tek tek iptal edilebilir.
-• **Hız Sınırlama ve Kötüye Kullanım Koruması**: Kiracı ve IP bazlı çok katmanlı hız sınırlama; ani maliyet patlaması yaratan örüntüler otomatik olarak yavaşlatılır.
-• **Bölgesel Veri Yerleşimi**: Kiracı, isteklerinin belirli coğrafi bölgelerin dışına çıkmamasını zorunlu kılabilir; yönlendirici bu kısıtı politika düzeyinde uygular.`
-        }
-    },
-    {
-        id: "skillforge-path",
-        title: "SkillForge",
-        tagline: "Gerçek İş İlanı Sinyallerinden Yetenek Açığı Haritası ve Kişisel Öğrenme Rotası",
-        category: "Eğitim Teknolojileri & Yapay Zeka",
-        categoryKey: "edtech",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "5 Hafta",
-            monetization: "Bireysel Abonelik + Üniversite & Kurum Lisansı",
-            opportunityScore: "%90 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "İş İlanı Kaynakları", type: "source", sub: "Kariyer Siteleri + Şirket Sayfaları" },
-            { id: 2, name: "Skill Extraction", type: "service", sub: "NER + Taksonomi Eşleme" },
-            { id: 3, name: "Gap Analysis Engine", type: "ai", sub: "Profil-Talep Farkı" },
-            { id: 4, name: "Path Generator", type: "ai", sub: "Ön Koşul Grafiği Sıralaması" },
-            { id: 5, name: "PostgreSQL & pgvector", type: "storage", sub: "Beceri Grafiği + Gömülemeler" },
-            { id: 6, name: "Öğrenci Portalı", type: "client", sub: "Rota + İlerleme Takibi" }
-        ],
-        step1: {
-            marketGap: `Çevrimiçi eğitim platformları içerik konusunda doymuş durumda; eksik olan içerik değil, **yön**. Kariyer değiştirmek isteyen biri yüzlerce kursla karşılaşıyor ama hangisinin gerçekten iş bulmaya yaradığını bilmiyor. Mevcut "kariyer yolu" ürünleri ise bu rotaları editörlerin elle hazırladığı statik listeler olarak sunuyor: piyasa altı ayda değiştiğinde liste olduğu yerde kalıyor ve öğrenci artık talep görmeyen bir araç setini öğrenmeye devam ediyor. Üstelik bu rotalar herkese aynı başlangıç noktasını varsayıyor — hâlihazırda benzer bir alandan gelen birine sıfırdan başlatan bir müfredat sunuluyor. SkillForge, rotayı editörden değil **canlı iş ilanı verisinden** türetir: belirli bir şehir ve rol için hangi becerilerin gerçekten arandığını, hangilerinin yükselişte olduğunu ölçer, kullanıcının mevcut profiliyle arasındaki farkı çıkarır ve yalnızca o farkı kapatan bir sıra üretir.`,
-            description: `SkillForge, iş piyasası verisini kişiselleştirilmiş bir öğrenme rotasına çeviren bir kariyer yönlendirme platformudur.
-
-**Temel İşlevler & Özellikler:**
-• **Canlı Yetenek Talebi Haritası**: İş ilanlarından beceri çıkarımı yaparak rol, şehir ve sektör bazında hangi becerilerin arandığını ve trendin yönünü gösterir.
-• **Kişisel Fark Analizi**: Kullanıcının özgeçmişi veya beceri beyanı ile hedef rolün talebi arasındaki farkı çıkarır; zaten bilinen konular rotadan çıkarılır.
-• **Ön Koşul Farkındalığı**: Beceriler arasındaki bağımlılık grafiğini kullanarak öğrenme sırasını mantıklı hale getirir; temel bir konu atlanarak ileri seviye bir konuya geçilmez.
-• **Kanıt Odaklı Proje Önerisi**: Her adımda, o beceriyi işverene gösterebilecek somut bir portföy projesi önerir; sertifika yerine çıktı vurgulanır.
-• **Ücret ve Rekabet Göstergesi**: Her beceri için ilanlardaki ücret aralığı ve o beceriye sahip aday yoğunluğu gösterilir; kullanıcı çabasını nereye yatıracağına veriyle karar verir.`,
-            tags: ["Python", "spaCy NER", "PostgreSQL", "pgvector", "Next.js", "FastAPI"]
-        },
-        step2: {
-            architecture: `SkillForge'un temel zorluğu veri toplama değil, **serbest metinden tutarlı bir beceri taksonomisi çıkarmaktır**; mimari bu normalleştirme sorununun etrafında kuruludur.
-
-### 1. Sistem Katmanları:
-• **Ingestion Workers (Python)**: İlan kaynaklarını nazik hız sınırlarıyla toplar; robots.txt ve kaynak kullanım koşullarına uyar, mümkün olan yerlerde resmi API kullanır.
-• **Skill Extraction (Python + spaCy)**: Adlandırılmış varlık tanıma ile ilan metninden beceri ifadelerini çıkarır; ardından eş anlamlıları tek bir kanonik beceri düğümüne eşler. "JS", "JavaScript" ve "ES6" aynı düğüme gider — bu adım olmadan tüm istatistikler anlamsızdır.
-• **Gap Analysis Engine (Python)**: Kullanıcı profili ile hedef rolün beceri vektörü arasındaki farkı hesaplar; pgvector üzerinde benzerlik sorgusu kullanır.
-• **Path Generator (Python)**: Ön koşul grafiği üzerinde topolojik sıralama yaparak öğrenme adımlarını dizer; kullanıcının haftalık ayırabileceği süreye göre rotayı ölçekler.
-• **Portal (Next.js)**: Rota görünümü, ilerleme takibi ve piyasa panosu.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Kanonik beceri taksonomisi, ön koşul kenarları, ilan özetleri ve kullanıcı profilleri.
-• **pgvector**: Beceri ve rol gömülemeleri; benzerlik aramaları ayrı bir vektör veritabanı gerektirmeyecek ölçekte olduğu için aynı veritabanında tutulur.
-• **Redis**: Piyasa panosu sorguları için önbellek; bu veriler dakika değil gün ölçeğinde değişir.`,
-            security: `Sistem özgeçmiş verisi işler; bu veri hem kişiseldir hem de kötü kullanıldığında ayrımcılığa yol açabilir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Özgeçmiş Verisinin Ayrıştırılması**: Yüklenen özgeçmişten yalnızca beceri ve deneyim süresi çıkarılır; ad, iletişim bilgisi, doğum tarihi ve fotoğraf ayrıştırma sonrası kalıcı olarak silinir.
-• **İşveren Tarafına Kimlik Sızdırmama**: Kurumsal panolarda yalnızca toplulaştırılmış istatistikler gösterilir; bir kurum kendi çalışanlarının bireysel rota ilerlemesini göremez. Bu, ürünün kullanıcı güvenini koruyan sınırıdır.
-• **Kimlik Doğrulama**: OAuth2 ile oturum, oturum jetonlarında kısa ömür ve yenileme jetonu rotasyonu; parola saklanan hesaplarda Argon2id.
-• **Veri Taşınabilirliği ve Silme**: Kullanıcı tüm verisini dışa aktarabilir ve tek işlemle kalıcı silme talep edebilir; silme, türetilmiş gömülemeleri de kapsar.
-• **Kaynak Toplama Etiği**: Yalnızca kamuya açık ilanlar toplanır; kişisel profil sayfaları ve aday verisi hiçbir koşulda toplanmaz.`
-        }
-    },
-    {
-        id: "labsim-xr",
-        title: "LabSim XR",
-        tagline: "Mesleki ve Teknik Eğitim İçin Tarayıcı Tabanlı Simülasyon Laboratuvarı",
-        category: "Eğitim Teknolojileri & Yapay Zeka",
-        categoryKey: "edtech",
-        meta: {
-            difficulty: "İleri Düzey",
-            mvpTime: "9 Hafta",
-            monetization: "Okul & Meslek Kuruluşu Lisansı (Öğrenci Başı Yıllık)",
-            opportunityScore: "%88 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Senaryo Tanımı", type: "source", sub: "Eğitmen Tarafından Yazılan Görev" },
-            { id: 2, name: "Simulation Engine", type: "service", sub: "WebGPU + Fizik Çözücü" },
-            { id: 3, name: "Performance Assessor", type: "ai", sub: "Adım Doğruluğu + Güvenlik İhlali" },
-            { id: 4, name: "Adaptive Coach", type: "ai", sub: "Kademeli İpucu Üretimi" },
-            { id: 5, name: "PostgreSQL & S3", type: "storage", sub: "Oturum Kaydı + Varlıklar" },
-            { id: 6, name: "Eğitmen Panosu", type: "client", sub: "Sınıf İlerleme Görünümü" }
-        ],
-        step1: {
-            marketGap: `Elektrik tesisatı, CNC işleme, laboratuvar tekniği ve endüstriyel bakım gibi alanlarda öğrenmenin pratikte gerçekleşmesi gerekir; ancak fiziksel atölye kurmak pahalı, tehlikeli ve ölçeklenemez. Bir okulda genellikle tek bir cihaz vardır ve otuz öğrenci sırayla birkaç dakika deneyebilir. Mevcut dijital alternatifler ise iki uçta: bir yanda öğrencinin izlediği ama dokunmadığı videolar, diğer yanda pahalı VR başlıkları gerektiren, kurulumu okulların çoğu için erişilemez simülasyonlar. Ayrıca bu simülasyonların neredeyse tamamı **değerlendirme yapmaz** — öğrenci senaryoyu tamamlar, ama hangi adımda hata yaptığı, hangi güvenlik kuralını ihlal ettiği ölçülmez, dolayısıyla eğitmen için not verilebilir bir çıktı üretmez. LabSim XR, donanım gerektirmeden tarayıcıda çalışan, her etkileşimi adım adım değerlendiren ve eğitmene sınıf düzeyinde ilerleme raporu veren bir simülasyon laboratuvarı sunar.`,
-            description: `LabSim XR, mesleki eğitimde pratik beceriyi tarayıcı üzerinden ölçülebilir hale getiren bir simülasyon platformudur.
-
-**Temel İşlevler & Özellikler:**
-• **Donanımsız Erişim**: WebGPU ile tarayıcıda çalışır; VR başlığı isteğe bağlıdır, okul bilgisayarı veya tablet yeterlidir.
-• **Adım Bazlı Değerlendirme**: Öğrencinin yaptığı her işlem sıra, doğruluk ve güvenlik açısından değerlendirilir; "sonuç doğru ama sıra yanlış" durumu ayrı raporlanır.
-• **Güvenlik İhlali Kaydı**: Gerçek atölyede kazaya yol açacak davranışlar (enerji kesilmeden müdahale, koruyucu ekipmanın atlanması) simülasyonda işaretlenir ve öğrenciye sonucu gösterilir.
-• **Kademeli Koçluk**: Öğrenci takıldığında doğrudan cevap yerine giderek somutlaşan ipuçları verilir; öğrenmeyi kısa devre etmemek için ipucu kullanımı da raporlanır.
-• **Eğitmen Panosu**: Sınıfın tamamında hangi adımın en çok hataya yol açtığını gösterir; eğitmen dersini bu veriye göre şekillendirir.`,
-            tags: ["TypeScript", "WebGPU", "Rust/WASM", "Three.js", "PostgreSQL", "Node.js"]
-        },
-        step2: {
-            architecture: `Simülasyonun ağır kısmı istemcide çalışır; sunucu ise senaryo dağıtımı, değerlendirme doğrulaması ve raporlamadan sorumludur.
-
-### 1. Sistem Katmanları:
-• **Simulation Engine (Rust → WebAssembly)**: Fizik ve devre çözücüsü WASM olarak derlenip tarayıcıda çalışır. Bu, hem gecikmeyi sıfırlar hem de sunucu maliyetini öğrenci sayısından bağımsız kılar.
-• **Render Katmanı (TypeScript + WebGPU)**: Sahne çizimi; WebGPU desteklemeyen cihazlarda WebGL'e düşer.
-• **Performance Assessor (Node.js, sunucu)**: İstemciden gelen etkileşim günlüğünü senaryonun beklenen adım grafiğine karşı doğrular. Değerlendirme sunucuda yapılır; istemciye güvenilmez.
-• **Adaptive Coach (Python)**: Hata örüntüsüne göre ipucu seviyesini belirler.
-• **Eğitmen Panosu (Next.js)**: Sınıf yönetimi, senaryo atama ve raporlar.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Senaryolar, adım grafikleri, öğrenci oturumları ve değerlendirme sonuçları.
-• **S3 Uyumlu Nesne Depolama**: 3B modeller, doku dosyaları ve oturum tekrar kayıtları.
-• **Redis**: Canlı sınıf oturumlarında eğitmenin anlık ilerleme görünümü için geçici durum.`,
-            security: `Kullanıcıların önemli bir kısmı reşit olmayan öğrencilerdir; bu, gizlilik yükümlülüğünü ağırlaştırır.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Sunucu Tarafı Değerlendirme**: Puan ve tamamlama durumu asla istemciden kabul edilmez; istemci yalnızca ham etkileşim günlüğü gönderir, karar sunucuda verilir. Aksi halde not sahtekârlığı tarayıcı konsolundan yapılabilir hale gelir.
-• **Reşit Olmayan Kullanıcı Koruması**: Öğrenci hesapları okul kurumu üzerinden sağlanır; doğrudan kayıt, kişisel e-posta toplama ve üçüncü taraf reklam/izleme bileşeni bulunmaz.
-• **Veri Minimizasyonu**: Öğrenciden yalnızca kurum tarafından atanan takma ad ve sınıf bilgisi tutulur; kamera, mikrofon veya biyometrik veri hiçbir senaryoda kullanılmaz.
-• **Erişim Kontrolü**: Eğitmen yalnızca kendi sınıflarının verisini görür; kurum yöneticisi toplulaştırılmış raporlara erişir, bireysel oturum tekrarlarına erişimi kurum politikasıyla sınırlandırılabilir.
-• **İçerik Bütünlüğü**: Senaryo paketleri imzalanır; istemci imzayı doğrulamadan bir senaryoyu yüklemez, böylece değiştirilmiş senaryolarla hatalı eğitim verilmesi engellenir.`
-        }
-    },
-    {
-        id: "gridbalance-ai",
-        title: "GridBalance",
-        tagline: "Yenilenebilir Üretim Tahmini ve Esnek Yük Kaydırma ile Şebeke Dengeleme Ajanı",
-        category: "Sürdürülebilirlik & IoT & Blockchain",
-        categoryKey: "sustainability",
-        meta: {
-            difficulty: "İleri Düzey",
-            mvpTime: "8 Hafta",
-            monetization: "Tesis Başı Abonelik + Sağlanan Tasarruf Payı",
-            opportunityScore: "%93 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Sayaç & Hava Verisi", type: "source", sub: "Modbus + Meteoroloji API" },
-            { id: 2, name: "Forecast Service", type: "service", sub: "Üretim & Tüketim Tahmini" },
-            { id: 3, name: "Optimization Engine", type: "ai", sub: "Kısıtlı Yük Kaydırma Çözücü" },
-            { id: 4, name: "Dispatch Controller", type: "service", sub: "Batarya & Yük Komutları" },
-            { id: 5, name: "TimescaleDB", type: "storage", sub: "Enerji Zaman Serisi" },
-            { id: 6, name: "Tesis Operatör Paneli", type: "client", sub: "Plan Onayı & İzleme" }
-        ],
-        step1: {
-            marketGap: `Güneş paneli veya rüzgâr türbini kuran sanayi tesisleri kısa sürede beklemedikleri bir sorunla karşılaşıyor: üretim en yüksek olduğu saatte tüketim düşük oluyor, tüketim tepe yaptığında ise üretim yok. Sonuçta öz tüketim oranı düşük kalıyor, elektrik şebekeye ucuza satılıyor ve yatırımın geri dönüşü hesaplananın çok gerisinde kalıyor. Piyasadaki enerji izleme yazılımları bu tabloyu **gösteriyor ama değiştirmiyor**: güzel panolar üretiyor, operatöre "bugün şu kadar ürettiniz" diyor ve orada bitiyor. Asıl değer ise esnek yükleri — soğutma, kompresör, şarj istasyonu, pompalama — üretimin yüksek olduğu saatlere kaydırmakta; ancak bunu elle yapmak imkânsız çünkü karar her gün hava tahminine, tarife saatlerine ve üretim planına göre değişiyor. GridBalance, üretimi ve tüketimi saatlik tahmin eder, tesisin operasyonel kısıtlarını bozmadan optimum yük planını çözer ve komutları doğrudan ekipmana gönderir.`,
-            description: `GridBalance, yenilenebilir enerji yatırımının getirisini yük kaydırmayla artıran bir enerji optimizasyon ajanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Saatlik Üretim Tahmini**: Meteoroloji verisi ve panel/türbin geçmiş performansını birleştirerek 48 saatlik üretim eğrisi üretir.
-• **Tüketim Tahmini**: Üretim planı, vardiya takvimi ve geçmiş tüketim örüntüsünden tesisin yük eğrisini tahmin eder.
-• **Kısıtlı Optimizasyon**: Esnek yükleri kaydırırken üretim sürekliliği, soğuk zincir sıcaklık limiti ve ekipman çalışma süresi gibi kısıtları ihlal etmez; çözüm bulunamazsa neden bulunamadığını açıklar.
-• **Batarya Şarj/Deşarj Planı**: Depolama varsa tarife saatleri ve üretim eğrisine göre en verimli şarj-deşarj takvimini üretir.
-• **Doğrulanabilir Karbon Raporu**: Sağlanan öz tüketim artışı ve önlenen emisyon, ölçüm verisine dayanan denetlenebilir bir raporla sunulur.`,
-            tags: ["Python", "TimescaleDB", "Modbus", "MILP Optimizasyon", "Go", "React"]
-        },
-        step2: {
-            architecture: `Sistem, endüstriyel ortamın iki gerçeğine göre tasarlanmıştır: ağ bağlantısı kopabilir ve yanlış bir komut üretimi durdurabilir.
-
-### 1. Sistem Katmanları:
-• **Edge Gateway (Go, tesis içi)**: Sayaç ve PLC'lerden Modbus/OPC-UA ile veri toplar, bulut bağlantısı koptuğunda son onaylı planla çalışmaya devam eder ve veriyi yerel olarak kuyruklar.
-• **Forecast Service (Python)**: Üretim ve tüketim için ayrı zaman serisi modelleri; tahmin aralığı da (belirsizlik bandı) üretilir, çünkü optimizasyon tek bir nokta tahminine güvenemez.
-• **Optimization Engine (Python + MILP çözücü)**: Karma tamsayılı doğrusal programlama ile yük kaydırma planını çözer. Kısıtlar bildirimsel tanımlanır; tesis mühendisi yeni bir kısıt eklediğinde kod değişmez.
-• **Dispatch Controller (Go)**: Planı ekipman komutlarına çevirir; her komut için geri bildirim doğrulaması bekler.
-• **Operatör Paneli (React)**: Plan önizlemesi, onay ve canlı izleme.
-
-### 2. Veritabanı Mimarisi:
-• **TimescaleDB**: Sayaç ölçümleri, tahminler ve gerçekleşen değerler; tahmin doğruluğunun geriye dönük ölçümü bu tabloların karşılaştırılmasıyla yapılır.
-• **PostgreSQL**: Tesisler, ekipman envanteri, kısıt tanımları ve plan geçmişi.
-• **Redis**: Canlı telemetri ve panel önbelleği.`,
-            security: `Endüstriyel kontrol sistemlerine komut gönderen her yazılım, güvenlik açısından bir operasyonel teknoloji (OT) bileşeni olarak ele alınmalıdır.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Tek Yönlü Ağ Sınırı**: Bulut düzlemi tesis ağına doğrudan bağlanamaz; kenar ağ geçidi yalnızca giden (outbound) bağlantı kurar ve komutları kendisi çeker. Bu, IEC 62443 yaklaşımına uygun temel ayrımdır.
-• **Komut Beyaz Listesi**: Kenar ağ geçidi yalnızca önceden tanımlanmış, sınırları belli komut kümesini uygular; kapsam dışı bir komut geldiğinde reddeder ve alarm üretir. Buluttaki bir ihlal, keyfi ekipman kontrolüne dönüşemez.
-• **Operatör Onay Kapısı**: Varsayılan modda plan operatör onayından sonra uygulanır; tam otomatik mod ancak tesis tarafından açıkça etkinleştirilir ve her zaman acil durdurma (kill switch) ile geçersiz kılınabilir.
-• **Kimlik Doğrulama**: Kenar ağ geçidi ile bulut arasında mTLS ve cihaz başına benzersiz sertifika; sertifikalar döngüsel olarak yenilenir.
-• **Değiştirilemez Komut Günlüğü**: Hangi komutun hangi plan ve hangi onayla gönderildiği append-only olarak saklanır; bir üretim kaybı sonrası kök neden analizi bu izle yapılır.`
-        }
-    },
-    {
-        id: "reloop-exchange",
-        title: "ReLoop",
-        tagline: "Endüstriyel Yan Ürün ve Atık Akışları İçin Döngüsel Ekonomi Eşleştirme Ağı",
-        category: "Sürdürülebilirlik & IoT & Blockchain",
-        categoryKey: "sustainability",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Eşleşme Komisyonu + Kurumsal Raporlama Aboneliği",
-            opportunityScore: "%87 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Tesis Atık Beyanı", type: "source", sub: "Malzeme + Miktar + Konum" },
-            { id: 2, name: "Material Normalizer", type: "service", sub: "Atık Kodu Standardizasyonu" },
-            { id: 3, name: "Matching Engine", type: "ai", sub: "Uygunluk + Lojistik Skoru" },
-            { id: 4, name: "Compliance Checker", type: "service", sub: "İzin & Mevzuat Doğrulama" },
-            { id: 5, name: "PostgreSQL + PostGIS", type: "storage", sub: "Coğrafi Arz-Talep Havuzu" },
-            { id: 6, name: "Pazaryeri Portalı", type: "client", sub: "Teklif & Sevkiyat Takibi" }
-        ],
-        step1: {
-            marketGap: `Bir fabrikanın atığı çoğu zaman başka bir fabrikanın hammaddesidir: cam kırığı, metal talaşı, tekstil kırpıntısı, gıda üretiminden çıkan organik yan ürün. Ancak bu eşleşme bugün büyük ölçüde **tesadüfe ve kişisel tanışıklığa** bağlı; iki tesis birbirinden 40 kilometre uzakta olsa bile birinin arzından diğerinin haberi olmuyor ve malzeme depolama sahasına gidiyor. Var olan atık borsaları ise ilan panosu mantığında çalışıyor: serbest metin ilanlar, standart olmayan malzeme tanımları, doğrulanmamış miktarlar. Bir alıcı "polipropilen" arıyorsa, aynı malzemeyi "PP granül" diye yazan ilanı hiç görmüyor. Üstelik atık transferi izne tabi bir işlem; eşleşme bulunsa bile mevzuat uygunluğu ayrı bir engel oluşturuyor. ReLoop, malzeme tanımlarını standart atık kodlarına normalize eder, arz ve talebi coğrafi ve lojistik maliyeti hesaba katarak eşleştirir ve mevzuat uygunluğunu eşleşme anında kontrol eder.`,
-            description: `ReLoop, endüstriyel yan ürünleri atık olmaktan çıkarıp girdiye dönüştüren bir eşleştirme ve uyum platformudur.
-
-**Temel İşlevler & Özellikler:**
-• **Malzeme Normalizasyonu**: Serbest metin malzeme tanımlarını standart atık kodlarına ve malzeme sınıflarına eşler; farklı isimlendirmeler aynı havuzda buluşur.
-• **Lojistik Farkındalıklı Eşleştirme**: Yalnızca malzeme uyumuna değil, mesafe, taşıma maliyeti ve minimum sevkiyat miktarına da bakar; ekonomik olmayan eşleşmeleri baştan eler.
-• **Mevzuat Uygunluk Kontrolü**: Alıcının ilgili atık kodu için geçerli izni olup olmadığını doğrular; izinsiz eşleşme teklife dönüşemez.
-• **Doğrulanabilir Döngüsellik Raporu**: Tesisin yönlendirdiği malzeme miktarı ve önlenen bertaraf, sürdürülebilirlik raporlamasında kullanılabilecek kanıtlarla birlikte sunulur.
-• **Sevkiyat Takibi**: Eşleşme sonrası taşıma belgeleri ve teslim onayı platform üzerinden izlenir; süreç e-postaya dağılmaz.`,
-            tags: ["TypeScript", "NestJS", "PostgreSQL", "PostGIS", "Python", "Next.js"]
-        },
-        step2: {
-            architecture: `ReLoop bir pazaryeri olduğu için mimarinin merkezinde **eşleştirme kalitesi** ve **güven** vardır; teknik karmaşıklık coğrafi sorgu ve normalizasyonda yoğunlaşır.
-
-### 1. Sistem Katmanları:
-• **Material Normalizer (Python)**: Serbest metin tanımı standart atık koduna eşler; belirsiz durumlarda kullanıcıya doğrulama sorar ve verdiği yanıt eşleme sözlüğünü besler.
-• **Matching Engine (TypeScript)**: Malzeme uyumu, miktar aralığı, coğrafi mesafe ve zamanlama penceresini birleştiren bir skorla adayları sıralar. PostGIS mesafe sorguları bu katmanın çekirdeğidir.
-• **Compliance Checker (NestJS)**: Alıcının izin kayıtlarını ve atık kodu kapsamını doğrular; süresi dolmuş izinler otomatik olarak eşleşme dışı bırakılır.
-• **Core API (NestJS)**: İlan yaşam döngüsü, teklif, sözleşme ve sevkiyat durumları.
-• **Portal (Next.js)**: Arz-talep girişi, harita görünümü, teklif yönetimi.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL + PostGIS**: Arz ve talep kayıtları coğrafi noktalarla saklanır; mesafe bazlı eşleştirme veritabanı düzeyinde indekslenir.
-• **PostgreSQL (ilişkisel)**: Tesisler, izin belgeleri, teklifler, sevkiyatlar ve denetim kayıtları.
-• **S3 Uyumlu Depolama**: İzin belgeleri, analiz raporları ve taşıma evrakı.`,
-            security: `Pazaryerinde en büyük risk teknik ihlal değil, **ticari sırların sızması ve sahte katılımcılardır**.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Kademeli Görünürlük**: İlan ayrıntıları — tam miktar, tesis adı ve kesin konum — yalnızca doğrulanmış ve ilgili izne sahip karşı tarafa açılır. Atık miktarı üretim hacmini ele verdiği için bu bilgi rakip istihbaratına dönüşebilir.
-• **Kurumsal Doğrulama (KYB)**: Katılımcı tesisler vergi kaydı ve çevre izin belgeleriyle doğrulanır; doğrulanmamış hesaplar teklif veremez.
-• **Belge Bütünlüğü**: Yüklenen izin ve analiz belgelerinin hash'i kaydedilir; belgenin sonradan değiştirilmesi tespit edilebilir.
-• **Erişim Kontrolü ve Kiracı İzolasyonu**: Satır düzeyi güvenlik (RLS) ile her tesis yalnızca kendi kayıtlarına ve kendisine açılmış eşleşmelere erişir.
-• **Denetim İzi**: Teklif, kabul ve sevkiyat onayları değiştirilemez biçimde kaydedilir; bu kayıtlar hem ticari uyuşmazlıkta hem de çevre denetiminde kanıt niteliği taşır.`
-        }
-    },
-    {
-        id: "driftsentry-iac",
-        title: "DriftSentry",
-        tagline: "Altyapı Kodu ile Gerçek Bulut Durumu Arasındaki Sapmanın Tespiti ve Uzlaştırılması",
+        id: "devguard-ci",
+        title: "DevGuard AI Reviewer",
+        tagline: "GitHub ve GitLab İçin Otonom Pull Request Kod İnceleme, Güvenlik Açığı ve Flaky Test Önleme Ajanı",
         category: "DevOps & Yazılım Geliştirme Araçları",
         categoryKey: "devops",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Yönetilen Kaynak Sayısına Göre SaaS + Kurumsal Self-Hosted",
-            opportunityScore: "%91 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "IaC Deposu", type: "source", sub: "Terraform / Pulumi Kaynağı" },
-            { id: 2, name: "State Reconciler", type: "service", sub: "Plan vs Gerçek Karşılaştırma" },
-            { id: 3, name: "Drift Classifier", type: "ai", sub: "Zararsız / Riskli Ayrımı" },
-            { id: 4, name: "Attribution Engine", type: "service", sub: "Bulut Denetim Kaydı Eşleme" },
-            { id: 5, name: "PostgreSQL", type: "storage", sub: "Sapma Geçmişi + Politika" },
-            { id: 6, name: "Uzlaştırma PR'ı", type: "client", sub: "Kod veya Bulut Düzeltmesi" }
-        ],
-        step1: {
-            marketGap: `Altyapı kodu (IaC) benimsemiş ekiplerin neredeyse tamamı aynı sessiz sorunu yaşıyor: bir gece yarısı olayında birisi konsoldan hızlıca bir güvenlik grubu kuralı açıyor, sonra kimse kodu güncellemiyor. Aylar sonra bir plan çalıştırıldığında bu değişiklik sessizce geri alınıyor veya beklenmedik bir kesintiye yol açıyor. Terraform'un kendisi sapmayı ancak siz plan çalıştırdığınızda gösterir — yani sorunu en kötü anda, üretim değişikliği yapmak üzereyken öğrenirsiniz. Piyasadaki araçlar ise sapmayı listeliyor ama **her sapmayı eşit önemde gösteriyor**: otomatik ölçekleyicinin değiştirdiği kapasite değeri ile birinin elle açtığı 0.0.0.0/0 kuralı aynı listede yan yana duruyor. Bu gürültü, sapma raporlarının kısa sürede yok sayılmasına yol açıyor. DriftSentry sapmayı sürekli izler, gürültüyü ayıklar, değişikliği bulut denetim kaydından kimin yaptığıyla eşleştirir ve düzeltmeyi iki yönde de — kodu gerçeğe ya da gerçeği koda — pull request olarak önerir.`,
-            description: `DriftSentry, altyapı kodu ile canlı bulut durumu arasındaki farkı sürekli izleyen ve kapatan bir uzlaştırma ajanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Sürekli Sapma Taraması**: Plan çalıştırmayı beklemeden, tanımlı aralıklarla gerçek bulut durumunu kodla karşılaştırır.
-• **Gürültü Ayıklama**: Otomatik ölçekleme, bulut sağlayıcının kendi güncellediği alanlar ve etiket senkronizasyonu gibi beklenen farkları bastırır; ekip yalnızca gerçek sapmayı görür.
-• **Risk Sınıflandırması**: Güvenlik grubu, IAM politikası ve şifreleme ayarı gibi kritik alanlardaki sapmaları en üste taşır; kozmetik farklar arka plana düşer.
-• **Değişiklik Atıfı**: Bulut denetim kaydını tarayarak değişikliği kimin, ne zaman ve hangi arayüzden yaptığını gösterir. Suçlama için değil, süreç boşluğunu görmek için.
-• **Çift Yönlü Uzlaştırma**: Değişiklik meşruysa kodu güncelleyen, değilse bulutu koda döndüren pull request üretir; karar her zaman insanda kalır.`,
-            tags: ["Go", "Terraform", "Pulumi", "PostgreSQL", "GitOps", "TypeScript"]
-        },
-        step2: {
-            architecture: `DriftSentry'nin çekirdeği bir karşılaştırma motorudur; zorluk, farklı sağlayıcıların aynı kavramı farklı şekillerde temsil etmesinden kaynaklanır.
-
-### 1. Sistem Katmanları:
-• **State Reconciler (Go)**: IaC durum dosyasını ve sağlayıcı API'sinden çekilen gerçek kaynak durumunu ortak bir ara temsile normalize eder, ardından alan bazında karşılaştırır. Normalizasyon olmadan aynı yapılandırma iki farklı biçimde görünüp yanlış sapma üretir.
-• **Drift Classifier (Go + kural motoru)**: Sapmaları kaynak türü ve alan yoluna göre sınıflandırır; bastırma kuralları bildirimsel olarak tanımlanır ve versiyonlanır.
-• **Attribution Engine (Go)**: Bulut denetim kaydını (CloudTrail ve muadilleri) sapmanın zaman penceresiyle eşleştirerek değişikliğin kaynağını bulur.
-• **Reconciliation PR Bot (Go)**: Seçilen yöne göre kod yamasını veya düzeltme planını üretip pull request açar.
-• **Panel (Next.js)**: Sapma envanteri, geçmiş ve politika yönetimi.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Kaynak envanteri, sapma kayıtları, bastırma kuralları ve uzlaştırma geçmişi. Sapmanın ne zaman ortaya çıkıp ne zaman kapandığı zaman aralığı olarak saklanır; böylece "ortalama sapma yaşam süresi" ölçülebilir bir gösterge haline gelir.
-• **Redis**: Tarama iş kuyruğu ve sağlayıcı API hız sınırlarını aşmamak için jeton kovası.`,
-            security: `Ürün, müşterinin tüm bulut altyapısını okuyabilen bir bileşendir; bu, onu değerli bir hedef yapar.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Salt Okunur Bulut Erişimi**: Varsayılan kurulum yalnızca okuma yetkisi ister. Düzeltmeler Git üzerinden önerilir; ürünün buluta yazma yetkisi olması gerekmez ve önerilmez.
-• **Durum Dosyası Hassasiyeti**: IaC durum dosyaları çoğu zaman düz metin sır içerir. DriftSentry durum dosyasını kalıcı olarak saklamaz; bellekte işler, karşılaştırma sonrası yalnızca alan yolu ve hash farkını tutar, değer içeriğini değil.
-• **Sır Maskeleme**: Sapma raporlarında hassas alanların değerleri maskelenir; "değişti" bilgisi gösterilir, içerik gösterilmez.
-• **Kimlik Federasyonu**: Uzun ömürlü bulut anahtarı yerine OIDC tabanlı geçici kimlik federasyonu kullanılır; kalıcı erişim anahtarı saklanmaz.
-• **Self-Hosted Seçeneği**: Bulut erişimini hiçbir koşulda dışarı vermek istemeyen kurumlar için tüm bileşenler kendi altyapılarında çalıştırılabilir.
-• **Denetim İzi**: Hangi kullanıcının hangi bastırma kuralını eklediği kaydedilir; bir sapmanın kalıcı olarak gizlenmesi sessizce yapılamaz.`
-        }
-    },
-    {
-        id: "postmortem-ai",
-        title: "Postmortem AI",
-        tagline: "Olay Telemetrisinden Kök Neden Hipotezi ve Suçsuz Postmortem Taslağı Üretimi",
-        category: "DevOps & Yazılım Geliştirme Araçları",
-        categoryKey: "devops",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "5 Hafta",
-            monetization: "Mühendis Başı Aylık Abonelik (B2B SaaS)",
-            opportunityScore: "%89 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Olay Sinyalleri", type: "source", sub: "Alarm + Log + Trace + Deploy" },
-            { id: 2, name: "Timeline Builder", type: "service", sub: "Çok Kaynaklı Olay Birleştirme" },
-            { id: 3, name: "Causal Hypothesis Engine", type: "ai", sub: "Değişim-Etki İlişkilendirme" },
-            { id: 4, name: "Narrative Generator", type: "ai", sub: "Suçsuz Postmortem Taslağı" },
-            { id: 5, name: "ClickHouse & Postgres", type: "storage", sub: "Telemetri + Olay Arşivi" },
-            { id: 6, name: "Postmortem Editörü", type: "client", sub: "Ekip İncelemesi & Aksiyonlar" }
-        ],
-        step1: {
-            marketGap: `Bir üretim olayı bittikten sonra en değerli iş başlıyor: ne olduğunu yazmak. Ama bu iş, olayı çözmek için 6 saat uyanık kalmış mühendisin önüne düşüyor ve sonuç öngörülebilir — postmortem ya hiç yazılmıyor ya da bir hafta sonra, ayrıntılar unutulmuşken üstünkörü dolduruluyor. Böylece organizasyon aynı hatayı üçüncü kez yapana kadar örüntüyü fark etmiyor. Mevcut olay yönetimi araçları çağrı yönlendirmede ve alarm toplamada iyi, fakat olay kapandıktan sonra ekibe **boş bir şablon** veriyor. Oysa gereken bilgi zaten sistemde dağınık halde duruyor: alarmın ne zaman çaldığı, o pencerede hangi dağıtımın yapıldığı, hangi metriğin ne zaman saptığı, sohbet kanalında hangi kararların alındığı. Postmortem AI bu sinyalleri tek bir zaman çizelgesinde birleştirir, olası kök neden hipotezlerini kanıtlarıyla sıralar ve ekibin üzerinde çalışabileceği, suçlayıcı olmayan bir taslak üretir.`,
-            description: `Postmortem AI, olay sonrası öğrenme sürecini otomatikleştiren bir güvenilirlik asistanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Otomatik Zaman Çizelgesi**: Alarmlar, dağıtımlar, yapılandırma değişiklikleri, ölçek olayları ve sohbet kanalındaki kararları tek bir kronolojiye dizer.
-• **Kök Neden Hipotezleri**: Olay penceresindeki değişiklikleri etki metrikleriyle ilişkilendirerek olasılık sırasına göre hipotez üretir; her hipotezin yanında dayandığı kanıtı gösterir. Kesin yanıt iddia etmez, mühendisin doğrulayacağı adaylar sunar.
-• **Suçsuz Anlatı (Blameless)**: Taslak metin kişi yerine sistem ve süreç odaklıdır; "X kişisi hatalı deploy yaptı" yerine "değişiklik kademeli dağıtım olmadan yayına alındı" biçiminde yazar.
-• **Tespit ve Kurtarma Süresi Ölçümü**: Her olay için tespit süresi ve kurtarma süresi otomatik hesaplanır; ekip bu göstergeleri elle takip etmek zorunda kalmaz.
-• **Tekrar Eden Örüntü Uyarısı**: Yeni olayı geçmiş olay arşiviyle karşılaştırır; benzer bir kök neden daha önce görüldüyse ve aksiyon maddesi kapatılmadıysa bunu açıkça belirtir.`,
-            tags: ["Python", "ClickHouse", "OpenTelemetry", "Go", "PostgreSQL", "React"]
-        },
-        step2: {
-            architecture: `Sistemin değeri, birbiriyle konuşmayan kaynaklardan tek bir tutarlı kronoloji çıkarabilmesinde; mimari bu birleştirme sorununa göre kurgulanmıştır.
-
-### 1. Sistem Katmanları:
-• **Connector Layer (Go)**: İzleme, olay yönetimi, CI/CD ve sohbet platformlarından veri çeker. Her bağlayıcı olayları ortak bir şemaya çevirir; saat dilimi ve saat kayması normalize edilir, aksi halde kronoloji yanlış sıralanır.
-• **Timeline Builder (Python)**: Olayları zaman ve etkilenen servise göre birleştirir, gürültülü tekrar eden alarmları tek bir olaya katlar.
-• **Causal Hypothesis Engine (Python)**: Değişiklik olaylarını metrik sapmalarıyla zamansal ve topolojik yakınlığa göre eşleştirir; servis bağımlılık grafiğini kullanarak etkinin yayılma yönünü değerlendirir.
-• **Narrative Generator (Python)**: Zaman çizelgesi ve hipotezlerden yapılandırılmış taslak metin üretir; çıktı her zaman insan tarafından düzenlenmek üzere işaretlenir.
-• **Editör (React)**: Ekip incelemesi, aksiyon maddesi takibi ve yayınlama.
-
-### 2. Veritabanı Mimarisi:
-• **ClickHouse**: Yüksek hacimli metrik ve log özetleri; olay penceresi sorguları sütun bazlı depolamada çok daha verimlidir.
-• **PostgreSQL**: Olaylar, zaman çizelgeleri, postmortem belgeleri, aksiyon maddeleri ve bunların kapanma durumu.
-• **Nesne Depolama**: Ham log örnekleri ve grafik anlık görüntüleri.`,
-            security: `Olay verisi, üretim sistemlerinin iç yapısını ve zaman zaman müşteri verisini içerir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Log Redaksiyonu**: Toplanan log ve iz örneklerinde e-posta, jeton, API anahtarı ve kimlik numarası örüntüleri alım sırasında maskelenir; maskeleme kaynağa en yakın noktada, veri kalıcı depolamaya yazılmadan önce yapılır.
-• **Örnekleme ve Saklama Sınırı**: Ham log tamamı değil, olay penceresine ait sınırlı bir örnek saklanır ve tanımlı süre sonunda otomatik silinir.
-• **Anlatı Üretiminde Veri Sınırı**: Metin üretimi katmanına yalnızca redakte edilmiş özetler ve meta veriler gönderilir; ham müşteri verisi bu katmana hiçbir koşulda geçmez.
-• **Erişim Kontrolü**: Postmortem belgeleri varsayılan olarak ilgili ekiple sınırlıdır; kuruluş genelinde paylaşım açık bir eylem gerektirir.
-• **Bağlayıcı Yetkileri**: Tüm entegrasyonlar salt okunur kapsam ister; sohbet bağlayıcısı yalnızca olay kanallarına erişir, kişisel mesajlara erişim talep etmez.
-• **Suçsuzluğun Teknik Karşılığı**: Kişi adları anlatı üretimine girmeden önce role dönüştürülür; sistem tasarım gereği bireyi işaret eden bir metin üretemez.`
-        }
-    },
-    {
-        id: "tokenbridge-ds",
-        title: "TokenBridge",
-        tagline: "Tasarım Sistemi ile Kod Arasındaki Sessiz Kaymayı Ölçen ve Kapatan Köprü",
-        category: "Web & Ürün Tasarımı",
-        categoryKey: "design",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Takım Başı Abonelik (B2B SaaS)",
-            opportunityScore: "%91 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Tasarım Dosyaları", type: "source", sub: "Figma Variables API" },
-            { id: 2, name: "Token Normalizer", type: "service", sub: "W3C Design Tokens" },
-            { id: 3, name: "Kod Tarayıcı", type: "service", sub: "CSS/TS AST Analizi" },
-            { id: 4, name: "Drift Detector", type: "ai", sub: "Anlamsal Eşleme" },
-            { id: 5, name: "PostgreSQL", type: "storage", sub: "Token Geçmişi" },
-            { id: 6, name: "PR Botu & Panel", type: "client", sub: "Kayma Raporu" }
-        ],
-        step1: {
-            marketGap: `Tasarım sistemi kuran ekiplerin neredeyse tamamı aynı sessiz çürümeyi yaşıyor: token'lar Figma'da tanımlanıyor, koda bir kez aktarılıyor, sonra iki taraf ayrı ayrı evrilmeye başlıyor. Tasarımcı bir gölge değerini güncelliyor, kimse koda taşımıyor; geliştirici acele bir düzeltmede sabit bir hex yazıyor, kimse fark etmiyor. Altı ay sonra "tek doğruluk kaynağı" olması gereken sistem, gerçekte hiçbir yeri tarif etmeyen bir dokümana dönüşüyor. Mevcut araçlar bu sorunun yalnızca **yarısını** çözüyor: token'ı tasarımdan koda **aktarıyorlar** ama kodun o token'ı gerçekten kullanıp kullanmadığını hiç kontrol etmiyorlar. Aktarım tek yönlü ve tek seferlik olduğu için kayma ölçülmüyor. TokenBridge kaymayı bir olay olarak değil **sürekli bir metrik** olarak ele alır: her iki tarafı tarar, uyumsuzlukları sıralar ve düzeltmeyi pull request olarak önerir.`,
-            description: `TokenBridge, tasarım sistemi ile kod tabanı arasındaki uyumu sürekli ölçen bir denetim aracıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Çift Yönlü Tarama**: Figma'daki değişkenleri ve kod tabanındaki CSS/TS değerlerini ayrı ayrı çıkarır, ikisini karşılaştırır.
-• **Kayma Skoru**: "Token'ların %78'i kodda gerçekten kullanılıyor" gibi tek bir sayıyla sistemin sağlığını gösterir; zaman içindeki eğilimi izler.
-• **Kaçak Değer Avcısı**: Token yerine sabit yazılmış renk, boşluk ve tipografi değerlerini bulur ve en yakın token'ı önerir.
-• **Ölü Token Tespiti**: Tasarımda tanımlı ama kodda hiç kullanılmayan token'ları listeler — sistemin şişmesini engeller.
-• **Gerekçeli PR**: Düzeltmeyi hazır bir pull request olarak açar; hangi değerin hangi token'la değiştirildiğini ve neden eşleştiğini açıklar.`,
-            tags: ["TypeScript", "Figma API", "AST", "PostgreSQL", "GitHub Actions", "React"]
-        },
-        step2: {
-            architecture: `TokenBridge'in zorluğu veri toplamak değil, **iki farklı dünyadaki değerleri anlamlı biçimde eşleştirmek**.
-
-### 1. Sistem Katmanları:
-• **Token Normalizer (TypeScript)**: Figma Variables API'sinden gelen değişkenleri W3C Design Tokens formatına çevirir. Bu ara format olmadan her tasarım aracı için ayrı karşılaştırma mantığı yazmak gerekirdi.
-• **Kod Tarayıcı (TypeScript)**: CSS, SCSS ve TS/TSX dosyalarını AST düzeyinde gezer. Düz metin araması yetersizdir: bir hex değeri yorum satırında da geçebilir, önemli olan hangi CSS özelliğine atandığıdır.
-• **Drift Detector**: Renkleri algısal renk uzayında (OKLCH) karşılaştırır, boşlukları ölçek üzerinde eşler. Birebir eşitlik aramak kullanışsızdır — #3B82F6 ile #3b82f7 pratikte aynı niyeti taşır.
-• **PR Botu (Go)**: Değişiklik önerisini üretir ve açar.
-• **Panel (Next.js)**: Kayma skoru, eğilim grafiği, kaçak değer listesi.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Token tanımları, tarama sonuçları ve kayma skorunun zaman serisi. Skorun geçmişi tutulmalı ki ekip iyileşip iyileşmediğini görebilsin.
-• **Redis**: Tarama iş kuyruğu ve Figma API hız sınırını aşmamak için jeton kovası.`,
-            security: `Araç hem tasarım dosyalarına hem kod tabanına erişir; ikisi de kurumsal fikri mülkiyettir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Salt Okunur Kapsam**: Figma ve Git entegrasyonları yalnızca okuma yetkisi ister. Değişiklikler pull request olarak önerilir; araç hiçbir dala doğrudan yazmaz.
-• **Kod Saklanmaz**: Tarama sonrası yalnızca token kullanım istatistikleri ve dosya/satır referansları tutulur; kaynak kodun kendisi kalıcı depolamaya yazılmaz.
-• **Kiracı İzolasyonu**: Her tarama işi tek kullanımlık, ağ erişimi kısıtlı bir konteynerde çalışır ve iş bitiminde imha edilir.
-• **Token Yönetimi**: Entegrasyon jetonları şifrelenmiş olarak saklanır, kapsam ve son kullanma tarihi taşır, tek tek iptal edilebilir.
-• **Denetim İzi**: Hangi kullanıcının hangi taramayı başlattığı ve hangi PR'ın açıldığı değiştirilemez biçimde kaydedilir.`
-        }
-    },
-    {
-        id: "a11y-sentinel",
-        title: "A11y Sentinel",
-        tagline: "Erişilebilirlik Hatalarını Kullanıcıya Ulaşmadan Yakalayan Sürekli Denetim Ajanı",
-        category: "Web & Ürün Tasarımı",
-        categoryKey: "design",
+        scope: "international",
         meta: {
             difficulty: "İleri Düzey",
-            mvpTime: "8 Hafta",
-            monetization: "Site Başı Abonelik + Kurumsal Uyum Raporlaması",
-            opportunityScore: "%94 Fırsat Skoru"
+            mvpTime: "5 Hafta",
+            monetization: "Geliştirici Başına Aylık SaaS ($15/dev/ay) + On-Premise Kurumsal Lisans",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Önizleme Dağıtımı", type: "source", sub: "PR Başına Ortam" },
-            { id: 2, name: "Headless Tarayıcı", type: "service", sub: "Playwright Akış Kaydı" },
-            { id: 3, name: "Kural Motoru", type: "service", sub: "WCAG 2.2 / axe-core" },
-            { id: 4, name: "Etki Sıralayıcı", type: "ai", sub: "Kullanıcı Yolu Ağırlığı" },
-            { id: 5, name: "ClickHouse", type: "storage", sub: "Bulgu Geçmişi" },
-            { id: 6, name: "PR Yorumu", type: "client", sub: "Ekran Görüntülü Rapor" }
+            { id: 1, name: "GitHub / GitLab Webhook", type: "source", sub: "Pull Request Event" },
+            { id: 2, name: "Diff Parser & Context Builder", type: "service", sub: "Go AST + Git Tree Engine" },
+            { id: 3, name: "Code Review & Logic AI", type: "ai", sub: "LLM Code Reasoning Engine" },
+            { id: 4, name: "PostgreSQL & Vector Store", type: "storage", sub: "Şirket Kod Standartları & RAG DB" },
+            { id: 5, name: "GitHub PR Inline Yorumları", type: "client", sub: "Otomatik Düzeltme Önerileri" }
         ],
         step1: {
-            marketGap: `Erişilebilirlik denetimi çoğu ekipte yılda bir yapılan, sonucu yüzlerce satırlık bir PDF olan ve ardından rafa kalkan bir iş. Sorun araç eksikliği değil — otomatik denetleyiciler ücretsiz ve yaygın. Sorun bu araçların **eyleme dönüştürülemeyen** çıktı üretmesi: bir sayfada 400 ihlal raporlanıyor, bunların 380'i aynı bileşenin tekrarından geliyor ve hiçbiri hangisinin gerçek bir kullanıcıyı engellediğini söylemiyor. Ekip listeye bakıyor, nereden başlayacağını bilemiyor, kapatıyor. Üstelik denetim statik sayfalarda yapılıyor; oysa gerçek engeller **akışlarda** ortaya çıkıyor — modal açılınca odağın kaybolması, form hatasının ekran okuyucuya hiç duyurulmaması gibi. A11y Sentinel denetimi tek tek sayfalardan **kullanıcı yolculuklarına** taşır, bulguları tekilleştirip bileşen düzeyinde gruplar ve etkiye göre sıralar.`,
-            description: `A11y Sentinel, erişilebilirlik denetimini CI hattına yerleştiren ve çıktıyı önceliklendirilmiş hale getiren bir ajandır.
+            marketGap: `Yazılım ekiplerinde kıdemli mühendislerin mesaisinin %25'i junior geliştiricilerin Pull Request'lerini incelemekle, kod standartlarını denetlemekle ve mantık hatalarını yakalamakla geçmektedir. Mevcut statik linter'lar (ESLint, Prettier vb.) yalnızca biçimlendirmeyi denetler; iş mantığındaki (Business Logic) bellek sızıntılarını, N+1 veritabanı sorgularını veya eksik sınır durumlarını (Edge Cases) yakalayamaz. Sonuç olarak kalitesiz kodlar canlıya çıkmakta ve 'Flaky' testler yüzünden CI/CD boru hatları tıkanmaktadır. DevGuard AI, şirketinizin kod tabanını ve mimari standartlarını öğrenerek Pull Request açıldığı an satır satır mantık incelemesi yapar ve tek tıkla kabul edilebilir düzeltme kodları (One-Click Suggestions) yazar.`,
+            description: `DevGuard AI, GitHub ve GitLab entegrasyonuyla yazılım ekiplerinin kod kalitesini artıran ve kod inceleme sürelerini %70 kısaltan otonom bir AI eş-programcıdır.
 
-**Temel İşlevler & Özellikler:**
-• **Akış Bazlı Denetim**: Kayıt-giriş, arama, sepete ekleme gibi tanımlı yolculukları headless tarayıcıda klavyeyle yürüterek denetler; sadece sayfa yüklemesine bakmaz.
-• **Bileşen Düzeyinde Tekilleştirme**: Aynı bileşenden kaynaklanan 380 ihlali tek bir bulguya indirir — düzeltmesi de tek yerdedir.
-• **Etki Sıralaması**: Bulguları hangi kullanıcı yolunda ve ne sıklıkta karşılaşıldığına göre sıralar; kritik akışı bloke eden hata en üste çıkar.
-• **Regresyon Koruması**: Kapatılan bir bulgu geri gelirse PR'da uyarır; erişilebilirlik kazanımlarının sessizce geri alınmasını engeller.
-• **Kanıtlı Rapor**: Her bulgu için ekran görüntüsü, odak sırası ve ekran okuyucu çıktısı sunar — "burada ne olduğunu göremiyorum" itirazını ortadan kaldırır.`,
-            tags: ["TypeScript", "Playwright", "axe-core", "ClickHouse", "Node.js", "React"]
+**Temel Yetenekler & Özellikler:**
+• **Satır İçi Akıllı Kod İncelemesi (Inline PR Comments)**: Kod değişikliklerini repo bağlamıyla analiz ederek doğrudan GitHub PR satırlarına açıklayıcı geri bildirimler yazar.
+• **N+1 Sorgu ve Performans Açığı Tespiti**: ORM çağrılarında döngü içinde veritabanı sorgusu atılan yerleri tespit edip optimize edilmiş JOIN kodunu önerir.
+• **Flaky Test Tahmini ve Otomatik Mock Üretimi**: Ağ gecikmesine veya rastgeleliğe bağlı kararsız testleri belirler ve eksik mock test senaryolarını tamamlar.
+• **Şirket Mimari Kuralları RAG Motoru**: Şirketin kendi dokümantasyonunu ve Clean Architecture prensiplerini vektör veritabanında tutarak şirkete özel kural denetimi yapar.`,
+            tags: ["Go", "Python", "GitHub API", "AST Tree-Sitter", "TypeScript", "Docker", "SOC2 Uyumlu"]
         },
         step2: {
-            architecture: `Sistem, her PR için bir tarayıcı oturumu çalıştırmak zorunda olduğundan **paralel ve kısa ömürlü işler** üzerine kuruludur.
+            architecture: `DevGuard AI, büyük kod tabanlarını hızlı ve güvenli incelemek için **Context-Aware AST & RAG Pipeline** mimarisini kullanır.
 
 ### 1. Sistem Katmanları:
-• **Journey Runner (Node.js + Playwright)**: Tanımlı akışları hem fare hem klavyeyle yürütür. Klavye yolu ayrı çalıştırılır; çoğu erişilebilirlik hatası yalnızca orada görünür.
-• **Kural Motoru**: axe-core temel alınır, üzerine akış farkındalıklı kurallar eklenir — modal açıldığında odak taşındı mı, kapandığında geri döndü mü, canlı bölge duyuruldu mu.
-• **Etki Sıralayıcı (Python)**: Bulguyu, gerçekleştiği akışın kritikliği ve tekrar sayısıyla ağırlıklandırır.
-• **Dedup Service**: Bulguları DOM yolu yerine bileşen kimliğine göre gruplar; aynı düğmenin 50 örneği tek bulgudur.
-• **Rapor Botu**: PR'a özet yorum bırakır, detay panele link verir.
+• **Webhook & Event Ingestion (Go / Fastify)**: GitHub/GitLab PR olaylarını mikrosaniyede karşılar ve Git Diff verisini ayıklar.
+• **Context Extraction Engine (Tree-Sitter / Go)**: Değişen fonksiyonların çağrıldığı diğer dosyaları AST üzerinden analiz ederek semantik bağlam çıkarır.
+• **LLM Reasoning Pipeline (Python / LangChain + Anthropic/Gemini)**: Mimari kuralları ve güvenlik açığı desenlerini değerlendiren çıkarım motoru.
+• **GitHub App Interface (Probot / TypeScript)**: PR üzerine satır içi yorum ve düzeltme commit'i açan bot.
 
-### 2. Veritabanı Mimarisi:
-• **ClickHouse**: Bulgu geçmişi ve akış telemetrisi; "bu hata ne zaman ortaya çıktı" sorgusu sütun bazlı depoda çok daha hızlıdır.
-• **PostgreSQL**: Projeler, akış tanımları, bastırma kuralları ve kapatılan bulgular.
-• **Nesne Depolama**: Ekran görüntüleri ve DOM anlık görüntüleri.`,
-            security: `Araç, müşterinin önizleme ortamlarında oturum açıp gezinir; bu, yüksek yetkili bir erişimdir.
+### 2. Somut Teknoloji Yığını:
+• **Parser**: Go + Tree-Sitter
+• **Backend**: Python FastAPI + Node.js (Probot)
+• **Veritabanı**: PostgreSQL 16 + Qdrant (Vector DB) + Redis
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Yalnızca Önizleme Ortamları**: Üretim ortamına karşı çalıştırma varsayılan olarak kapalıdır; açıkça etkinleştirilmesi gerekir ve o durumda salt okunur akışlarla sınırlandırılır.
-• **Test Kimlik Bilgileri**: Akışlar için ayrılmış test hesapları kullanılır; gerçek kullanıcı hesabı kimlik bilgisi hiçbir zaman istenmez.
-• **Ekran Görüntüsü Maskeleme**: Yakalanan görüntülerde form alanları ve kişisel veri içerebilecek bölgeler kural bazlı maskelenir.
-• **İzole Tarayıcı**: Her çalıştırma tek kullanımlık konteynerde, kısıtlı ağ politikasıyla koşar; oturum çerezleri iş bitiminde imha edilir.
-• **Saklama Sınırı**: Ekran görüntüleri ve DOM anlık görüntüleri tanımlı süre sonunda otomatik silinir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`github_installations\` (id, org_name, plan_type, custom_rules_prompt)
+• \`pr_reviews\` (id, repo_name, pr_number, files_changed, issues_found_count, review_time_ms)
+• \`code_guidelines\` (id, installation_id FK, rule_title, rule_description, vector_embedding)
+
+### 4. API Kontratları:
+• \`POST /api/v1/github/webhook\`: GitHub App PR webhook girişi.
+• \`GET /api/v1/analytics/code-health\`: Repo kod kalitesi ve çözülen hata istatistikleri.`,
+            security: `Kaynak kod gizliliği ve fikri mülkiyet hakları **Zero-Retention Guarantee** ile korunur.
+
+### 1. Kod İzolasyonu & Eğitim Koruması:
+• İncelenen müşteri kodları sunucularda kalıcı olarak saklanmaz (In-Memory Processing) ve yapay zeka modellerinin genel eğitiminde asla kullanılmaz.
+
+### 2. GitHub App İzinleri:
+• Yalnızca yetki verilen depolara salt-okunur kod erişimi ve PR yorum yazma yetkisi istenir.`
         }
     },
     {
-        id: "handoff-lens",
-        title: "Handoff Lens",
-        tagline: "Tasarım ile Uygulanan Arayüz Arasındaki Farkı Piksel Değil Niyet Düzeyinde Karşılaştırır",
-        category: "Web & Ürün Tasarımı",
-        categoryKey: "design",
+        id: "kvkk-secops-agent",
+        title: "KVKK SecOps Agent",
+        tagline: "Yazılım Kaynak Kodlarında ve Veritabanlarında Otomatik KVKK, VERBİS ve BDDK Veri Sızıntısı Denetim Ajanı",
+        category: "DevOps & Yazılım Geliştirme Araçları",
+        categoryKey: "devops",
+        scope: "national",
         meta: {
-            difficulty: "Orta Düzey",
+            difficulty: "İleri Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "B2B SaaS / CI/CD Pipeline Lisansı + Kurumsal Denetim Paketi",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "GitHub / GitLab CI/CD", type: "source", sub: "Git Commit & Pull Request" },
+            { id: 2, name: "AST Parser & Secret Scanner", type: "service", sub: "Go AST + Regex Motoru" },
+            { id: 3, name: "KVKK Türkçe NLP Ajanı", type: "ai", sub: "BERTurk PII Detection (T.C., IBAN)" },
+            { id: 4, name: "PostgreSQL & ClickHouse", type: "storage", sub: "Uyum Raporları & Audit Log" },
+            { id: 5, name: "VERBİS Envanter Dashboard", type: "client", sub: "React / D3.js Veri Akış Şeması" }
+        ],
+        step1: {
+            marketGap: `Türkiye'de Kişisel Verileri Koruma Kanunu (KVKK) ve BDDK regülasyonları uyarınca, şirketlerin kullanıcıların T.C. Kimlik No, IBAN, kredi kartı, telefon, sağlık ve biyometrik verilerini kaynak kodlarda (Hardcoded secrets/logs), log dosyalarında veya test veritabanlarında maskesiz tutması 9 milyon TL'ye varan idari para cezalarına tabidir. Mevcut yabancı SAST araçları (SonarQube, Snyk vb.) İngilizce PII formatlarına odaklanır; Türkçe isim-soyisim, T.C. Kimlik No algoritması doğrulaması, Türk bankacılık IBAN formatı veya e-Devlet log kalıplarını tanıyamaz. KVKK SecOps Agent, CI/CD süreçlerine entegre olarak kodları ve veritabanı şemalarını tarar, Türkçe PII sızıntılarını PR aşamasında bloke eder ve otomatik VERBİS Kişisel Veri Envanteri raporu üretir.`,
+            description: `KVKK SecOps Agent, geliştirme ekiplerinin yazılım yaşam döngüsüne (DevSecOps) entegre olan yapay zeka destekli bir veri koruma ve regülasyon denetim aracıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **PR Seviyesinde Türkçe PII Yakalama**: Git commit'lerinde veya test script'lerinde unutulmuş T.C. Kimlik No, IBAN, telefon ve açık adres bilgilerini BERTurk NLP modeliyle anında yakalar.
+• **Algoritmik T.C. & IBAN Doğrulaması**: Yalnızca 11 haneli sayıları değil, T.C. Kimlik No algoritma kuralını (1. 3. 5. 7. 9. hane kuralı) matematiksel olarak test ederek hatalı pozitifleri (False Positive) eler.
+• **Otomatik VERBİS Envanter Çıkarımı**: Veritabanı tablolarını ve ORM modellerini tarayarak şirketin hangi tabloda hangi kişisel veriyi tuttuğunu gösteren resmi VERBİS uyum tablosu oluşturur.
+• **Otomatik Maskeleme ve Pseudonymization Önerisi**: Loglara basılan kişisel verileri kod seviyesinde otomatik maskeleyecek (örn: \`tc.mask()\`) Pull Request düzeltme önerileri açar.`,
+            tags: ["Go", "Python", "BERTurk", "AST Parsing", "GitHub Actions", "KVKK / BDDK Uyumlu", "Docker"]
+        },
+        step2: {
+            architecture: `KVKK SecOps Agent, kaynak kodları yerel ortamdan dışarı çıkarmadan incelemek için **On-Premise CLI & Sandboxed Pipeline** mimarisi kullanır.
+
+### 1. Sistem Katmanları:
+• **Code Ingestion & AST Parser (Go)**: TypeScript, Java, Python, Go ve C# kaynak kodlarını Soyut Sözdizim Ağacı'na (AST) dönüştürerek değişken isimlerini ve log çağrılarını ayıklar.
+• **Turkish PII NLP Engine (Python / ONNX - BERTurk)**: Kod yorumlarını, string literallerini ve SQL seed dosyalarını tarayan Türkçe varlık ismi tanıma (NER) motoru.
+• **Database Schema Inspector (Go)**: PostgreSQL, MySQL ve Oracle şemalarını inceleyen veri sınıflandırma servisi.
+• **Web Console (React + Vite)**: VERBİS envanter matrisini ve açık güvenlik risklerini görselleştiren dashboard.
+
+### 2. Somut Teknoloji Yığını:
+• **CLI & Parser**: Go (tree-sitter / go/ast)
+• **NLP & NER**: Python + ONNX Runtime (HuggingFace dbmdz/bert-base-turkish-cased)
+• **Veritabanı**: PostgreSQL 16 + Redis + ClickHouse
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`repositories\` (id, repo_url, default_branch, compliance_score, last_scan_at)
+• \`pii_findings\` (id, repo_id FK, file_path, line_number, pii_type, snippet_masked, severity)
+• \`verbis_inventory_items\` (id, data_category, processing_purpose, legal_ground, retention_period)
+
+### 4. API Kontratları:
+• \`POST /api/v1/scans/trigger\`: CI/CD webhook üzerinden tarama başlatma.
+• \`GET /api/v1/reports/verbis-export.xlsx\`: Resmi VERBİS formatında Excel raporu indirme.`,
+            security: `Kaynak kodlar ve şirket sırları en yüksek gizlilikle işlenmelidir.
+
+### 1. Kod İzolasyonu (Zero-Cloud Storage):
+• Taranan kaynak kodlar asla sunucuya yüklenmez; tüm analiz geliştiricinin makinesinde veya müşterinin kendi Kubernetes kümesinde (On-Premise) çalışır.
+
+### 2. Secret Redaction:
+• Raporlarda bulunan PII örnekleri ve token'lar veritabanına yazılmadan önce otomatik SHA-256 ile tuzlanarak maskelenir.`
+        }
+    },
+    {
+        id: "kubepilot-ai",
+        title: "KubePilot AI",
+        tagline: "Kubernetes Kümelerinde Canlı Olayları (CrashLoopBackOff, OOMKilled) Otonom Teşhis ve Onarma Ajanı",
+        category: "DevOps & Yazılım Geliştirme Araçları",
+        categoryKey: "devops",
+        scope: "international",
+        meta: {
+            difficulty: "İleri Düzey",
             mvpTime: "7 Hafta",
-            monetization: "Takım Başı Abonelik + Ajans Planı",
-            opportunityScore: "%88 Fırsat Skoru"
+            monetization: "Küme Başına Aylık SaaS ($99/küme/ay) + Enterprise On-Prem",
+            opportunityScore: "%97 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Tasarım Kaynağı", type: "source", sub: "Figma Frame" },
-            { id: 2, name: "Canlı Yakalayıcı", type: "service", sub: "Playwright + Hesaplanan Stil" },
-            { id: 3, name: "Yapı Karşılaştırıcı", type: "ai", sub: "Katman-DOM Eşleme" },
-            { id: 4, name: "Fark Sınıflandırıcı", type: "ai", sub: "Kasıtlı / Hatalı Ayrımı" },
-            { id: 5, name: "S3 & PostgreSQL", type: "storage", sub: "Görsel + Fark Kaydı" },
-            { id: 6, name: "İnceleme Arayüzü", type: "client", sub: "Yan Yana Fark" }
+            { id: 1, name: "K8s Event Stream / Logs", type: "source", sub: "K8s API & FluentBit Inbound" },
+            { id: 2, name: "Log Cluster & Root Cause AI", type: "service", sub: "Go DaemonSet + Vector Aggregator" },
+            { id: 3, name: "Remediation Engine", type: "ai", sub: "LLM K8s Diagnostics & Auto-Patch" },
+            { id: 4, name: "ClickHouse & Redis", type: "storage", sub: "K8s Olay Günlükleri & Audit DB" },
+            { id: 5, name: "DevOps Slack / PagerDuty", type: "client", sub: "Otomatik İyileştirme Onay Botu" }
         ],
         step1: {
-            marketGap: `Tasarımcı ile geliştirici arasındaki "böyle mi olmalıydı?" tartışması her sprintte tekrar ediyor ve genellikle ekran görüntüsü üzerine ok çizerek çözülüyor. Görsel regresyon araçları var ama yanlış soruyu cevaplıyorlar: **piksel farkı** ölçüyorlar. Bu, farklı yazı tipi render'ı veya bir piksellik kaydırma yüzünden sürekli yanlış alarm üretiyor, ekip de kısa sürede uyarıları görmezden gelmeye başlıyor. Asıl ihtiyaç piksel eşitliği değil, **niyet uyumu**: boşluk ölçeğine uyulmuş mu, tipografi hiyerarşisi korunmuş mu, bileşen doğru varyantla kullanılmış mı? Handoff Lens tasarım katmanlarıyla DOM düğümlerini eşleştirir ve farkları "kasıtlı uyarlama" ile "uygulama hatası" olarak ayırarak yalnızca ikincisini rapor eder.`,
-            description: `Handoff Lens, tasarım-uygulama farkını anlamlı düzeyde karşılaştıran bir inceleme aracıdır.
+            marketGap: `Üretim ortamındaki Kubernetes kümelerinde meydana gelen arızalarda (CrashLoopBackOff, OOMKilled, ImagePullBackOff, Deadlock) nöbetçi (on-call) SRE ve DevOps mühendisleri gece yarısı uyandırılmakta ve logları ayıklamak için saatler harcamaktadır. Pazardaki izleme araçları (Prometheus, Datadog vb.) yalnızca 'Pod öldü' şeklinde alarm gönderir; hatanın kök nedenini (Root Cause) söylemez ve düzeltici kubectl yamasını (Patch) uygulamaz. KubePilot AI, Kubernetes loglarını ve pod durumunu canlı analiz ederek hatanın nedenini tespit eder (örn: 'Veritabanı bağlantı havuzu tükendi, configmap'teki max_conn değerini artırın') ve tek tıkla veya otonom olarak kümede kendi kendine onarım (Self-Healing) gerçekleştirir.`,
+            description: `KubePilot AI, Kubernetes kümelerinde ortaya çıkan arızaları insan müdahalesine gerek kalmadan çözen otonom bir Site Reliability Engineering (SRE) yapay zeka ajanıdır.
 
-**Temel İşlevler & Özellikler:**
-• **Katman-DOM Eşlemesi**: Figma katmanlarını canlı arayüzdeki DOM düğümleriyle eşleştirir; karşılaştırma bu eşleme üzerinden yapılır, ham görüntü üzerinden değil.
-• **Niyet Düzeyinde Fark**: Boşluk, tipografi ölçeği, renk token'ı ve bileşen varyantı gibi tasarım kararlarını karşılaştırır. 1 piksellik kayma alarm üretmez; yanlış boşluk ölçeği üretir.
-• **Duyarlı Karşılaştırma**: Aynı ekranı birden fazla genişlikte kontrol eder — tasarımın verilmediği ara genişlikleri de işaretler.
-• **Kasıtlı Fark İşaretleme**: Ekip bir farkı "bilinçli uyarlama" olarak kapattığında, aynı fark sonraki çalışmalarda bastırılır.
-• **Yan Yana İnceleme**: Tasarım, uygulama ve fark açıklaması tek ekranda; tartışma ekran görüntüsü yerine ortak bir kayıt üzerinden yürür.`,
-            tags: ["TypeScript", "Figma API", "Playwright", "PostgreSQL", "Next.js", "S3"]
+**Temel Yetenekler & Özellikler:**
+• **Otomatik Kök Neden Teşhisi (Root Cause Analysis)**: Log yığınlarını, kernel dmesg mesajlarını ve K8s event'lerini birleştirerek hatanın asıl nedenini 10 saniyede belirler.
+• **Otonom İyileştirme (Auto-Remediation)**: OOMKilled durumunda bellek limitini güvenle artıran veya kilitlenmiş pod'ları drain eden doğrulanmış yamaları uygular.
+• **Canlı PagerDuty / Slack İnteraktif Asistanı**: SRE mühendisine 'Önbellek sunucusunu yeniden başlatıp replika sayısını 4'e çıkarmamı onaylıyor musunuz?' butonu sunar.
+• **Post-Mortem Olay Raporu**: Arıza çözüldükten sonra yöneticiler için adım adım teknik olay özetini (Incident Post-Mortem) otomatik oluşturur.`,
+            tags: ["Go", "Kubernetes Operator", "ClickHouse", "Python", "Slack Bot", "PagerDuty", "DevOps"]
         },
         step2: {
-            architecture: `Sistemin çekirdeği **eşleme problemi**: hangi tasarım katmanı hangi DOM düğümüne karşılık geliyor?
+            architecture: `KubePilot AI, sıfır dış bağımlılıkla ve yüksek güvenilirlikle çalışmak için **Kubernetes In-Cluster Operator & eBPF Log Ingestion** mimarisini kullanır.
 
 ### 1. Sistem Katmanları:
-• **Design Extractor (TypeScript)**: Figma frame'inden katman ağacını, ölçüleri ve bağlı token'ları çıkarır.
-• **Live Capturer (Playwright)**: Aynı ekranı gerçek tarayıcıda açar, DOM ağacını ve her düğümün hesaplanmış stillerini toplar. Hesaplanmış stil şart: CSS'te yazan değer ile ekranda uygulanan değer sıklıkla farklıdır.
-• **Structure Matcher**: İki ağacı metin içeriği, konum ve rol benzerliğine göre eşler. Kusursuz eşleme mümkün değildir; güven skoru düşük eşlemeler rapora "belirsiz" olarak girer, sessizce atılmaz.
-• **Difference Classifier (Python)**: Farkı token ölçeğine göre değerlendirir; ölçek içinde kalan sapmalar düşük öncelikli, ölçek dışına çıkanlar yüksek öncelikli işaretlenir.
-• **İnceleme Arayüzü (Next.js)**: Yan yana görünüm ve karar akışı.
+• **K8s DaemonSet Agent (Go / eBPF)**: Düğümlerdeki konteyner loglarını ve çekirdek sinyallerini sıfır CPU yüküyle dinleyen hafif ajan.
+• **Root Cause AI Engine (Python / ONNX)**: Log kalıplarını kümeleyen ve geçmiş incident çözümleriyle eşleştiren makine öğrenmesi motoru.
+• **Action Controller (Go / client-go)**: Onaylanan kubectl patch, restart ve rollback işlemlerini denetimli şekilde yürüten operatör.
+• **Interactive Slack/Discord Bot (Node.js)**: Nöbetçi mühendislerle iki yönlü sohbet eden operasyon asistanı.
 
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Karşılaştırma çalışmaları, farklar, bastırma kararları ve eşleme güven skorları.
-• **S3 Uyumlu Depolama**: Tasarım ve uygulama görüntüleri.
-• **Redis**: Çalışma kuyruğu ve Figma API hız sınırı yönetimi.`,
-            security: `Tasarım dosyaları çoğu zaman henüz yayınlanmamış ürün planlarını içerir.
+### 2. Somut Teknoloji Yığını:
+• **Core Operator**: Go 1.22 + Controller-Runtime
+• **AI Diagnostics**: Python FastAPI + LangChain + Llama 3 Code
+• **Veritabanı**: ClickHouse (Log Analytics) + Redis (Incident Locks)
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Salt Okunur Entegrasyon**: Figma ve dağıtım ortamı erişimi yalnızca okuma kapsamındadır; araç hiçbir tasarımı veya kodu değiştirmez.
-• **İzole Yakalama**: Canlı yakalama tek kullanımlık, ağ politikası kısıtlı konteynerlerde çalışır.
-• **Görsel Saklama Sınırı**: Karşılaştırma görüntüleri tanımlı süre sonunda silinir; kurumsal planda hiç saklanmayıp yalnızca fark özetinin tutulması seçilebilir.
-• **Erişim Kontrolü**: Proje bazlı RBAC; satır düzeyi güvenlik (RLS) ile bir takımın çalışması diğerine görünmez.
-• **Jeton Yönetimi**: Entegrasyon jetonları şifreli saklanır, minimum kapsamla istenir ve tek tek iptal edilebilir.`
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`managed_clusters\` (id, kube_version, namespace_whitelist, auto_heal_enabled)
+• \`incidents\` (id, cluster_id FK, pod_name, error_type, root_cause_summary, status, resolved_at)
+• \`remediation_history\` (id, incident_id FK, patch_applied_yaml, approved_by, execution_status)
+
+### 4. API Kontratları:
+• \`POST /api/v1/incidents/report\`: Küme içi ajandan olay bildirimi.
+• \`POST /api/v1/actions/approve-remediation\`: SRE mühendisi onay endpoint'i.`,
+            security: `Kümelerde otomatik müdahale yetkisi **Kritik Güvenlik Tedbirleri** gerektirir.
+
+### 1. RBAC Kısıtlamaları:
+• Operatör yalnızca izin verilen namespace'lerde çalışır; kube-system veya kritik veri katmanlarında otomatik işlem yapması engellenir.
+
+### 2. Otomatik Rollback Sigortası:
+• Uygulanan yama 2 dakika içinde pod'u sağlıklı duruma getiremezse sistem otomatik olarak önceki stabil sürüme döner.`
+        }
+    },
+
+    // =========================================================================
+    // 7. WEB & ÜRÜN TASARIMI (design)
+    // =========================================================================
+    {
+        id: "designsystem-ai",
+        title: "DesignSync AI",
+        tagline: "Figma Tasarımlarını Çoklu Framework (React, Vue, Tailwind, Flutter) Koduna Dönüştüren Otonom Tasarım Sistemi Ajanı",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        scope: "international",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "5 Hafta",
+            monetization: "Tasarım Ekibi Başına Aylık SaaS ($29/tasarımcı/ay) + Enterprise Sync",
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Figma REST & Plugin API", type: "source", sub: "Auto-Layout & Design Tokens" },
+            { id: 2, name: "Vector & Token Parser", type: "service", sub: "TypeScript + AST Generator" },
+            { id: 3, name: "Component Synthesis AI", type: "ai", sub: "Tailwind / React Code Synthesis" },
+            { id: 4, name: "PostgreSQL & GitHub Sync", type: "storage", sub: "Bileşen Sürümleme & PR Açıcı" },
+            { id: 5, name: "Storybook & Canlı Önizleme", type: "client", sub: "Next.js / Canlı Tasarım Paneli" }
+        ],
+        step1: {
+            marketGap: `Ürün ekiplerinde tasarımcıların Figma'da çizdiği arayüz bileşenlerinin (Buton, Modal, Form vb.) yazılımcılar tarafından koda dökülmesi sürecinde sürekli stil kaymaları, tutarsız padding/renk kullanımları ve haftalar süren 'Design QA' revizyonları yaşanır. Pazardaki mevcut 'Figma to Code' araçları çoğunlukla okunması imkansız 'Spaghetti HTML/CSS' ve mutlak konumlandırmalı (Absolute Position) kodlar üretir; gerçek yazılımcıların istediği temiz Clean Code, Tailwind sınıfları, TypeScript tipleri ve erişilebilir (WAI-ARIA) bileşen yapılarını kuramaz. DesignSync AI, Figma dosyasındaki Auto-Layout ve Token hiyerarşisini analiz ederek doğrudan GitHub reponuza Storybook uyumlu, temiz React, Vue ve Flutter bileşen kodları gönderir.`,
+            description: `DesignSync AI, tasarım ve yazılım ekipleri arasındaki köprüyü otomatikleştiren yapay zeka destekli bir tasarım-kod senkronizasyon platformudur.
+
+**Temel Yetenekler & Özellikler:**
+• **Figma'dan Temiz React/Tailwind Koduna**: Auto-Layout kurallarını modern flexbox ve grid Tailwind sınıflarına sıfır kayıpla dönüştürür.
+• **Design Tokens İki Yönlü Senkronizasyonu**: Renk, tipografi ve boşluk değişkenlerini CSS Variables, Tailwind Config ve Style Dictionary formatında otomatik günceller.
+• **Otomatik WAI-ARIA Erişilebilirlik Enjeksiyonu**: Butonlara, dropdown'lara ve formlara ekran okuyucu uyumlu ARIA etiketlerini ve klavye navigasyonunu otomatik ekler.
+• **GitHub PR ile Otomatik Bileşen Güncellemesi**: Tasarımcı Figma'da bir butonu güncellediğinde doğrudan ilgili repoya Pull Request açarak kodu günceller.`,
+            tags: ["TypeScript", "Figma API", "React", "TailwindCSS", "Storybook", "Next.js", "Design Systems"]
+        },
+        step2: {
+            architecture: `DesignSync AI, tasarım ağacını semantik kod bileşenlerine dönüştürmek için **AST Compilation & Semantic Synthesis** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Figma Ingestion Engine (TypeScript / Figma REST API)**: Figma dosyasının düğüm hiyerarşisini ve Auto-Layout kısıtlarını çeker.
+• **Semantic Normalizer (Rust / TypeScript)**: Çizim katmanlarını semantik HTML elemanlarına (button, nav, section, input) eşleştiren kural motoru.
+• **Code Generation Pipeline (Python / LLM Code Synthesis)**: TypeScript, Tailwind, Vue 3 ve Flutter kodlarını derleyen yapay zeka motoru.
+• **Git Automation Service (Go)**: GitHub / GitLab API'leri üzerinden otomatik PR açan ve Storybook derleyen servis.
+
+### 2. Somut Teknoloji Yığını:
+• **Ingestion & Parser**: TypeScript + Figma Plugin API
+• **Backend**: Python FastAPI + Node.js
+• **Frontend**: Next.js 14 + TailwindCSS + Storybook
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`figma_workspaces\` (id, team_id, figma_file_key, last_synced_version)
+• \`design_tokens\` (id, workspace_id FK, token_category, token_name, value, css_variable)
+• \`generated_components\` (id, figma_node_id, component_name, react_code, flutter_code)
+
+### 4. API Kontratları:
+• \`POST /api/v1/sync/figma-webhook\`: Figma dosya güncelleme webhook alımı.
+• \`GET /api/v1/tokens/export.json\`: Style Dictionary formatında token indirme.`,
+            security: `Figma tasarımları ve şirket ürün sırları **Kurumsal Fikri Mülkiyet Koruması** ile saklanır.
+
+### 1. OAuth2 İzin Sınırlandırması:
+• Figma API anahtarları yalnızca ilgili dosyalara salt-okunur erişimle sınırlandırılır; müşterinin diğer projelerine erişilmez.`
         }
     },
     {
-        id: "coldstart-mobile",
-        title: "ColdStart",
-        tagline: "Mobil Uygulama Açılış Süresini Gerçek Cihaz Dağılımıyla Ölçen ve Gerilemeyi Yakalayan Ajan",
+        id: "kamu-ui-a11y",
+        title: "KamuUI A11y Engine",
+        tagline: "Kamusal Web Siteleri ve Kurumsal Portaller İçin WCAG 2.2 ve Cumhurbaşkanlığı Standartlarına Uyumlu Erişilebilirlik ve Tasarım-Kod Motoru",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        scope: "national",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "4 Hafta",
+            monetization: "Kamu Kurumu ve Belediye Yıllık Yazılım Lisansı + SaaS Denetim",
+            opportunityScore: "%94 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Web Sitesi URL / Figma", type: "source", sub: "Kamu Portali Girişi" },
+            { id: 2, name: "Headless Browser Scanner", type: "service", sub: "Playwright + Axe-Core Engine" },
+            { id: 3, name: "Vision & Contrast AI", type: "ai", sub: "Görme Engelli & Renk Körü Simülasyonu" },
+            { id: 4, name: "PostgreSQL & Report DB", type: "storage", sub: "Erişilebilirlik Skorları & Çözüm Kodu" },
+            { id: 5, name: "Canlı Önizleme & Fixer", type: "client", sub: "Next.js + Web Component Enjeksiyonu" }
+        ],
+        step1: {
+            marketGap: `Cumhurbaşkanlığı Dijital Dönüşüm Ofisi genelgeleri ve 5378 sayılı Engelliler Kanunu uyarınca, Türkiye'deki tüm kamu kurumları, belediyeler, üniversiteler ve bankalar web sitelerini **WCAG 2.2 Seviye AA** erişilebilirlik standartlarına uygun hale getirmek zorundadır. Ancak Türkiye'deki kamu ve belediye sitelerinin %88'i görme engelli ekran okuyucuları (NVDA, JAWS), renk körleri veya motor engelli kullanıcılar için erişilebilir değildir (Eksik ARIA etiketleri, yetersiz kontrast, klavye odağının kaybolması). Mevcut araçlar yalnızca statik hata listesi verir; hatanın nasıl düzeltileceğini gösteren temiz HTML/CSS kodunu üretmez. KamuUI A11y, siteleri otomatik tarar, engelli kullanıcı deneyimini simüle eder ve tek satır script ile eksik ARIA etiketlerini canlı düzelten erişilebilirlik katmanı sunar.`,
+            description: `KamuUI A11y, web sitelerini uluslararası erişilebilirlik standartlarına kavuşturan ve kurumsal tasarım sistemlerine dönüştüren yapay zeka destekli bir tasarım-kod optimizasyon platformudur.
+
+**Temel Yetenekler & Özellikler:**
+• **WCAG 2.2 AA/AAA Otomatik Denetim**: Kontrast oranları, klavye navigasyonu, form etiketleri ve dokunmatik hedef boyutlarını saniyeler içinde denetler.
+• **Ekran Okuyucu & Renk Körlüğü Simülasyonu**: Tasarımcıya ve kamu yetkilisine görme engelli bir vatandaşın siteyi nasıl deneyimlediğini sesli ve görsel olarak canlandırır.
+• **Yapay Zeka ile Otomatik Alt-Metin (Alt-Text) Üretimi**: Sitede açıklaması olmayan fotoğrafları görsel tanıma modelleriyle analiz ederek Türkçe anlamlı alt etiketleri üretir.
+• **Tek Satırlık Canlı Erişilebilirlik Widget'ı**: Kod değişikliğine bütçesi olmayan kamu sitelerine tek bir JS script ile klavye navigasyonu ve yazı büyütme desteği sağlar.`,
+            tags: ["TypeScript", "Next.js", "Playwright", "Axe-Core", "WCAG 2.2", "Figma API", "Kamu Standartları"]
+        },
+        step2: {
+            architecture: `KamuUI A11y, siteleri headless tarayıcılarla derinlemesine taramak için **Headless Browser Cluster & Micro-Frontend** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Browser Automation Crawler (Node.js / Playwright)**: Hedef web sayfalarını headless Chromium ile açar, DOM ağacını ve Computed CSS stillerini ayıklar.
+• **Accessibility Engine (Axe-Core + Custom Rules)**: WCAG 2.2 ve Cumhurbaşkanlığı Dijital Dönüşüm Ofisi kriterlerini test eden kural motoru.
+• **Multimodal AI Alt-Text Engine (Python / Vision Transformers)**: Görselleri inceleyip Türkçe erişilebilirlik açıklamaları oluşturan vision ajanı.
+• **Fixer Web Component**: İstemci tarafında sıfır gecikmeyle çalışan Vanilla JS erişilebilirlik katmanı.
+
+### 2. Somut Teknoloji Yığını:
+• **Crawler**: TypeScript + Playwright + axe-core
+• **Backend & API**: Node.js Fastify + Redis Queue (BullMQ)
+• **Frontend**: Next.js 14 + TailwindCSS + Radix UI Primitives
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`audited_domains\` (id, domain_url, institution_name, current_wcag_score, last_audit_date)
+• \`accessibility_violations\` (id, domain_id FK, rule_id, selector, html_snippet, suggested_fix_code)
+• \`generated_alt_texts\` (id, image_url, ai_description_tr, is_approved)
+
+### 4. API Kontratları:
+• \`POST /api/v1/audit/start\`: Canlı web sitesi erişilebilirlik taraması başlatma.
+• \`GET /api/v1/widget/bundle.js\`: Sitelerin canlı entegre edeceği optimize edilmiş widget script'i.`,
+            security: `Kamu sitelerinin güvenliği için **Zero-Trust Network Access** standartları uygulanır.
+
+### 1. Güvenli Tarama (Sandboxed Scraping):
+• Tarama işlemi izole container'larda çalışır, hedef sitenin oturum çerezleri veya hassas kullanıcı verileri asla kaydedilmez.
+
+### 2. CSP & Script Güvenliği:
+• Sitelere enjekte edilen widget script'i hiçbir harici bağımlılık içermez, Subresource Integrity (SRI) hash'i ile doğrulanır.`
+        }
+    },
+    {
+        id: "fluidmotion-gen",
+        title: "FluidMotion AI",
+        tagline: "Web ve Mobil İçin Fizik Tabanlı Mikro-Animasyon ve İnteraktif UI Geçiş Kodu Üretim Motoru",
+        category: "Web & Ürün Tasarımı",
+        categoryKey: "design",
+        scope: "international",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "4 Hafta",
+            monetization: "Bireysel / Ajans Aboneliği ($19/ay) + Marketplace Animasyon Satışı",
+            opportunityScore: "%94 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "UI Bileşen Seçimi / Çizim", type: "source", sub: "SVG / Canvas / HTML Girişi" },
+            { id: 2, name: "Fizik Motoru Simülatörü", type: "service", sub: "Spring Physics + Euler Integrator" },
+            { id: 3, name: "Mikro-Etkileşim AI", type: "ai", sub: "Doğal Hareket & Easing Eğrisi AI" },
+            { id: 4, name: "PostgreSQL & CDN", type: "storage", sub: "Animasyon Kütüphanesi & Kod Deposu" },
+            { id: 5, name: "Çoklu Kod Çıktısı (Export)", type: "client", sub: "Framer Motion, CSS, Rive, Lottie" }
+        ],
+        step1: {
+            marketGap: `Modern web ve mobil uygulamalarda kullanıcı bağlılığını (Engagement) artıran en kritik unsur Apple ve Stripe kalitesindeki akıcı mikro-animasyonlardır (Buton tıklama efektleri, sayfa geçişleri, sürükle-bırak yay fizikleri). Ancak bu fizik tabanlı animasyonları (Spring Physics, Damping, Stiffness) kodlamak geliştiriciler için saatler süren matematiksel deneme-yanılma süreçleri gerektirir. Mevcut Lottie ve GIF araçları ise statiktir ve kullanıcı etkileşimine (Cursor hızı, dokunma ivmesi) gerçek zamanlı tepki veremez. FluidMotion AI, tasarımcının doğal dille tarif ettiği ('Stripe tarzı elastik kart açılışı') veya çizdiği hareketi anında Framer Motion, CSS Keyframes, Rive ve Swift/SwiftUI koduna dönüştürür.`,
+            description: `FluidMotion AI, kullanıcı deneyimini üst seviyeye taşıyan fizik tabanlı mikro-animasyonlar üreten ve dışa aktaran yapay zeka tasarım motorudur.
+
+**Temel Yetenekler & Özellikler:**
+• **Fizik Tabanlı Yay Animasyonları (Spring Physics)**: Kütle (Mass), sertlik (Stiffness) ve sönümleme (Damping) parametrelerini gerçek zamanlı simüle eder.
+• **Tek Tıkla Çoklu Framework Kod Çıktısı**: Hazırlanan animasyonu Framer Motion (React), Tailwind CSS Keyframes, GSAP, Flutter ve SwiftUI kodlarına anında dönüştürür.
+• **İmleç İvmesine Duyarlı İnteraktif Efektler**: Fare hızına ve dokunma şiddetine göre esneyen sıvı cam (Glassmorphism) ve manyetik buton efektleri oluşturur.
+• **Performans & GPU Optimizasyonu**: Animasyonların sadece GPU hızlandırmalı CSS özelliklerini (\`transform\`, \`opacity\`) kullanarak 60 FPS akıcı çalışmasını garanti eder.`,
+            tags: ["Framer Motion", "React", "GSAP", "TailwindCSS", "SwiftUI", "Canvas", "WebGL"]
+        },
+        step2: {
+            architecture: `FluidMotion AI, sıfır gecikmeyle 60 FPS canlı önizleme sunmak için **Browser-Side Physics Engine & WebGL Canvas** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Physics Simulation Engine (TypeScript / WebAssembly)**: Yay ve parçacık fiziklerini 60 FPS'de hesaplayan istemci tarafı simülatör.
+• **Animation Code Synthesizer (Python / Rust)**: Fizik eğrilerini CSS kübik bezier ve Framer Motion konfigürasyonuna çeviren derleyici.
+• **Interactive Playground (React 18 + Canvas/WebGL)**: Kullanıcının animasyon parametrelerini anlık kaydırıcılarla (Sliders) değiştirdiği stüdyo.
+• **Export Packaging Service (Node.js)**: NPM paketi veya Lottie/Rive JSON dosyası olarak derleyen dışa aktarma servisi.
+
+### 2. Somut Teknoloji Yığını:
+• **Physics Engine**: TypeScript + WebGL + Canvas API
+• **Backend**: Python FastAPI + Node.js
+• **Frontend**: React + Framer Motion + TailwindCSS + Lucide Icons
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`animation_presets\` (id, title, category, spring_config_json, framer_motion_code, preview_gif_url)
+• \`user_saved_animations\` (id, user_id, preset_name, custom_params_json, created_at)
+
+### 4. API Kontratları:
+• \`POST /api/v1/motion/generate-code\`: Fizik parametrelerinden framework kod çıktısı alma.
+• \`GET /api/v1/motion/community-library\`: Popüler mikro-etkileşim kütüphanesi listesi.`,
+            security: `Kullanıcıların oluşturduğu animasyon tasarımları güvenli şekilde saklanır.
+
+### 1. XSS ve CSS Injection Koruması:
+• Üretilen tüm CSS ve JS kod parçaları sanitize edilir; tarayıcıda zararlı script çalıştırma riskleri engellenir.`
+        }
+    },
+
+    // =========================================================================
+    // 8. MOBİL UYGULAMA GELİŞTİRME (mobile)
+    // =========================================================================
+    {
+        id: "esnaf-pos-ai",
+        title: "EsnafPOS AI (GİB e-Arşiv & FAST Uyumlu)",
+        tagline: "Yerli KOBİ ve Esnaf İçin Çevrimdışı Çalışan Mobil POS, GİB e-Arşiv Fatura ve İyzico/FAST Mikro-Kasa Ajanı",
         category: "Mobil Uygulama",
         categoryKey: "mobile",
+        scope: "national",
+        meta: {
+            difficulty: "Orta Düzey",
+            mvpTime: "5 Hafta",
+            monetization: "İşlem Başı Mikro Komisyon + Aylık Premium Esnaf Aboneliği",
+            opportunityScore: "%98 Fırsat Skoru",
+            scope: "national"
+        },
+        diagramNodes: [
+            { id: 1, name: "Esnaf Mobil Cihazı (NFC)", type: "source", sub: "SoftPOS & Kamera Barkod" },
+            { id: 2, name: "Offline Sync Engine", type: "service", sub: "WatermelonDB + SQLite" },
+            { id: 3, name: "GİB & Ödeme Entegratörü", type: "ai", sub: "e-Arşiv Fatura & İyzico/FAST" },
+            { id: 4, name: "PostgreSQL & Redis", type: "storage", sub: "Kasa Defteri & Stok Deposu" },
+            { id: 5, name: "Müşteri e-Fatura / Fiş", type: "client", sub: "WhatsApp / SMS / QR Fiş" }
+        ],
+        step1: {
+            marketGap: `Türkiye'de 2.2 milyondan fazla küçük esnaf (bakkal, berber, tesisatçı, pazarcı vb.) yüksek banka POS cihazı komisyonları (aylık kira + %3.5 komisyon) ve Gelir İdaresi Başkanlığı'nın (GİB) 5.000 TL üzeri zorunlu e-Arşiv fatura kesme mevzuatı arasında sıkışmıştır. Geleneksel masaüstü muhasebe yazılımları esnaf için fazla karmaşık ve pahalıdır; internet kesildiğinde ise satış durmaktadır. EsnafPOS AI, esnafın kendi akıllı telefonunu NFC ile anında SoftPOS cihazına dönüştürür; internet olmasa dahi satış kaydeder, bağlantı geldiğinde tek tuşla GİB onaylı e-Arşiv fatura keser ve FAST/Karekod ile komisyonsuz tahsilat sağlar.`,
+            description: `EsnafPOS AI, küçük işletmelerin telefonlarından satış, stok, fatura ve ödeme süreçlerini yöneten otonom bir mobil mikro-kasa uygulamasıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **NFC ile Temassız Ödeme (SoftPOS)**: Müşterinin temassız kredi kartını veya Troy kartını telefonun arkasına dokundurarak ek donanımsız ödeme alır.
+• **GİB e-Arşiv Fatura Otomasyonu**: Satış tamamlandığında müşterinin T.C./Vergi numarasını sesli söyletir ve tek tıkla resmi GİB onaylı e-Faturayı oluşturup WhatsApp'tan gönderir.
+• **TR-Karekod ve FAST Entegrasyonu**: Banka kart komisyonundan kaçınmak isteyen müşteriler için TCMB FAST sistemiyle anında hesaba geçen dinamik TR-Karekod üretir.
+• **Sesli Stok ve Borç Defteri Ajanı**: 'Ahmet amcaya 3 paket çay ve 2 ekmek yaz, 120 TL borcu kaldı' dendiğinde doğal dille dijital veresiye defterini günceller.`,
+            tags: ["React Native", "Expo", "Go", "GİB e-Arşiv", "NFC SoftPOS", "İyzico / FAST", "KOSGEB Destekli"]
+        },
+        step2: {
+            architecture: `EsnafPOS AI, pazar yerlerinde ve kırsal alanlarda internet kesintilerine dayanıklı olmak için **Offline-First & Local-First Database** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Mobile Client (React Native / Expo)**: Cihazın yerel NFC çipini, kamerasını ve SQLite yerel veritabanını yöneten mobil katman.
+• **Offline Synchronization Engine (WatermelonDB)**: İnternet kesintisinde işlemleri yerel SQLite'a yazar, internet geldiğinde sunucuyla çatışmasız (CRDT) senkronize eder.
+• **Payment & Invoice Gateway (Go)**: İyzico/PayTR API'leri ve GİB e-Arşiv portalı ile güvenli iletişim kuran arka plan mikroservisi.
+• **AI Voice Agent (Python / Whisper AI)**: Esnafın sesli komutlarını yapılandırılmış muhasebe işlemlerine dönüştüren NLP servisi.
+
+### 2. Somut Teknoloji Yığını:
+• **Mobil**: React Native + TypeScript + WatermelonDB + SQLite
+• **Backend**: Go (Gin Framework) + Python FastAPI
+• **Veritabanı**: PostgreSQL 16 + Redis (Idempotency Key Önbelleği)
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`merchants\` (id, tax_number, business_name, bank_iban, created_at)
+• \`products\` (id, merchant_id FK, barcode, name, price, stock_quantity)
+• \`transactions\` (id, merchant_id FK, amount, payment_method, gib_invoice_uuid, sync_status)
+• \`debt_ledger\` (id, merchant_id FK, customer_name, customer_phone, balance, last_payment_date)
+
+### 4. API Kontratları:
+• \`POST /api/v1/pos/charge-nfc\`: Temassız SoftPOS tahsilat isteği.
+• \`POST /api/v1/invoices/issue-gib\`: GİB e-Arşiv fatura oluşturma ve imzalatma.`,
+            security: `Ödeme ve finansal kayıtlar **PCI-DSS Seviye 1** ve **KVKK** standartlarına göre güvenceye alınır.
+
+### 1. NFC & Kart Güvenliği:
+• Kart bilgileri (PAN ve CVV) asla telefonda veya sunucuda saklanmaz; EMVCo ve BKM standartlarına göre şifreli token'lar (Tokenization) kullanılır.
+
+### 2. Yerel Veri Şifreleme:
+• Telefondaki SQLite veritabanı SQLCipher ile donanımsal anahtar (Android KeyStore / iOS Secure Enclave) kullanılarak AES-256 ile şifrelenir.`
+        }
+    },
+    {
+        id: "offline-health-tracker",
+        title: "EdgePulse Health",
+        tagline: "İnternet ve Bulut Gerektirmeyen, Cihaz Üstü (On-Device) Yapay Zeka ile EKG ve Nabız Anomali Tespit Mobil Uygulaması",
+        category: "Mobil Uygulama",
+        categoryKey: "mobile",
+        scope: "international",
+        meta: {
+            difficulty: "İleri Düzey",
+            mvpTime: "6 Hafta",
+            monetization: "Freemium + Yıllık Sağlık Raporu Aboneliği ($39/yıl)",
+            opportunityScore: "%95 Fırsat Skoru",
+            scope: "international"
+        },
+        diagramNodes: [
+            { id: 1, name: "Apple Watch / WearOS BLE", type: "source", sub: "Canlı EKG ve PPG Sensörleri" },
+            { id: 2, name: "CoreBluetooth / Android BLE", type: "service", sub: "Milisaniyelik Sinyal İşleme" },
+            { id: 3, name: "On-Device Neural Engine", type: "ai", sub: "Apple Neural Engine / NNAPI TFLite" },
+            { id: 4, name: "Encrypted SQLite (SQLCipher)", type: "storage", sub: "Cihaz İçi Şifreli Sağlık Kasası" },
+            { id: 5, name: "Kardiyolog PDF Raporu", type: "client", sub: "SwiftUI / Jetpack Compose Arayüz" }
+        ],
+        step1: {
+            marketGap: `Giyilebilir sağlık cihazları (Apple Watch, Fitbit, Garmin) sürekli kalp ritmi ve EKG verisi toplamaktadır; ancak mevcut sağlık uygulamaları bu verileri analiz etmek için uzak bulut sunucularına göndermek zorundadır. Bu durum hem internet olmayan durumlarda (uçakta, doğada, spor yaparken) atriyal fibrilasyon ve kalp krizi erken uyarılarının çalışmamasına yol açar, hem de kullanıcıların en mahrem sağlık verilerini sigorta şirketlerinin sızdırmasına zemin hazırlar. EdgePulse Health, en son Apple Neural Engine ve Android NNAPI donanımlarını kullanarak 1D-CNN derin öğrenme modellerini tamamen telefonun işlemcisinde (On-Device) sıfır internet ve sıfır bulut bağımlılığıyla çalıştırır; gizliliği %100 koruyarak 3 saniyede ritim bozukluğunu tespit eder.`,
+            description: `EdgePulse Health, akıllı saatlerden gelen EKG ve nabız sinyallerini telefonun kendi yapay zeka çipinde analiz eden gizlilik öncelikli bir kardiyoloji takip uygulamasıdır.
+
+**Temel Yetenekler & Özellikler:**
+• **%100 Çevrimdışı ve Bulutsuz Analiz**: Sağlık verileri asla telefondan dışarı çıkmaz; tüm yapay zeka çıkarımı cihazın donanımsal Neural Engine çipinde mikrosaniyede yapılır.
+• **Atriyal Fibrilasyon & Aritmi Tespiti**: Gelen tek kanallı EKG sinyalini P, Q, R, S, T dalga anomalilerine göre sınıflandırarak ritim bozukluklarını %98 hassasiyetle yakalar.
+• **Kardiyolog Onaylı Standart PDF Raporu**: Acil servise veya doktora gösterilmek üzere uluslararası kardiyoloji formatında grafikli EKG döküm raporu oluşturur.
+• **Stres ve Vagal Tonus (HRV) Koçluğu**: Kalp Hızı Değişkenliği (HRV) verilerinden otonom nefes egzersizi ve stres düşürme tavsiyeleri üretir.`,
+            tags: ["Swift", "Kotlin", "CoreML", "TensorFlow Lite", "Apple Watch", "WearOS", "HealthKit"]
+        },
+        step2: {
+            architecture: `EdgePulse Health, sıfır batarya tüketimi ve maksimum gizlilik için **Local-First On-Device AI & Reactive BLE** mimarisini kullanır.
+
+### 1. Sistem Katmanları:
+• **Wearable Sensor Stream (Swift / CoreBluetooth)**: Akıllı saatten gelen 250 Hz PPG ve EKG telemetri paketlerini düşük enerjiyle karşılar.
+• **Signal Preprocessing (C++ / Accelerate Framework)**: Bandpass filtreleme ve dalgacık dönüşümü (Wavelet Transform) ile kas gürültüsünü temizleyen sinyal işleme hattı.
+• **On-Device Inference Engine (CoreML / TFLite)**: Kuantize edilmiş (INT8) 1D Evrişimli Sinir Ağı (1D-CNN) çıkarım modeli.
+• **Local Secure Storage (SQLCipher)**: Sağlık verilerini donanımsal anahtarla şifreleyen yerel veritabanı.
+
+### 2. Somut Teknoloji Yığını:
+• **iOS**: Swift 5.10 + SwiftUI + CoreML + HealthKit
+• **Android**: Kotlin + Jetpack Compose + NNAPI + Health Connect
+• **Core Sinyal**: C++20 (vDSP / Accelerate)
+
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`ecg_recordings\` (id PK, recorded_at, sample_rate_hz, raw_signal_blob, classified_rhythm, confidence)
+• \`hrv_daily_metrics\` (date PK, rmssd_ms, sdnn_ms, stress_index, recovery_score)
+• \`doctor_exports\` (id, recording_id FK, pdf_local_path, shared_at)
+
+### 4. API Kontratları:
+• Sistem tamamen sunucusuzdur (Zero-Backend); cihazlar arası senkronizasyon yalnızca Apple iCloud Encrypted Keychain üzerinden gerçekleşir.`,
+            security: `Sağlık verileri en üst düzeyde donanımsal şifrelemeyle korunur.
+
+### 1. Donanımsal Anahtar İzolasyonu:
+• Veritabanı şifreleme anahtarı Apple Secure Enclave / Android StrongBox donanım çiplerinde tutulur, biyometrik (FaceID / Parmak İzi) doğrulaması olmadan açılamaz.`
+        }
+    },
+    {
+        id: "ar-interior-designer",
+        title: "SpatialRoom AR",
+        tagline: "LiDAR Sensörlü Mekan Tarama, Otonom 3B Mobilya Yerleşimi ve İç Mekan Yenileme Mobil Uygulaması",
+        category: "Mobil Uygulama",
+        categoryKey: "mobile",
+        scope: "international",
         meta: {
             difficulty: "İleri Düzey",
             mvpTime: "8 Hafta",
-            monetization: "Aylık Aktif Kullanıcı Bazlı SaaS",
-            opportunityScore: "%92 Fırsat Skoru"
+            monetization: "Mobilya Markası Komisyonu (%5-10) + Aylık Pro Mimar Aboneliği",
+            opportunityScore: "%96 Fırsat Skoru",
+            scope: "international"
         },
         diagramNodes: [
-            { id: 1, name: "Mobil SDK", type: "source", sub: "iOS + Android İzleme" },
-            { id: 2, name: "Batch Uploader", type: "service", sub: "Kesintiye Dayanıklı Kuyruk" },
-            { id: 3, name: "Cihaz Segmentleyici", type: "service", sub: "Model / OS / Bellek" },
-            { id: 4, name: "Regresyon Dedektörü", type: "ai", sub: "Sürüm Bazlı Değişim" },
-            { id: 5, name: "ClickHouse", type: "storage", sub: "Yüksek Hacimli Telemetri" },
-            { id: 6, name: "Sürüm Panosu", type: "client", sub: "Yüzdelik Dağılım" }
+            { id: 1, name: "Telefon LiDAR / Kamera", type: "source", sub: "iPhone / iPad Pro ARKit Tarama" },
+            { id: 2, name: "Spatial Mesh Reconstruction", type: "service", sub: "Apple RoomPlan API + Metal" },
+            { id: 3, name: "3B Yerleşim & Aydınlatma AI", type: "ai", sub: "Generative Spatial Design LLM" },
+            { id: 4, name: "Cloudflare R2 & USDZ Deposu", type: "storage", sub: "3D CAD & Mobilya Varlık Deposu" },
+            { id: 5, name: "Fotogerçekçi AR Önizleme", type: "client", sub: "RealityKit + Unity AR Foundation" }
         ],
         step1: {
-            marketGap: `Mobil ekipler açılış süresini genellikle kendi geliştirme telefonlarında ölçüyor — yani üç yaşındaki amiral gemisi bir cihazda, iyi bir wifi'da, sıcak başlangıçta. Gerçek kullanıcı tabanının yarısı ise düşük bellekli, dolu depolamalı, zayıf şebekedeki cihazlarda soğuk başlangıç yaşıyor ve orada süre birkaç katına çıkabiliyor. Mağaza konsolları ortalama bir sayı veriyor ama **hangi cihaz sınıfında** ve **hangi sürümle** kötüleştiğini söylemiyor; üstelik bir regresyon ancak yayından günler sonra fark ediliyor. Piyasadaki APM araçları çökme ve ağ isteklerinde iyi, fakat açılış süresini başlatma aşamalarına ayırmıyor — "yavaş" diyor, "neden" demiyor. ColdStart açılışı aşamalara böler, cihaz sınıfına göre yüzdelik dağılım verir ve regresyonu sürüm bazında yakalar.`,
-            description: `ColdStart, mobil açılış performansını gerçek kullanıcı dağılımıyla ölçen bir izleme platformudur.
+            marketGap: `Evini veya ofisini yeniden dekore etmek isteyen tüketicilerin %65'i satın aldıkları mobilyaların odaya sığmaması, renk uyumsuzluğu veya aydınlatma hataları yüzünden iade süreçleriyle uğraşmaktadır. Geleneksel e-ticaret siteleri (IKEA, Wayfair vb.) mobilyaları yalnızca tek tek 3B model olarak gösterir; odanın tüm duvarlarını, pencerelerini, kapılarını ve zeminini bir bütün olarak tarayıp odaya en uygun koltuk, masa ve aydınlatma kombinasyonunu otomatik yerleştiren 'Otonom İç Mimar' vizyonu sunamaz. SpatialRoom AR, LiDAR sensörüyle odayı 10 saniyede 3B dijital ikize dönüştürür; mevcut eski eşyaları yapay zeka ile görsel olarak odadan siler (In-painting) ve yerine milimetrik hassasiyette yeni dekorasyon stilleri yerleştirir.`,
+            description: `SpatialRoom AR, iPhone ve Android telefonlardaki LiDAR ve kamera sensörlerini kullanarak fotogerçekçi iç mekan tasarımı ve mobilya yerleşimi yapan artırılmış gerçeklik (AR) uygulamasıdır.
 
-**Temel İşlevler & Özellikler:**
-• **Aşama Ayrımı**: Süreci süreç oluşturma, ilk kare, etkileşime hazır olma gibi aşamalara böler; hangi aşamanın şiştiği doğrudan görünür.
-• **Cihaz Sınıfı Segmentasyonu**: Ortalama yerine cihaz modeli, OS sürümü ve bellek sınıfına göre yüzdelik dağılım (p50/p90/p99) verir. Ortalama, en çok acı çeken kullanıcıyı gizler.
-• **Sürüm Bazlı Regresyon Uyarısı**: Yeni sürümle birlikte belirli bir cihaz sınıfında bozulma olursa, kademeli yayın devam ederken uyarır.
-• **Başlatma Bloklayıcı Tespiti**: Ana iş parçacığını açılışta bloke eden SDK ve başlatma işlerini süreleriyle listeler — üçüncü taraf SDK'ların maliyeti görünür olur.
-• **Düşük Ayak İzi**: SDK'nın kendisi ölçtüğü şeyi bozmayacak şekilde tasarlanır; toplama işi açılış yolundan çıkarılır.`,
-            tags: ["Swift", "Kotlin", "ClickHouse", "Go", "OpenTelemetry", "React"]
+**Temel Yetenekler & Özellikler:**
+• **10 Saniyede 3B Oda Taraması (LiDAR RoomPlan)**: Odanın duvarlarını, kapılarını, pencerelerini ve ölçülerini milimetrik hassasiyetle CAD formatında çıkarır.
+• **Eski Mobilyaları Canlı Silme (AR Object Removal)**: Odadaki mevcut eski mobilyaları kamera görüntüsünden anlık olarak silip boş odayı gösterir.
+• **Yapay Zeka İç Mimar Stili Önerisi**: 'Bu odayı İskandinav minimalist tarzda ve 50.000 TL bütçeyle yeniden tasarla' komutuna uygun mobilya sepeti oluşturur.
+• **Fotogerçekçi Işık ve Gölge Uyumu**: Odanın gerçek ışık kaynaklarını (Pencere, avize) analiz ederek 3B mobilyaların üzerine gerçekçi gölgeler düşürür (Ray-Tracing).`,
+            tags: ["Swift", "ARKit", "RealityKit", "RoomPlan", "Unity", "Python", "USDZ"]
         },
         step2: {
-            architecture: `Bir performans izleme SDK'sının birinci kuralı **ölçtüğü şeyi bozmamaktır**; mimari bu kısıt etrafında kurulur.
+            architecture: `SpatialRoom AR, yüksek 3B grafik performansı ve uzamsal hesaplama için **Native Spatial Computing & Hybrid Edge-Cloud** mimarisini kullanır.
 
 ### 1. Sistem Katmanları:
-• **Mobil SDK (Swift / Kotlin)**: Platformun kendi başlatma işaretlerini kullanır. Toplanan veri açılış sırasında diske yazılmaz, bellekte tutulup uygulama etkileşime hazır olduktan sonra gönderilir — aksi halde ölçüm aracı açılışı yavaşlatan şeye dönüşür.
-• **Batch Uploader (SDK içinde)**: Ağ yoksa veriyi kuyruklar, toplu ve sıkıştırılmış gönderir; idempotent uçlar sayesinde tekrar gönderim çift kayıt üretmez.
-• **Cihaz Segmentleyici (Go)**: Ham cihaz modelini bellek ve işlemci sınıfına eşler; "iPhone 12" değil "orta segment, 4GB" düzeyinde gruplama analiz için daha anlamlıdır.
-• **Regresyon Dedektörü (Python)**: Sürüm çiftlerini aynı cihaz sınıfı içinde karşılaştırır. Segment içinde karşılaştırma şarttır: kullanıcı tabanının cihaz karışımı değiştiğinde toplam ortalama, kod hiç değişmeden kayar.
-• **Pano (React)**: Yüzdelik dağılım, aşama kırılımı, sürüm karşılaştırması.
+• **Spatial Capture Layer (Swift / RoomPlan + ARKit)**: LiDAR nokta bulutunu (Point Cloud) parametrik 3B oda yüzeylerine dönüştüren yerel iOS katmanı.
+• **Spatial Interior AI (Python / PyTorch3D + CLIP)**: Odanın geometrisine ve ergonomik geçiş kurallarına uygun mobilya yerleşim matrisini hesaplayan motor.
+• **Real-Time 3D Rendering (RealityKit / Metal)**: USDZ formatındaki yüksek poligonlu mobilya modellerini 60 FPS'de render eden uzamsal motor.
+• **E-Commerce Catalog Sync (Node.js / GraphQL)**: Mobilya markalarının anlık stok ve fiyat verilerini eşitleyen arka plan servisi.
 
-### 2. Veritabanı Mimarisi:
-• **ClickHouse**: Açılış olaylarının ham telemetrisi; yüzdelik sorguları sütun bazlı depoda verimlidir.
-• **PostgreSQL**: Uygulamalar, sürümler, uyarı kuralları ve cihaz sınıfı tanımları.
-• **Redis**: Canlı pano sorguları için önbellek.`,
-            security: `SDK milyonlarca cihazda çalışır; topladığı her fazladan alan bir gizlilik yüküdür.
+### 2. Somut Teknoloji Yığını:
+• **iOS Spatial**: Swift + RoomPlan API + RealityKit + Metal Shaders
+• **AI Engine**: Python FastAPI + PyTorch3D + Stable Diffusion In-Painting
+• **Veritabanı & CDN**: PostgreSQL 16 + Cloudflare R2 (USDZ/glTF 3D Deposu)
 
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Veri Minimizasyonu**: Yalnızca zamanlama ölçümleri, cihaz sınıfı ve uygulama sürümü toplanır. Reklam kimliği, konum, kullanıcı kimliği ve cihaz seri numarası hiçbir koşulda toplanmaz.
-• **Kalıcı Kimlik Yok**: Oturumlar rastgele ve kısa ömürlü kimliklerle ayrılır; cihazlar arası veya oturumlar arası takip teknik olarak mümkün değildir.
-• **Uçtan Uca Şifreleme**: Cihaz-sunucu iletişimi TLS 1.3 ve sertifika sabitleme ile korunur.
-• **Mağaza Uyumu**: Toplanan alanlar Apple ve Google gizlilik beyanlarına birebir karşılık gelecek şekilde belgelenir; SDK'nın gizlilik manifestosu yayınlanır.
-• **Örnekleme ve Saklama**: Telemetri örneklenerek toplanır ve ham kayıtlar tanımlı süre sonunda özetlere indirgenir.`
-        }
-    },
-    {
-        id: "offlinesync-kit",
-        title: "OfflineSync Kit",
-        tagline: "Çevrimdışı Öncelikli Mobil Uygulamalar İçin Çakışma Çözümü Hazır Senkronizasyon Katmanı",
-        category: "Mobil Uygulama",
-        categoryKey: "mobile",
-        meta: {
-            difficulty: "İleri Düzey",
-            mvpTime: "10 Hafta",
-            monetization: "Açık Çekirdek + Kurumsal Destek Lisansı",
-            opportunityScore: "%90 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Yerel Veritabanı", type: "source", sub: "SQLite + Değişiklik Günlüğü" },
-            { id: 2, name: "Sync Engine", type: "service", sub: "CRDT Birleştirme" },
-            { id: 3, name: "Çakışma Çözücü", type: "service", sub: "Politika Tabanlı" },
-            { id: 4, name: "Delta Transport", type: "service", sub: "Sıkıştırılmış Fark" },
-            { id: 5, name: "Sunucu Deposu", type: "storage", sub: "Sürümlenmiş Kayıtlar" },
-            { id: 6, name: "Geliştirici SDK", type: "client", sub: "iOS / Android / RN" }
-        ],
-        step1: {
-            marketGap: `Saha ekipleri, lojistik, sağlık ve tarım gibi alanlarda mobil uygulamanın şebekesiz çalışması bir özellik değil zorunluluk. Ancak çevrimdışı desteği "veriyi yerelde tut, bağlanınca gönder" sanıldığı için ekipler işe kendi senkronizasyon katmanlarını yazarak başlıyor ve aynı duvara çarpıyorlar: **çakışma**. İki teknisyen aynı kaydı farklı yerlerde güncelledi, hangisi kazanacak? "Son yazan kazanır" seçildiğinde sessiz veri kaybı başlıyor ve bu kayıp aylar sonra fark ediliyor. Mevcut çözümler ya belirli bir buluta kilitliyor ya da CRDT gibi doğru ama kullanımı uzmanlık gerektiren ilkel yapılar sunuyor. OfflineSync Kit, çakışma çözümünü **uygulama düzeyinde politika** olarak tanımlanabilir hale getirir: alan bazında "en yüksek değer kazanır", "birleştir", "kullanıcıya sor" gibi kurallar yazılır, alt katman gerisini halleder.`,
-            description: `OfflineSync Kit, çevrimdışı öncelikli mobil uygulamalar için senkronizasyon ve çakışma çözümü kütüphanesidir.
+### 3. Veritabanı Şeması & Varlık İlişkileri:
+• \`scanned_rooms\` (id, user_id, usdz_mesh_url, floor_area_sqm, ceiling_height_m)
+• \`furniture_catalog\` (id, brand_name, dimensions_xyz, usdz_model_url, price_try, buy_affiliate_url)
+• \`room_designs\` (id, room_id FK, style_theme, total_cost_try, placed_items_json)
 
-**Temel İşlevler & Özellikler:**
-• **Alan Bazlı Çakışma Politikası**: Her alan için ayrı kural tanımlanır — sayaç alanları toplanır, notlar birleştirilir, durum alanlarında öncelik sırası uygulanır.
-• **Çözülemeyen Çakışmayı Gizlemez**: Politikanın karar veremediği durumda kayıt "çakışma bekliyor" olarak işaretlenir ve kullanıcıya sorulur; sessizce bir taraf seçilmez.
-• **Delta Senkronizasyon**: Tüm kaydı değil yalnızca değişen alanları gönderir; zayıf şebekede veri kullanımı ve süre belirgin şekilde azalır.
-• **Şema Göçü Desteği**: Uygulama güncellenirken çevrimdışı bekleyen eski şemalı kayıtların ne olacağı tanımlanabilir — pratikte en çok veri kaybettiren nokta budur.
-• **Platform Bağımsız**: iOS, Android ve React Native için ortak çekirdek; sunucu tarafı referans uygulaması açık kaynak.`,
-            tags: ["Rust", "SQLite", "CRDT", "Swift", "Kotlin", "TypeScript"]
-        },
-        step2: {
-            architecture: `Çekirdek mantık **bir kez** yazılıp her platforma paylaştırılır; senkronizasyon hatalarını üç ayrı dilde ayrı ayrı ayıklamak sürdürülebilir değildir.
+### 4. API Kontratları:
+• \`POST /api/v1/spatial/generate-layout\`: Oda ölçülerine göre mobilya yerleşim önerisi alma.
+• \`GET /api/v1/models/furniture/:id.usdz\`: Optimize edilmiş 3B model indirme.`,
+            security: `Kullanıcıların ev ve özel yaşam alanlarının 3B taranması en yüksek mahremiyet standartlarını gerektirir.
 
-### 1. Sistem Katmanları:
-• **Sync Core (Rust)**: Değişiklik günlüğü, CRDT birleştirme ve politika değerlendirme burada. iOS'a XCFramework, Android'e JNI, React Native'e köprü olarak derlenir.
-• **Yerel Depo (SQLite)**: Uygulama verisi ve yanına yazılan değişiklik günlüğü. Günlük ayrı tutulur çünkü senkronizasyonun kaynağı verinin son hali değil, **ona nasıl gelindiğidir**.
-• **Çakışma Çözücü**: Politikaları alan bazında uygular; karar veremediğinde kaydı işaretler ve uygulamaya bildirir.
-• **Delta Transport (Rust)**: Değişiklikleri sıkıştırıp gruplar, kesintiye dayanıklı yeniden gönderim yapar; her toplu iş idempotenttir.
-• **Sunucu Referansı (Go)**: Sürümlenmiş kayıt deposu ve birleştirme uç noktaları.
+### 1. Mekan Geometrisi Gizliliği:
+• Taranan odadaki kişisel fotoğraflar, aile fertleri ve özel eşyalar taranırken kamerada otomatik bulanıklaştırılır (Face & PII Blur).
 
-### 2. Veritabanı Mimarisi:
-• **SQLite (cihazda)**: Veri + değişiklik günlüğü + senkronizasyon durumu.
-• **PostgreSQL (sunucuda)**: Sürümlenmiş kayıtlar, cihaz kayıtları ve çakışma geçmişi. Çakışma geçmişi tutulur çünkü hangi politikanın pratikte veri kaybettirdiğini ancak geriye bakarak anlarsınız.
-• **Nesne Depolama**: Büyük ekler; senkronizasyon meta verisiyle ayrı taşınır.`,
-            security: `Çevrimdışı çalışan uygulama, veriyi cihazda **uzun süre** taşır — kayıp veya çalınan cihaz asıl tehdittir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Cihaz Üzerinde Şifreleme**: Yerel veritabanı SQLCipher ile şifrelenir; anahtar platformun güvenli alanında (iOS Keychain / Android Keystore) tutulur ve mümkünse donanım destekli anahtar kullanılır.
-• **Oturum Sonlandırma**: Uzaktan oturum kapatma desteklenir; cihaz bir sonraki bağlantısında yerel veriyi imha eder.
-• **Aktarım Güvenliği**: mTLS ile karşılıklı kimlik doğrulama; her cihazın kendi sertifikası olur ve tek tek iptal edilebilir.
-• **Sunucu Tarafı Yetkilendirme**: Cihazdan gelen her değişiklik sunucuda yeniden yetkilendirilir; istemcinin gönderdiği "bu kaydı değiştirebilirim" iddiasına güvenilmez.
-• **Çakışma Denetim İzi**: Hangi çakışmanın hangi politikayla, hangi cihaz lehine çözüldüğü kaydedilir — veri kaybı şüphesinde tek kanıt budur.`
-        }
-    },
-    {
-        id: "storeloop-aso",
-        title: "StoreLoop",
-        tagline: "Mağaza Yorumlarını Ürün Geriliminin Erken Sinyaline Çeviren Analiz Ajanı",
-        category: "Mobil Uygulama",
-        categoryKey: "mobile",
-        meta: {
-            difficulty: "Orta Düzey",
-            mvpTime: "6 Hafta",
-            monetization: "Uygulama Başı Abonelik (B2B SaaS)",
-            opportunityScore: "%87 Fırsat Skoru"
-        },
-        diagramNodes: [
-            { id: 1, name: "Mağaza API'leri", type: "source", sub: "App Store + Play Console" },
-            { id: 2, name: "Normalizer", type: "service", sub: "Dil + Sürüm Eşleme" },
-            { id: 3, name: "Tema Çıkarıcı", type: "ai", sub: "Şikayet Kümeleme" },
-            { id: 4, name: "Sürüm İlişkilendirici", type: "service", sub: "Yayın-Şikayet Eşleşmesi" },
-            { id: 5, name: "PostgreSQL", type: "storage", sub: "Yorum + Tema Geçmişi" },
-            { id: 6, name: "Ürün Panosu", type: "client", sub: "Yükselen Temalar" }
-        ],
-        step1: {
-            marketGap: `Mağaza yorumları bir ürün ekibinin sahip olduğu en dolaysız kullanıcı geri bildirimi, ama pratikte neredeyse hiç kullanılmıyor. Sebebi ilgisizlik değil ölçek: günde yüzlerce yorum, onlarca dilde, çoğu "güzel uygulama" ya da beş yıldız. Ekipler ya hiç okumuyor ya da destek biri ara sıra göz atıyor. Mevcut ASO araçları yorumları **sayıyor** — ortalama puan, yorum hacmi, anahtar kelime — ama içindeki şikayetin ne olduğunu ve **hangi sürümle başladığını** söylemiyor. Oysa değerli sinyal tam orada: yeni sürümden sonra belirli bir cihazda beliren, henüz çökme raporuna yansımamış bir sorun ilk olarak yorumlarda görünür. StoreLoop yorumları temalara ayırır, sürümlerle ilişkilendirir ve yükselen şikayetleri henüz küçükken bildirir.`,
-            description: `StoreLoop, mağaza yorumlarını ürün ekibi için eyleme dönüştürülebilir sinyale çeviren bir analiz ajanıdır.
-
-**Temel İşlevler & Özellikler:**
-• **Tema Kümeleme**: Yorumları "giriş yapılamıyor", "pil tüketimi", "bildirim gelmiyor" gibi temalara ayırır; anahtar kelime değil anlam bazlı gruplar.
-• **Sürüm İlişkilendirmesi**: Her temanın hangi sürümle yükselişe geçtiğini gösterir — regresyonun kaynağını daraltır.
-• **Yükseliş Uyarısı**: Bir tema mutlak sayı olarak küçükken bile hızlanıyorsa uyarır; erken sinyal ancak küçükken değerlidir.
-• **Dil Bağımsız**: Yorumlar özgün dilinde işlenir, tema düzeyinde birleştirilir; sadece İngilizce okuyan ekiplerin kaçırdığı pazarlar görünür olur.
-• **Yanıt Taslağı**: Sık temalar için yanıt taslağı önerir; destek ekibinin yükünü azaltır, gönderme kararı insanda kalır.`,
-            tags: ["Python", "PostgreSQL", "pgvector", "FastAPI", "Next.js", "Celery"]
-        },
-        step2: {
-            architecture: `Sistem, dış API'lerin hız sınırlı ve geriye dönük veriyi sınırlı verdiği gerçeğine göre tasarlanır: veri **birikmeli** olarak toplanır.
-
-### 1. Sistem Katmanları:
-• **Ingestion Workers (Python + Celery)**: App Store Connect ve Play Developer API'lerinden yorumları periyodik çeker. Mağazalar geriye dönük olarak sınırlı pencere verdiği için toplama kesintiye uğramamalı; kaçırılan pencere geri getirilemez.
-• **Normalizer**: Yorumu sürüm, ülke, cihaz ve dil ile etiketler. Sürüm bilgisi her zaman gelmez; gelmediğinde yorum tarihi yayın takvimiyle eşleştirilerek tahmin edilir ve bu tahmin olarak işaretlenir.
-• **Tema Çıkarıcı (Python + pgvector)**: Yorum gömülemeleri üzerinden kümeleme yapar; kümelere okunabilir etiket üretilir. Yeni temalar zamanla ortaya çıkabildiği için kümeleme sabit bir taksonomiye zorlanmaz.
-• **Sürüm İlişkilendirici**: Tema hacmini sürüm ve tarih ekseninde karşılaştırır, anlamlı sıçramaları işaretler.
-• **Pano (Next.js)**: Yükselen temalar, sürüm karşılaştırması, örnek yorumlar.
-
-### 2. Veritabanı Mimarisi:
-• **PostgreSQL**: Yorumlar, temalar, sürümler ve uyarı kuralları.
-• **pgvector**: Yorum gömülemeleri; kümeleme ve benzerlik sorguları ayrı bir vektör veritabanı gerektirmeyecek ölçekte.
-• **Redis**: İş kuyruğu ve mağaza API hız sınırı için jeton kovası.`,
-            security: `Yorumlar kamuya açıktır ama yazarları gerçek kişilerdir; toplu işleme onları profillemeye dönüşmemelidir.
-
-### 1. Güvenlik Önlemleri & Standartlar:
-• **Yazar Profillemesi Yok**: Yorum yazarı takma adı tema analizine girmez ve kullanıcı bazlı geçmiş oluşturulmaz. Ürün sinyali temadadır, kişide değil.
-• **Kişisel Veri Redaksiyonu**: Yorum metnindeki e-posta, telefon ve sipariş numarası örüntüleri alım sırasında maskelenir — kullanıcılar destek beklentisiyle bunları sıklıkla yazar.
-• **Erişim Kontrolü**: Uygulama bazlı RBAC; satır düzeyi güvenlik ile bir müşterinin verisi diğerine görünmez.
-• **Mağaza Jetonları**: API kimlik bilgileri şifreli saklanır, minimum kapsamla istenir ve iptal edilebilir.
-• **Saklama Sınırı**: Ham yorum metni tanımlı süre sonunda silinir; tema istatistikleri kalır.`
+### 2. Şifreli 3D Depolama:
+• Oda modelleri Cloudflare R2 üzerinde istemci tarafı şifrelemeyle (Client-Side Encryption) saklanır.`
         }
     }
 ];

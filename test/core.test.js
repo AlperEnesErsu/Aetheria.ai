@@ -416,3 +416,38 @@ test('buildBlueprintMarkdown appends stage 2 when present', () => {
 test('buildBlueprintMarkdown handles a missing project', () => {
     assert.strictEqual(core.buildBlueprintMarkdown(null), '');
 });
+
+test('SCOPE_PRESETS defines all, national, and international presets', () => {
+    assert.ok(core.SCOPE_PRESETS.all);
+    assert.ok(core.SCOPE_PRESETS.national);
+    assert.ok(core.SCOPE_PRESETS.international);
+    assert.ok(core.SCOPE_PRESETS.national.badge.includes('Ulusal'));
+    assert.ok(core.SCOPE_PRESETS.international.badge.includes('Global'));
+});
+
+test('ECOSYSTEM_AXES has national and global items', () => {
+    assert.ok(Array.isArray(core.ECOSYSTEM_AXES.national));
+    assert.ok(Array.isArray(core.ECOSYSTEM_AXES.global));
+    assert.ok(core.ECOSYSTEM_AXES.national.some(item => item.includes('TÜBİTAK')));
+    assert.ok(core.ECOSYSTEM_AXES.national.some(item => item.includes('TEKNOFEST')));
+    assert.ok(core.ECOSYSTEM_AXES.global.some(item => item.includes('SOC2') || item.includes('Stripe')));
+});
+
+test('pickConstraintCombo with national and international scope attaches ecosystem', () => {
+    const nationalCombo = core.pickConstraintCombo(() => 0, 'national');
+    assert.ok(nationalCombo.ecosystem, 'national scope should have ecosystem attribute');
+
+    const globalCombo = core.pickConstraintCombo(() => 0, 'international');
+    assert.ok(globalCombo.ecosystem, 'international scope should have ecosystem attribute');
+});
+
+test('buildIdeationPrompt attaches scope guidance for national and international scopes', () => {
+    const combo = core.pickConstraintCombo(() => 0, 'national');
+    const nationalPrompt = core.buildIdeationPrompt('Sağlık', 5, combo, [], 'national');
+    assert.ok(nationalPrompt.includes('ULUSAL'));
+    assert.ok(nationalPrompt.includes('Türkiye'));
+
+    const globalPrompt = core.buildIdeationPrompt('Web3', 5, combo, [], 'international');
+    assert.ok(globalPrompt.includes('ULUSLARARASI'));
+    assert.ok(globalPrompt.includes('Global'));
+});
