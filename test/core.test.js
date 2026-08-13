@@ -417,6 +417,32 @@ test('buildBlueprintMarkdown handles a missing project', () => {
     assert.strictEqual(core.buildBlueprintMarkdown(null), '');
 });
 
+test('pickUnseenProject never repeats the on-screen project across a cycle reset', () => {
+    // Two projects is the smallest bucket the scope picker can produce, and it is
+    // where the old reset logic broke: it restarted the cycle over the full list,
+    // so the project just shown could be drawn again immediately.
+    const pool = [{ id: 'a' }, { id: 'b' }];
+
+    let seen = [];
+    let previous = null;
+
+    // Always draw the first candidate, which is the worst case for this bug
+    for (let i = 0; i < 12; i++) {
+        const result = core.pickUnseenProject(pool, seen, () => 0);
+        assert.notStrictEqual(result.project.id, previous,
+            `${i}. basışta aynı proje arka arkaya geldi: ${result.project.id}`);
+        previous = result.project.id;
+        seen = result.seen;
+    }
+});
+
+test('pickUnseenProject still returns the only project when the pool has one', () => {
+    // Avoiding a repeat must not mean returning nothing.
+    const result = core.pickUnseenProject([{ id: 'solo' }], ['solo'], () => 0);
+    assert.strictEqual(result.project.id, 'solo');
+    assert.ok(result.exhausted);
+});
+
 test('SCOPE_PRESETS defines all, national, and international presets', () => {
     assert.ok(core.SCOPE_PRESETS.all);
     assert.ok(core.SCOPE_PRESETS.national);
@@ -425,12 +451,21 @@ test('SCOPE_PRESETS defines all, national, and international presets', () => {
     assert.ok(core.SCOPE_PRESETS.international.badge.includes('Global'));
 });
 
-test('ECOSYSTEM_AXES has national and global items', () => {
+test('ECOSYSTEM_AXES has national and international items', () => {
     assert.ok(Array.isArray(core.ECOSYSTEM_AXES.national));
-    assert.ok(Array.isArray(core.ECOSYSTEM_AXES.global));
+    assert.ok(Array.isArray(core.ECOSYSTEM_AXES.international));
     assert.ok(core.ECOSYSTEM_AXES.national.some(item => item.includes('TÜBİTAK')));
     assert.ok(core.ECOSYSTEM_AXES.national.some(item => item.includes('TEKNOFEST')));
-    assert.ok(core.ECOSYSTEM_AXES.global.some(item => item.includes('SOC2') || item.includes('Stripe')));
+    assert.ok(core.ECOSYSTEM_AXES.international.some(item => item.includes('SOC2') || item.includes('Stripe')));
+});
+
+// The axis pool is looked up by scope id, so the two objects have to agree on
+// their key names. They did not: one said `global` where the other said
+// `international`, and only a hand-written mapping hid it.
+test('ECOSYSTEM_AXES is keyed by the same scope ids as SCOPE_PRESETS', () => {
+    for (const id of Object.keys(core.ECOSYSTEM_AXES)) {
+        assert.ok(core.SCOPE_PRESETS[id], `ECOSYSTEM_AXES.${id} bir kapsam kimliği değil`);
+    }
 });
 
 test('pickConstraintCombo with national and international scope attaches ecosystem', () => {

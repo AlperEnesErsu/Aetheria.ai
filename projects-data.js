@@ -1539,5 +1539,266 @@ const PROJECTS_DATABASE = [
 ### 2. Şifreli 3D Depolama:
 • Oda modelleri Cloudflare R2 üzerinde istemci tarafı şifrelemeyle (Client-Side Encryption) saklanır.`
         }
+    },
+
+    // --- Kapsam dengeleyici örnekler -------------------------------------------
+    // Kapsam seçicisi eklendiğinde her kategoride yalnızca bir ulusal proje kalmıştı;
+    // "Ulusal + DevOps" seçen kullanıcı aynı projeyi arka arkaya görüyordu. Aşağıdaki
+    // projeler her kategori × kapsam kovasını en az ikiye çıkarır.
+
+    {
+        id: 'tapuchain-kadastro',
+        title: 'TapuChain Kadastro',
+        tagline: 'TKGM Tapu ve Kadastro Kayıtları İçin Değiştirilemez Blokzincir Denetim ve Şerh Doğrulama Katmanı',
+        category: 'Web3, Blockchain & Güvenlik',
+        categoryKey: 'web3',
+        scope: 'national',
+        meta: {
+            difficulty: 'Uzman Düzey',
+            mvpTime: '10 Hafta',
+            monetization: 'Kamu Kurumsal Lisansı + Noter/Banka Başına API Ücretlendirmesi',
+            opportunityScore: '%94 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'TAKBİS / TKGM Servisi', type: 'source', sub: 'Tapu Kayıt Akışı (SOAP/REST)' },
+            { id: 2, name: 'Kayıt Normalizasyon Servisi', type: 'service', sub: 'Go + Ada/Parsel Şema Doğrulama' },
+            { id: 3, name: 'Anomali & Şerh Analiz Ajanı', type: 'ai', sub: 'Graph Neural Network' },
+            { id: 4, name: 'İzinli Blokzincir (Hyperledger)', type: 'storage', sub: 'Merkle Kanıt + PostgreSQL' },
+            { id: 5, name: 'Noter & Banka Portalı', type: 'client', sub: 'React + e-İmza Doğrulama' }
+        ],
+        step1: {
+            marketGap: 'Türkiye\'de gayrimenkul devirleri TAKBİS üzerinden yürür ve tapu kaydındaki bir şerhin, haczin veya ipoteğin ne zaman eklendiği/kaldırıldığı yalnızca merkezi veritabanı loglarında tutulur. Bu durum, tapu iptali ve tescil davalarında "kaydın o tarihte gerçekten ne olduğu" sorusunu bilirkişiye bırakır; dosyalar yıllarca sürer. Mevcut blokzincir tapu girişimleri ise kamu verisini herkese açık ağlara yazmayı önerdiği için KVKK ve veri egemenliği açısından uygulanamaz kalmıştır. TapuChain, tapu kaydının kendisini değil, kaydın kriptografik parmak izini izinli bir zincire yazarak mahkemede kanıt değeri taşıyan, geri dönüşü olmayan bir zaman damgası üretir.',
+            description: 'TapuChain, TAKBİS ile kurumsal entegrasyon üzerinden çalışan bir doğrulama ve denetim katmanıdır.\n\n**Temel İşlevler & Özellikler:**\n• **Kriptografik Zaman Damgası**: Her tapu işleminin (satış, ipotek, haciz, şerh) kanonik gösterimi SHA-256 ile özetlenir ve izinli zincire yazılır; kişisel veri zincire hiç çıkmaz.\n• **Şerh Zinciri Görselleştirme**: Bir parselin üzerindeki tüm takyidatların zaman çizelgesi, hangi kurumun ne zaman eklediğiyle birlikte tek ekranda gösterilir.\n• **Anomali Tespiti**: Kısa aralıkla tekrarlanan devirler, dairesel satışlar ve değer manipülasyonu şüphesi taşıyan zincirler graf analiziyle işaretlenir.\n• **Noter & Banka Doğrulama API\'si**: Kredi tahsisi öncesinde bankanın gördüğü tapu kaydının o an geçerli olduğu, tek çağrıyla kanıtlanır.',
+            tags: ['Go', 'Hyperledger Fabric', 'PostgreSQL', 'GNN', 'React', 'e-İmza']
+        },
+        step2: {
+            architecture: 'TapuChain, kamu verisinin kurum dışına çıkmadığı **izinli (permissioned) blokzincir** modeline dayanır.\n\n### 1. Sistem Katmanları:\n• **Ingestion Service (Go)**: TAKBİS servislerinden gelen işlem olaylarını dinler, ada/parsel/malik şemasını doğrular ve kanonik JSON gösterimine çevirir.\n• **Hashing & Anchor Service (Rust)**: Kanonik gösterimin SHA-256 özetini alır, Merkle ağacına ekler ve kök özeti Hyperledger Fabric kanalına yazar.\n• **Analysis Service (Python / PyTorch Geometric)**: Malik-parsel-işlem grafiği üzerinde anomali skorlaması yapar.\n• **Portal (React + Vite)**: Noter, banka ve kurum kullanıcıları için sorgu ve kanıt indirme arayüzü.\n\n### 2. Veritabanı Mimarisi:\n• **PostgreSQL**: Parsel meta verisi, kullanıcı ve kurum yetkileri, sorgu geçmişi.\n• **Hyperledger Fabric**: Yalnızca Merkle kökleri ve blok zaman damgaları.\n• **Redis**: Sık sorgulanan parsel kanıtları için önbellek.',
+            security: 'Tapu verisi hem kişisel veri hem de ekonomik değer taşıdığı için mimari **veri minimizasyonu** ilkesi üzerine kuruludur.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Zincire Kişisel Veri Yazılmaz**: T.C. Kimlik No, ad-soyad ve adres hiçbir koşulda zincire çıkmaz; zincirde yalnızca geri döndürülemez özetler bulunur. Bu, KVKK m.7 (silme/yok etme) yükümlülüğünün zincir değişmezliğiyle çakışmasını önler.\n• **Kurumsal Kimlik Doğrulama**: Noter ve banka erişimi e-İmza / mobil imza ve mTLS sertifikalarıyla yapılır; her sorgu kurum bazında imzalanır.\n• **Yetkilendirme (RBAC + ABAC)**: Bir kurumun yalnızca ilgili olduğu dosyaya erişmesi, öznitelik tabanlı politikalarla kısıtlanır.\n• **Denetim İzleri**: Kim, hangi parseli, ne zaman sorguladı bilgisi değiştirilemez append-only logda tutulur ve KVKK denetimlerinde ibraz edilir.'
+        }
+    },
+
+    {
+        id: 'edevlet-yuk-kalkani',
+        title: 'e-Devlet Yük Kalkanı',
+        tagline: 'Kamu Servislerinde YKS, Vergi ve Bayram Yoğunluğu Zirvelerini Öngören Otonom Ölçekleme ve Kuyruk Yönetim Katmanı',
+        category: 'Altyapı, Cloud & Performans',
+        categoryKey: 'infrastructure',
+        scope: 'national',
+        meta: {
+            difficulty: 'İleri Düzey',
+            mvpTime: '8 Hafta',
+            monetization: 'Kamu Kurumsal Lisansı + KOSGEB Dijitalleşme Destekli Kurulum',
+            opportunityScore: '%93 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Kurum Trafik Toplayıcı', type: 'source', sub: 'Nginx / HAProxy Log Akışı' },
+            { id: 2, name: 'Adaptif Kuyruk Kapısı', type: 'service', sub: 'Rust + Sanal Bekleme Odası' },
+            { id: 3, name: 'Talep Tahmin Modeli', type: 'ai', sub: 'LSTM + Takvim Özellikleri' },
+            { id: 4, name: 'VictoriaMetrics & Redis', type: 'storage', sub: 'Zaman Serisi & Kuyruk Durumu' },
+            { id: 5, name: 'Kurum Operasyon Paneli', type: 'client', sub: 'Vue 3 + Canlı Kapasite Haritası' }
+        ],
+        step1: {
+            marketGap: 'Türkiye\'de kamu dijital servisleri yılın büyük bölümünde düşük trafikle çalışır, ancak YKS/LGS sonuç açıklaması, vergi beyan son günü, e-Devlet üzerinden yapılan başvuru kampanyaları ve bayram tatili başvuruları gibi belirli anlarda trafik saatler içinde onlarca katına çıkar. Kurumlar bu zirveleri karşılamak için tüm yıl boyunca atıl donanım satın alır; buna rağmen zirve anlarında sistemler yanıt veremez ve vatandaş "sistem yoğun" ekranıyla karşılaşır. Mevcut otomatik ölçekleme çözümleri tepkiseldir: yükü gördükten sonra kapasite eklerler ve yeni sunucu ayağa kalkana kadar geçen sürede hizmet çoktan kesilmiştir. e-Devlet Yük Kalkanı, zirveyi takvimden ve erken sinyallerden önceden tahmin ederek kapasiteyi yük gelmeden hazırlar.',
+            description: 'Yük Kalkanı, kurum servislerinin önüne şeffaf biçimde konumlanan bir tahmin ve kuyruk yönetim katmanıdır.\n\n**Temel İşlevler & Özellikler:**\n• **Takvim Farkındalıklı Tahmin**: Resmî tatiller, sınav sonuç tarihleri, beyan son günleri ve geçmiş yıl eğrileri modele özellik olarak verilir; kapasite zirveden önce artırılır.\n• **Adil Sanal Bekleme Odası**: Kapasite aşıldığında istekler reddedilmez; vatandaş sırasını ve tahmini bekleme süresini gören bir kuyruğa alınır.\n• **Öncelik Sınıfları**: Kritik işlemler (acil sağlık, afet başvurusu) ayrı kuyrukta önceliklendirilir.\n• **Atıl Kapasite Raporu**: Kurumun yıl boyunca ne kadar donanım fazlası taşıdığını ve tahmine dayalı ölçeklemeyle ne kadar tasarruf edeceğini raporlar.',
+            tags: ['Rust', 'Go', 'LSTM', 'Kubernetes', 'VictoriaMetrics', 'Vue.js']
+        },
+        step2: {
+            architecture: 'Sistem, istek yolunda mikrosaniye seviyesinde karar vermek zorunda olduğu için **veri düzlemi / kontrol düzlemi** ayrımıyla kurgulanmıştır.\n\n### 1. Sistem Katmanları:\n• **Data Plane (Rust + Tokio)**: Gelen HTTP isteklerini karşılar, kuyruk jetonunu doğrular ve arka uca geçirir. Durum Redis\'te tutulur, karar yerelde verilir.\n• **Control Plane (Go)**: Kubernetes HPA/KEDA ile konuşarak replika sayısını tahmine göre önceden ayarlar.\n• **Forecast Service (Python)**: LSTM ve Prophet modellerini takvim özellikleriyle eğitir, 15 dakikalık çözünürlükte talep eğrisi üretir.\n• **Operations Console (Vue 3)**: Kapasite, kuyruk uzunluğu ve tahmin sapmasının canlı izlendiği panel.\n\n### 2. Veritabanı Mimarisi:\n• **VictoriaMetrics**: Saniye bazlı istek, gecikme ve hata metrikleri.\n• **Redis Cluster**: Kuyruk jetonları, sıra numaraları ve oturum durumu.\n• **PostgreSQL**: Kurum yapılandırması, öncelik kuralları ve tasarruf raporları.',
+            security: 'Kamu trafiğinin önünde duran bir bileşen, saldırı yüzeyinin de önünde durur. Mimari **Zero-Trust** ve **kötüye kullanım direnci** üzerine kuruludur.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Kuyruk Jetonu Sahteciliğine Karşı İmzalama**: Sıra jetonları HMAC-SHA256 ile imzalanır ve tek kullanımlıktır; sıra satın alma veya öne geçme girişimi kriptografik olarak engellenir.\n• **Bot ve Otomasyon Ayrımı**: Davranışsal sinyallerle (istek ritmi, TLS parmak izi) otomatik istemciler ayrı kuyruğa alınır; CAPTCHA yalnızca son çare olarak devreye girer.\n• **Veri Minimizasyonu**: Katman istek gövdesini hiç açmaz; yalnızca yönlendirme meta verisini görür, böylece vatandaş verisi bu bileşende hiç işlenmez.\n• **KVKK & Log Saklama**: IP adresleri loglarda tuzlanmış özet olarak tutulur ve saklama süresi sonunda otomatik olarak silinir.'
+        }
+    },
+
+    {
+        id: 'meb-atolye-asistani',
+        title: 'MEB Atölye Asistanı',
+        tagline: 'Meslek Liselerinde Atölye Uygulamalarını Adım Adım Denetleyen ve İş Güvenliğini Gözeten Yapay Zeka Öğretmen Yardımcısı',
+        category: 'Eğitim Teknolojileri & Yapay Zeka',
+        categoryKey: 'edtech',
+        scope: 'national',
+        meta: {
+            difficulty: 'İleri Düzey',
+            mvpTime: '7 Hafta',
+            monetization: 'MEB Kurumsal Lisansı + TÜBİTAK 1512 BİGG Destekli Ar-Ge',
+            opportunityScore: '%92 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Atölye Kamerası / Tablet', type: 'source', sub: 'Yerel Görüntü Akışı' },
+            { id: 2, name: 'Uç Cihaz Çıkarım Servisi', type: 'service', sub: 'NVIDIA Jetson + ONNX Runtime' },
+            { id: 3, name: 'Adım & Güvenlik Analiz Modeli', type: 'ai', sub: 'YOLO + Poz Tahmini' },
+            { id: 4, name: 'Yerel Okul Sunucusu', type: 'storage', sub: 'SQLite + Şifreli Yedek' },
+            { id: 5, name: 'Öğretmen Paneli', type: 'client', sub: 'PWA + Çevrimdışı Çalışma' }
+        ],
+        step1: {
+            marketGap: 'Türkiye\'de meslek liselerinde bir atölye öğretmeni aynı anda 20-30 öğrencinin torna, kaynak, elektrik panosu veya CNC uygulamasını izlemek zorundadır. Bu fiziksel olarak mümkün değildir: hem öğrenme geri bildirimi gecikir hem de iş güvenliği ihlalleri (gözlük takmama, yanlış tutuş, koruyucu kapak açıkken çalıştırma) ancak kaza olduktan sonra fark edilir. Mevcut eğitim yazılımları teorik içerik sunar; el becerisi gerektiren uygulamalı derslerde hiçbir karşılığı yoktur. Ayrıca okul internet altyapısı zayıf olduğu ve öğrenci görüntüleri KVKK kapsamında özel nitelikli veri sayıldığı için buluta görüntü gönderen bir çözüm baştan uygulanamazdır. MEB Atölye Asistanı, tüm görüntü işlemeyi atölyedeki uç cihazda yapar.',
+            description: 'Asistan, atölyeye kurulan tek bir uç cihaz ve öğretmenin tabletinden oluşan kapalı bir sistemdir.\n\n**Temel İşlevler & Özellikler:**\n• **Adım Takibi**: Her uygulama için tanımlı iş adımları (ölçüm, sıkma, ayar, kontrol) görüntüden tanınır; atlanan adım öğretmene anında bildirilir.\n• **İş Güvenliği Uyarısı**: Koruyucu gözlük/eldiven eksikliği, tehlikeli bölgeye el yaklaşması ve açık kapakla çalıştırma gerçek zamanlı olarak sesli uyarı üretir.\n• **Bireysel İlerleme Karnesi**: Her öğrencinin hangi adımda zorlandığı biriktirilir; öğretmen dönem sonunda kanıta dayalı değerlendirme yapar.\n• **Tamamen Çevrimdışı**: Görüntü hiçbir zaman okul dışına çıkmaz; internet olmadan da tüm işlevler çalışır.',
+            tags: ['Python', 'ONNX Runtime', 'YOLOv8', 'NVIDIA Jetson', 'SQLite', 'PWA']
+        },
+        step2: {
+            architecture: 'Sistem, düşük bant genişliği ve veri gizliliği kısıtları nedeniyle **uçta (edge) öncelikli** tasarlanmıştır; bulut yalnızca model dağıtımı için kullanılır.\n\n### 1. Sistem Katmanları:\n• **Edge Inference Service (C++ / ONNX Runtime)**: Jetson üzerinde 30 FPS görüntüyü işler; nesne tespiti ve poz tahmini modellerini ardışık çalıştırır.\n• **Rule Engine (Rust)**: Model çıktısını iş adımı durum makinesine bağlar; "hangi adım tamamlandı, hangi kural ihlal edildi" kararını üretir.\n• **Sync Agent (Go)**: Okul internete çıktığında yalnızca sayısal ilerleme özetlerini merkezi panele gönderir; görüntü asla gönderilmez.\n• **Teacher PWA (React)**: Çevrimdışı çalışan, IndexedDB üzerinde kuyruklayan öğretmen arayüzü.\n\n### 2. Veritabanı Mimarisi:\n• **SQLite (WAL modu)**: Uç cihazda öğrenci ilerleme kayıtları ve olay geçmişi.\n• **PostgreSQL (İl/MEB düzeyi)**: Yalnızca anonim toplulaştırılmış başarı istatistikleri.',
+            security: 'Öğrenci görüntüsü KVKK kapsamında **özel nitelikli kişisel veri** olduğundan mimarinin birinci kuralı görüntünün cihazdan çıkmamasıdır.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Görüntü Yerelde Kalır**: Kare hiçbir koşulda diske yazılmaz ve ağa gönderilmez; yalnızca bellekte işlenir ve anında düşürülür. Dışarı çıkan tek şey "3. adım tamamlandı" gibi sayısal olaylardır.\n• **Veli Rızası Yönetimi**: Her öğrenci için açık rıza kaydı tutulur; rızası olmayan öğrenci modelin çıktısında otomatik olarak maskelenir.\n• **Cihaz Güvenliği**: Uç cihaz tam disk şifrelemesi (LUKS) ile korunur, Secure Boot etkindir ve fiziksel müdahalede anahtar silinir.\n• **Erişim Kontrolü**: Öğretmen paneline erişim MEB kurumsal kimliğiyle ve iki faktörlü doğrulamayla yapılır; ders dışı saatlerde kayıtlara erişim kapatılır.'
+        }
+    },
+
+    {
+        id: 'sifir-atik-belediye',
+        title: 'Sıfır Atık Belediye',
+        tagline: 'Konteyner Doluluk Sensörleri ve Rota Optimizasyonuyla Belediye Atık Toplama Maliyetini ve Karbon Salımını Düşüren Platform',
+        category: 'Sürdürülebilirlik & IoT & Blockchain',
+        categoryKey: 'sustainability',
+        scope: 'national',
+        meta: {
+            difficulty: 'İleri Düzey',
+            mvpTime: '9 Hafta',
+            monetization: 'Belediye SaaS Aboneliği + KOSGEB/Kalkınma Ajansı Hibe Destekli Kurulum',
+            opportunityScore: '%91 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Konteyner Ultrasonik Sensör', type: 'source', sub: 'LoRaWAN + Güneş Panelli' },
+            { id: 2, name: 'LoRa Ağ Geçidi & Ingest', type: 'service', sub: 'ChirpStack + MQTT' },
+            { id: 3, name: 'Rota Optimizasyon Motoru', type: 'ai', sub: 'VRP + Doluluk Tahmini' },
+            { id: 4, name: 'TimescaleDB & PostGIS', type: 'storage', sub: 'Zaman Serisi + Coğrafi Veri' },
+            { id: 5, name: 'Şoför Mobil & Belediye Paneli', type: 'client', sub: 'Flutter + Leaflet Harita' }
+        ],
+        step1: {
+            marketGap: 'Türkiye\'de belediyeler atık toplama araçlarını sabit güzergâh ve sabit saatlerle çalıştırır. Sonuç, aynı gün içinde yarı boş konteynerlerin defalarca ziyaret edilmesi ve yoğun noktalardaki konteynerlerin taşmasıdır. Atık toplama, birçok belediyenin en büyük ikinci akaryakıt kalemidir ve boşuna yapılan her tur hem bütçeden hem de karbon bütçesinden düşer. 2019\'da yürürlüğe giren Sıfır Atık Yönetmeliği belediyelere ayrıştırma ve raporlama yükümlülüğü getirmiş, ancak sahadan veri toplayacak altyapıyı finanse etmemiştir; belediyeler beyanlarını hâlâ elle doldurulan formlarla üretmektedir. Sıfır Atık Belediye, doluluk verisini sahadan otomatik toplayarak hem rotayı hem de yasal raporlamayı aynı kaynaktan besler.',
+            description: 'Platform, düşük maliyetli sensörler ve bir optimizasyon motorundan oluşan uçtan uca bir saha sistemidir.\n\n**Temel İşlevler & Özellikler:**\n• **Doluluk Ölçümü**: Konteyner kapağına monte ultrasonik sensör, güneş paneliyle beslenir ve LoRaWAN üzerinden günde birkaç kez doluluk yüzdesi gönderir; şebeke ve SIM kartı gerekmez.\n• **Dinamik Rota**: Ertesi günün rotası, tahmini doluluk ve araç kapasitesine göre kapasiteli araç rotalama (CVRP) çözülerek üretilir.\n• **Taşma Erken Uyarısı**: Doluluk eğrisi eşiği aşacaksa konteyner, tur planına acil olarak eklenir.\n• **Sıfır Atık Raporu**: Ayrıştırma oranları ve toplanan tonaj, yönetmeliğin istediği formatta otomatik üretilir.\n• **Tasarruf Panosu**: Kat edilen kilometre, yakıt ve CO₂ tasarrufu ay ay raporlanır.',
+            tags: ['LoRaWAN', 'Go', 'OR-Tools', 'TimescaleDB', 'PostGIS', 'Flutter']
+        },
+        step2: {
+            architecture: 'Sistem, binlerce düşük güçlü cihazdan seyrek veri alan ve gecelik ağır optimizasyon çalıştıran **olay güdümlü** bir mimariye dayanır.\n\n### 1. Sistem Katmanları:\n• **Ingestion (Go + MQTT)**: ChirpStack ağ sunucusundan gelen LoRa paketlerini çözer, sensör sağlığını değerlendirir ve zaman serisine yazar.\n• **Forecast Service (Python)**: Her konteyner için gradyan artırmalı model (LightGBM) ile 24 saatlik doluluk tahmini üretir.\n• **Route Optimizer (Python + Google OR-Tools)**: Kapasiteli araç rotalama problemini çözer; sokak yönü ve araç boyu kısıtlarını OSRM mesafe matrisiyle birleştirir.\n• **Driver App (Flutter)**: Çevrimdışı harita, sıradaki durak ve toplama onayı; kapsama dışında kuyruklar.\n\n### 2. Veritabanı Mimarisi:\n• **TimescaleDB**: Sensör doluluk ölçümleri ve pil seviyeleri (hypertable).\n• **PostGIS**: Konteyner konumları, mahalle sınırları ve rota geometrileri.\n• **Redis**: Aktif tur durumu ve şoför konum önbelleği.',
+            security: 'Saha cihazları fiziksel erişime açıktır ve platform belediye operasyonunu yönlendirdiği için **cihaz kimliği ve veri bütünlüğü** önceliklidir.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **LoRaWAN 1.1 Kimlik Doğrulama**: Her cihazın benzersiz AppKey\'i vardır; join prosedürü ve çerçeve sayaçları ile tekrar (replay) saldırıları engellenir.\n• **Sahte Veri Direnci**: Fiziksel olarak imkânsız doluluk sıçramaları ve pil profiliyle uyuşmayan paketler istatistiksel olarak işaretlenir ve rotaya dahil edilmez.\n• **Şoför Konumu ve KVKK**: Araç konumu yalnızca vardiya süresince işlenir, vardiya bitiminde ham iz silinir; personel takibi amacıyla kullanılamayacağı politika ve teknik kısıtla sabitlenir.\n• **Yetkilendirme**: Belediye kullanıcıları için rol tabanlı erişim (şoför, saha amiri, çevre müdürlüğü) ve tüm rapor indirmelerinin denetim kaydı tutulur.'
+        }
+    },
+
+    {
+        id: 'yerli-bulut-gocmeni',
+        title: 'Yerli Bulut Göçmeni',
+        tagline: 'Veri Yerleşimi Zorunluluğu Olan Yükleri Yurt İçi Bulut Sağlayıcılarına Taşıyan Otomatik Uyumluluk ve Göç Aracı',
+        category: 'DevOps & Yazılım Geliştirme Araçları',
+        categoryKey: 'devops',
+        scope: 'national',
+        meta: {
+            difficulty: 'İleri Düzey',
+            mvpTime: '8 Hafta',
+            monetization: 'B2B SaaS Aboneliği + Göç Projesi Başına Kurumsal Danışmanlık Paketi',
+            opportunityScore: '%90 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Mevcut Bulut Envanteri', type: 'source', sub: 'AWS / Azure API Tarama' },
+            { id: 2, name: 'Uyum Kuralı Değerlendirici', type: 'service', sub: 'Go + OPA Rego Politikaları' },
+            { id: 3, name: 'Göç Planlayıcı Ajan', type: 'ai', sub: 'Bağımlılık Grafiği Analizi' },
+            { id: 4, name: 'Terraform Durum Deposu', type: 'storage', sub: 'PostgreSQL + Şifreli State' },
+            { id: 5, name: 'Göç Kontrol Paneli', type: 'client', sub: 'React + Adım Adım Runbook' }
+        ],
+        step1: {
+            marketGap: 'BDDK, KVKK ve kamu alım şartnameleri belirli veri türlerinin yurt içinde barındırılmasını zorunlu kılar. Buna rağmen Türkiye\'deki pek çok kurum yükünü yurt dışı bulut bölgelerinde çalıştırır ve uyum denetimi geldiğinde hangi servisin hangi veriyi nerede tuttuğunu kimse tam olarak bilemez. Göç kararı verildiğinde ise iş, elle çıkarılan envanter listeleri ve aylarca süren manuel Terraform yeniden yazımına dönüşür; bağımlılıklar gözden kaçtığı için göç sırasında kesinti yaşanır. Piyasadaki göç araçları yalnızca büyük hiperölçekleyiciler arasında çalışır ve Türkiye\'deki yerli sağlayıcıların (ULAKBİM, Turkcell, Türk Telekom bulut) API\'lerini tanımaz. Yerli Bulut Göçmeni bu boşluğu doldurur.',
+            description: 'Araç, önce mevcut durumu haritalar, sonra uyum riskini işaretler ve göçü adım adım yürütür.\n\n**Temel İşlevler & Özellikler:**\n• **Otomatik Envanter ve Veri Sınıflandırma**: Mevcut bulut hesaplarını tarar; hangi depolama biriminde kişisel veri, finansal veri veya sağlık verisi olduğunu örneklemeyle sınıflandırır.\n• **Politika Motoru**: "Sağlık verisi yurt dışında tutulamaz" gibi kuralları OPA Rego politikası olarak çalıştırır ve ihlalleri kanıtıyla listeler.\n• **Bağımlılık Farkındalıklı Göç Planı**: Servisler arası çağrı grafiğini çıkarır, hangi bileşenin hangi sırayla taşınacağını ve her adımın geri alma (rollback) yolunu üretir.\n• **Yerli Sağlayıcı Terraform Üretimi**: Hedef sağlayıcı için Terraform modüllerini otomatik yazar; kesintiyi ölçen kanarya testleriyle doğrular.',
+            tags: ['Go', 'Terraform', 'Open Policy Agent', 'PostgreSQL', 'React', 'Kubernetes']
+        },
+        step2: {
+            architecture: 'Araç, üretim ortamını değiştirdiği için **plan-onayla-uygula** döngüsü ve tam geri alınabilirlik üzerine kuruludur.\n\n### 1. Sistem Katmanları:\n• **Discovery Service (Go)**: Kaynak bulut sağlayıcı API\'lerini salt-okunur kimlikle tarar; kaynak, ağ ve IAM envanterini çıkarır.\n• **Policy Service (OPA / Rego)**: Uyum kurallarını veri olarak saklar; kural değişince tüm envanter yeniden değerlendirilir.\n• **Planner (Python + NetworkX)**: Servis bağımlılık grafiğinde topolojik sıralama yapar, döngüleri ve tek yönlü bağımlılıkları raporlar.\n• **Executor (Go + Terraform CDK)**: Onaylanan planı adım adım uygular; her adımdan önce durum anlık görüntüsü alır.\n• **Console (React)**: Plan farkı (diff), risk skoru ve canlı ilerleme.\n\n### 2. Veritabanı Mimarisi:\n• **PostgreSQL**: Envanter, politika değerlendirme sonuçları, göç planları ve onay geçmişi.\n• **Şifreli Nesne Depolama**: Terraform state dosyaları, müşteri başına ayrı anahtarla.',
+            security: 'Araç, müşterinin tüm bulut altyapısını görebilen bir bileşendir; bu yüzden **en az yetki** ve **sır sızdırmama** tasarımın merkezindedir.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Salt-Okunur Keşif**: Envanter çıkarma aşaması yalnızca okuma yetkisi olan rollerle çalışır; yazma yetkisi ancak kullanıcı bir planı açıkça onayladığında ve süreli olarak devreye girer.\n• **Sır Yönetimi**: Bulut kimlik bilgileri HashiCorp Vault üzerinde tutulur, uygulama belleğine yalnızca kısa ömürlü STS jetonları olarak iner ve loglara asla yazılmaz.\n• **Terraform State Şifreleme**: State dosyaları müşteri başına ayrı KMS anahtarıyla AES-256 ile şifrelenir; state içindeki hassas alanlar ayrıca maskelenir.\n• **Değiştirilemez Denetim Kaydı**: Hangi kullanıcının hangi göç adımını ne zaman onayladığı append-only logda tutulur ve BDDK/KVKK denetimlerinde kanıt olarak sunulabilir.'
+        }
+    },
+
+    {
+        id: 'turkce-arayuz-denetcisi',
+        title: 'Türkçe Arayüz Denetçisi',
+        tagline: 'Türkçe Yerelleştirmede Bozulan Tipografi, Metin Taşması ve Kültürel Biçim Hatalarını Tasarım Aşamasında Yakalayan Denetim Aracı',
+        category: 'Web & Ürün Tasarımı',
+        categoryKey: 'design',
+        scope: 'national',
+        meta: {
+            difficulty: 'Orta Düzey',
+            mvpTime: '5 Hafta',
+            monetization: 'Takım Başına SaaS Aboneliği + Figma Eklenti Pazaryeri Geliri',
+            opportunityScore: '%89 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Figma / Kod Deposu', type: 'source', sub: 'Plugin API + Git Entegrasyonu' },
+            { id: 2, name: 'Metin Çıkarma Servisi', type: 'service', sub: 'Node.js + i18n Ayrıştırıcı' },
+            { id: 3, name: 'Dil & Biçim Analiz Motoru', type: 'ai', sub: 'Türkçe Morfoloji + Kural Motoru' },
+            { id: 4, name: 'Bulgu Veritabanı', type: 'storage', sub: 'PostgreSQL + Anlık Görüntü' },
+            { id: 5, name: 'Tasarımcı Eklentisi', type: 'client', sub: 'Figma Plugin + Web Panel' }
+        ],
+        step1: {
+            marketGap: 'Türkçe, arayüz tasarımını sessizce bozan bir dildir: İngilizce\'ye göre metinler ortalama %25-35 uzar, "Kaydet" ile "Değişiklikleri Kaydet" arasındaki fark bir butonu taşırır, noktalı/noktasız I çifti yanlış küçültmeyle bozulur, tarih ve ondalık ayırıcı biçimleri karışır. Bu hatalar tasarım dosyasında İngilizce metinle çalışıldığı için görünmez; ürün Türkçe\'ye çevrildikten sonra, çoğu zaman kullanıcı şikâyetiyle ortaya çıkar. Mevcut yerelleştirme araçları çeviri yönetimine odaklanır ve çevirinin arayüzde nasıl göründüğüyle ilgilenmez; erişilebilirlik denetçileri ise dil-özgü sorunları hiç bilmez. Türkçe Arayüz Denetçisi, bu kontrolü tasarım ve CI aşamasına çeker.',
+            description: 'Araç, hem tasarım dosyasında hem de kod tabanında Türkçe arayüz sorunlarını otomatik arar.\n\n**Temel İşlevler & Özellikler:**\n• **Metin Taşma Simülasyonu**: Her metin kutusunu Türkçe karşılığının uzunluğuyla yeniden ölçer; taşacak bileşenleri tasarım aşamasında işaretler.\n• **Noktalı/Noktasız I Denetimi**: `toLowerCase`/`toUpperCase` kullanılan kod yollarını ve tasarımdaki büyük harfe çevrilmiş metinleri tarar; "IŞIK" → "ışık" hatalarını yakalar.\n• **Kültürel Biçim Kontrolü**: Tarih (GG.AA.YYYY), ondalık ayırıcı (virgül), para birimi konumu ve telefon maskesi kurallarına uymayan alanları listeler.\n• **Kesme İşareti ve Ek Kuralları**: Özel adlara gelen eklerin kesme işaretiyle yazımını denetler.\n• **CI Entegrasyonu**: Pull request üzerinde yorum olarak bulgu bırakır; eşiği aşan hata birleştirmeyi engeller.',
+            tags: ['TypeScript', 'Node.js', 'Figma Plugin API', 'PostgreSQL', 'React', 'ICU MessageFormat']
+        },
+        step2: {
+            architecture: 'Araç iki ayrı girdi yüzeyinden (tasarım dosyası ve kaynak kod) beslendiği için **ortak bulgu modeli** etrafında kurgulanmıştır.\n\n### 1. Sistem Katmanları:\n• **Extractors (TypeScript)**: Figma Plugin API üzerinden metin katmanlarını, Git deposundan ise i18n kaynak dosyalarını (JSON/ARB/PO) çıkarır ve ortak bir "metin düğümü" modeline çevirir.\n• **Analysis Engine (Node.js)**: Kural motoru; her kural bağımsız çalışır, konum bilgisiyle birlikte bulgu üretir. Türkçe morfoloji için Zemberek tabanlı bir çözümleyici kullanılır.\n• **Layout Simulator (Satori + Resvg)**: Metni gerçek fontla ölçerek taşma tahminini piksel düzeyinde yapar.\n• **Reporting API (Fastify)**: Bulguları depolar, PR yorumu ve panel için sunar.\n\n### 2. Veritabanı Mimarisi:\n• **PostgreSQL**: Proje, tarama anlık görüntüleri, bulgular ve "kabul edildi" işaretleri.\n• **Nesne Depolama**: Taşma simülasyonu görselleri (öncesi/sonrası).',
+            security: 'Araç müşterinin tasarım dosyalarına ve kaynak koduna eriştiği için **veri asgariliği** ve **jeton güvenliği** öne çıkar.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Yalnızca Metin İşlenir**: Kaynak koddan sadece i18n dosyaları ve `toLowerCase`/`toUpperCase` çağrılarının bulunduğu satırlar okunur; iş mantığı içeren kod hiçbir zaman sunucuya gönderilmez.\n• **Kısa Ömürlü Jetonlar**: Figma ve GitHub erişimi OAuth ile alınır, jetonlar şifreli olarak saklanır ve yenileme akışıyla otomatik döndürülür.\n• **Tenant İzolasyonu**: Her müşterinin bulguları satır düzeyi güvenlik (RLS) ile ayrılır; çapraz erişim veritabanı seviyesinde imkânsızdır.\n• **KVKK Uyumu**: Tarama sonuçlarında yer alan örnek metinler kişisel veri içerebileceğinden, saklama süresi yapılandırılabilir ve süre sonunda otomatik silinir.'
+        }
+    },
+
+    {
+        id: 'servis-takip-veli',
+        title: 'Servis Takip Veli',
+        tagline: 'Okul Servislerinde Çocuğun İniş-Biniş Doğrulamasını Çevrimdışı Çalışarak Yapan ve Veliye Anlık Bildiren Mobil Uygulama',
+        category: 'Mobil Uygulama',
+        categoryKey: 'mobile',
+        scope: 'national',
+        meta: {
+            difficulty: 'Orta Düzey',
+            mvpTime: '6 Hafta',
+            monetization: 'Servis Firması Aboneliği + Okul Kurumsal Paketi',
+            opportunityScore: '%90 Fırsat Skoru',
+            scope: 'national'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Öğrenci NFC Kartı / BLE Etiketi', type: 'source', sub: 'Temassız Kimlik' },
+            { id: 2, name: 'Hostes Cihazı Uygulaması', type: 'service', sub: 'Flutter + Yerel Kuyruk' },
+            { id: 3, name: 'Anomali & Gecikme Tahmini', type: 'ai', sub: 'Rota Sapma Analizi' },
+            { id: 4, name: 'Şifreli Yerel Depo', type: 'storage', sub: 'SQLCipher + Sunucu Senkronu' },
+            { id: 5, name: 'Veli Uygulaması', type: 'client', sub: 'Push Bildirim + Canlı Harita' }
+        ],
+        step1: {
+            marketGap: 'Türkiye\'de milyonlarca öğrenci okul servisiyle taşınır ve veliler çocuklarının servise binip binmediğini genellikle hostesle yapılan telefon görüşmesiyle öğrenir. Servis içinde unutulan çocuk vakaları basına yansımaya devam etmektedir. Mevcut servis takip uygulamaları yalnızca aracın GPS konumunu gösterir; asıl kritik olan "bu çocuk bu araca bindi mi, indi mi" bilgisini doğrulamaz. Ayrıca bu uygulamalar sürekli internet varsayar; oysa servisler kapsama zayıf güzergâhlardan geçer ve bağlantı koptuğunda kayıt hiç tutulmaz. Bir de çocuk verisi KVKK kapsamında özel korunması gereken bir kategoridir ve konum geçmişinin süresiz saklanması ciddi bir risktir. Servis Takip Veli bu üç boşluğu birlikte kapatır.',
+            description: 'Uygulama, hostes cihazı ve veli telefonu olmak üzere iki taraftan oluşur; çevrimdışı çalışacak biçimde tasarlanmıştır.\n\n**Temel İşlevler & Özellikler:**\n• **Temassız İniş-Biniş Doğrulama**: Öğrenci NFC kartını okutur veya BLE etiketi otomatik algılanır; hostes onaylar. İnternet olmasa da kayıt yerelde tutulur.\n• **Araçta Kalan Çocuk Kontrolü**: Sefer sonunda binip inmeyen öğrenci varsa hostes cihazı ekranı kilitleyip sesli alarm verir; kontrol yapılmadan sefer kapatılamaz.\n• **Veliye Anlık Bildirim**: Bağlantı geldiği anda kuyruk boşalır ve veliye "bindi/indi" bildirimi ulaşır; gecikme durumunda tahmini varış paylaşılır.\n• **Sınırlı Konum Saklama**: Konum izi yalnızca sefer süresince tutulur, sefer bitiminden kısa süre sonra otomatik silinir.',
+            tags: ['Flutter', 'SQLCipher', 'NFC', 'BLE', 'Firebase Cloud Messaging', 'Go']
+        },
+        step2: {
+            architecture: 'Sistem, bağlantının varlığını hiçbir zaman varsaymayan **çevrimdışı öncelikli (offline-first)** bir mobil mimariye dayanır.\n\n### 1. Sistem Katmanları:\n• **Hostes App (Flutter)**: NFC/BLE okuma, sefer durum makinesi ve yerel olay kuyruğu. Tüm işlemler önce yerele yazılır, sonra senkronize edilir.\n• **Sync Service (Go)**: Olay tabanlı senkronizasyon; her olayın istemci tarafından üretilmiş benzersiz kimliği vardır, bu sayede tekrar gönderim çift kayıt oluşturmaz (idempotent).\n• **Notification Service (Go + FCM)**: Veli bildirimlerini sıralı ve tekilleştirilmiş biçimde gönderir.\n• **Parent App (Flutter)**: Canlı harita, sefer geçmişi ve bildirim tercihleri.\n\n### 2. Veritabanı Mimarisi:\n• **SQLCipher (cihazda)**: Şifreli yerel olay kuyruğu ve öğrenci listesi.\n• **PostgreSQL + PostGIS**: Seferler, duraklar, iniş-biniş olayları ve kısa ömürlü konum izleri.\n• **Redis**: Aktif sefer durumu ve bildirim tekilleştirme anahtarları.',
+            security: 'Uygulama çocuklara ait konum ve devam verisi işlediği için KVKK\'nın en hassas kategorisindedir; mimari **saklama süresini sınırlamak** üzerine kuruludur.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Otomatik Veri İmhası**: Ham konum izleri sefer bitiminden 24 saat sonra otomatik silinir; geriye yalnızca "bindi/indi" olayları ve süre özeti kalır.\n• **Cihazda Şifreleme**: Hostes cihazındaki öğrenci listesi ve kuyruk SQLCipher ile AES-256 şifrelenir; cihaz kaybında uzaktan silme tetiklenebilir.\n• **Veli-Öğrenci Bağı Doğrulaması**: Bir velinin yalnızca kendi çocuğunu görebilmesi, okul tarafından onaylanan bağ kaydıyla ve satır düzeyi güvenlikle (RLS) garanti altına alınır.\n• **Rıza ve Şeffaflık**: Hangi verinin ne kadar süre tutulduğu uygulama içinde açıkça gösterilir; veli dilediğinde geçmiş kayıtların silinmesini talep edebilir.'
+        }
+    },
+
+    {
+        id: 'clintrial-match',
+        title: 'ClinTrial Match',
+        tagline: 'Hasta Kayıtlarını Klinik Araştırma Uygunluk Kriterleriyle Gizlilik Koruyarak Eşleştiren Global Hasta Alım Platformu',
+        category: 'Sağlık Teknolojileri & Yapay Zeka',
+        categoryKey: 'health-ai',
+        scope: 'international',
+        meta: {
+            difficulty: 'Uzman Düzey',
+            mvpTime: '12 Hafta',
+            monetization: 'Sponsor Başına Araştırma Lisansı + Başarılı Alım Başına Ücret',
+            opportunityScore: '%95 Fırsat Skoru',
+            scope: 'international'
+        },
+        diagramNodes: [
+            { id: 1, name: 'Hastane EHR (FHIR)', type: 'source', sub: 'HL7 FHIR R4 Kaynakları' },
+            { id: 2, name: 'De-identification Gateway', type: 'service', sub: 'Rust + Safe Harbor Kuralları' },
+            { id: 3, name: 'Uygunluk Eşleştirme Motoru', type: 'ai', sub: 'Klinik NLP + Kriter Ayrıştırma' },
+            { id: 4, name: 'Şifreli Aday Havuzu', type: 'storage', sub: 'PostgreSQL + Alan Bazlı Şifreleme' },
+            { id: 5, name: 'Araştırmacı Portalı', type: 'client', sub: 'Next.js + Denetim İzli Erişim' }
+        ],
+        step1: {
+            marketGap: 'Klinik araştırmaların yaklaşık %80\'i hasta alım hedeflerini zamanında tutturamaz ve araştırmaların önemli bir kısmı yeterli katılımcı bulunamadığı için tamamen durdurulur. Sorunun kaynağı ilgisizlik değil görünürlüktür: uygun hasta çoğu zaman zaten bir hastanenin kayıtlarındadır, ancak uygunluk kriterleri (dahil etme/dışlama) serbest metin olarak yazılır ve hasta kaydıyla otomatik karşılaştırılamaz. Araştırma koordinatörleri bu eşleştirmeyi elle, dosya dosya yapar. Mevcut çözümler tek hastane içinde çalışır ve çok merkezli araştırmalarda veri paylaşımı GDPR/HIPAA engeline takılır. ClinTrial Match, hasta verisini hastane dışına çıkarmadan çok merkezli aday havuzu oluşturur.',
+            description: 'Platform, hastane içinde çalışan bir eşleştirme ajanı ile sponsor tarafındaki araştırma portalından oluşur.\n\n**Temel İşlevler & Özellikler:**\n• **Kriter Ayrıştırma**: Protokoldeki serbest metin dahil/dışlama kriterlerini yapılandırılmış sorgulara çevirir (yaş, tanı kodu, laboratuvar aralığı, eşlik eden hastalık, ilaç geçmişi).\n• **Hastane İçinde Eşleştirme**: Sorgu hastaneye gider, hasta verisi hastanede kalır; dışarı yalnızca "kaç aday var" sayısı ve rıza sonrası iletişim izni çıkar.\n• **Uygunluk Gerekçesi**: Her aday için hangi kriterin sağlandığı/sağlanmadığı satır satır gösterilir; koordinatör kararı denetlenebilir olur.\n• **Alım Hunisi Analitiği**: Hangi kriterin aday havuzunu en çok daralttığını raporlar; sponsor protokolü gerçekçi biçimde revize edebilir.',
+            tags: ['Rust', 'Python', 'HL7 FHIR', 'PostgreSQL', 'Next.js', 'Clinical NLP']
+        },
+        step2: {
+            architecture: 'Mimari, verinin merkezde toplanmadığı **federated (dağıtık sorgu)** modelini uygular; sorgu veriye gider, veri sorguya gelmez.\n\n### 1. Sistem Katmanları:\n• **Site Agent (Rust)**: Hastane ağı içinde çalışır; FHIR sunucusuna bağlanır, gelen yapılandırılmış sorguyu yerelde koşturur ve yalnızca toplulaştırılmış sonucu döner.\n• **Criteria Service (Python)**: Protokol metnini klinik NLP ile ayrıştırır, ICD-10/SNOMED/LOINC kodlarına eşler ve sorgu planı üretir.\n• **Coordination API (Go)**: Sponsor ile siteler arasındaki sorgu dağıtımını, yetkilendirmeyi ve sonuç toplamayı yönetir.\n• **Researcher Portal (Next.js)**: Protokol yükleme, site bazlı aday sayıları ve alım hunisi görselleştirmesi.\n\n### 2. Veritabanı Mimarisi:\n• **PostgreSQL (site içi)**: Aday kimlikleri ve eşleşme gerekçeleri — hastane sınırları içinde kalır.\n• **PostgreSQL (merkez)**: Yalnızca protokoller, sorgu planları ve toplulaştırılmış sayılar.\n• **Redis**: Sorgu dağıtım durumu ve site sağlık kontrolleri.',
+            security: 'Sağlık verisi HIPAA ve GDPR kapsamında en yüksek korumayı gerektirir; mimarinin temel taahhüdü **hasta düzeyinde verinin siteden çıkmamasıdır**.\n\n### 1. Güvenlik Önlemleri & Standartlar:\n• **Federated Sorgulama**: Merkez sunucu hiçbir zaman hasta düzeyinde kayıt görmez; yalnızca sayı ve toplulaştırılmış istatistik alır. Küçük hücre gizleme (small cell suppression) ile 5\'in altındaki sayılar bastırılır.\n• **De-identification**: Site içinde bile analiz katmanına giden veriden HIPAA Safe Harbor tanımlayıcıları çıkarılır; tarihler yıla yuvarlanır.\n• **Rıza Yönetimi (Consent)**: Bir adayla iletişime geçilmesi ancak hastanın araştırma iletişimine açık rızası varsa mümkündür; rıza durumu her sorguda yeniden doğrulanır.\n• **Şifreleme ve Denetim**: Alan bazlı şifreleme (AES-256-GCM), site-merkez arası mTLS ve her sorgunun kim tarafından, hangi protokol için çalıştırıldığını tutan değiştirilemez denetim kaydı.'
+        }
     }
 ];

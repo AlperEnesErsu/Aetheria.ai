@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectFreshIdea,
         buildIdeationPrompt,
         CATEGORY_LABELS,
+        SCOPE_PRESETS,
         evaluateRateLimit,
         buildBlueprintMarkdown,
         PROVIDERS,
@@ -98,8 +99,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Application State
     let currentProject = null;
-    let activeCategoryFilter = 'all';
-    let activeScopeFilter = 'all';
+
+    // Both selections survive a reload. They did not before, and the scope picker
+    // made that obvious: it sits at the top of the page as a deliberate choice, and
+    // a refresh silently reset it to "Tümü" while the user assumed it still held.
+    // Values are validated on read — a hand-edited or stale entry must not leave a
+    // filter pointing at a category or scope that no longer exists.
+    let activeCategoryFilter = readStoredChoice(
+        'aetheria_category_filter', 'all', id => id === 'all' || Boolean(CATEGORY_LABELS[id]));
+    let activeScopeFilter = readStoredChoice(
+        'aetheria_scope_filter', 'all', id => Boolean(SCOPE_PRESETS[id]));
+
+    function readStoredChoice(key, fallback, isValid) {
+        try {
+            const stored = localStorage.getItem(key);
+            return stored && isValid(stored) ? stored : fallback;
+        } catch {
+            return fallback;   // storage blocked entirely
+        }
+    }
 
     // Ids already shown to this user. Persisted so variety survives a reload —
     // without it, every refresh started the example rotation from scratch.
@@ -565,22 +583,22 @@ document.addEventListener('DOMContentLoaded', () => {
         projectTitle.textContent = currentProject.title;
         projectTagline.textContent = currentProject.tagline;
 
-        // Render Scope Badge
+        // Render Scope Badge.
+        //
+        // The label comes from SCOPE_PRESETS rather than being written out here.
+        // The two copies had already drifted — the card said "Hibrit Kapsam" while
+        // the exported blueprint said "Hibrit Pazar" for the very same project.
         if (projectScopeBadge) {
-            const scope = currentProject.scope || (currentProject.meta && currentProject.meta.scope) || 'all';
-            if (scope === 'national') {
-                projectScopeBadge.textContent = '🇹🇷 Ulusal (Türkiye Odaklı)';
-                projectScopeBadge.className = 'project-scope-badge scope-national';
-                projectScopeBadge.style.display = 'inline-flex';
-            } else if (scope === 'international') {
-                projectScopeBadge.textContent = '🌍 Uluslararası (Global)';
-                projectScopeBadge.className = 'project-scope-badge scope-international';
-                projectScopeBadge.style.display = 'inline-flex';
-            } else {
-                projectScopeBadge.textContent = '🌐 Hibrit Kapsam';
-                projectScopeBadge.className = 'project-scope-badge';
-                projectScopeBadge.style.display = 'inline-flex';
-            }
+            const scope = currentProject.scope
+                || (currentProject.meta && currentProject.meta.scope)
+                || 'all';
+            const preset = SCOPE_PRESETS[scope] || SCOPE_PRESETS.all;
+
+            projectScopeBadge.textContent = preset.badge;
+            projectScopeBadge.className = scope === 'all'
+                ? 'project-scope-badge'
+                : `project-scope-badge scope-${scope}`;
+            projectScopeBadge.style.display = 'inline-flex';
         }
 
         const meta = currentProject.meta || {};
@@ -612,24 +630,46 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Filter projects based on selected category and scope
+    // Filter examples by the selected category and scope.
+    //
+    // Returns the list plus whether the scope was actually honoured. The previous
+    // version silently dropped the scope when a bucket was empty, so asking for
+    // "Ulusal" could hand back an international project whose own badge said
+    // "🌍 Uluslararası" — the card contradicting the filter that produced it, with
+    // nothing to explain the gap. Examples are a fallback and the app says so
+    // everywhere else; narrowing that quietly fails is not an exception to that.
     function getFilteredProjects() {
-        if (typeof PROJECTS_DATABASE === 'undefined' || PROJECTS_DATABASE.length === 0) return [];
-        let list = PROJECTS_DATABASE;
-        if (activeCategoryFilter !== 'all') {
-            list = list.filter(p => p.categoryKey === activeCategoryFilter);
+        if (typeof PROJECTS_DATABASE === 'undefined' || PROJECTS_DATABASE.length === 0) {
+            return { projects: [], scopeHonoured: true, widenedFrom: null };
         }
-        if (activeScopeFilter !== 'all') {
-            const scoped = list.filter(p => p.scope === activeScopeFilter);
-            if (scoped.length > 0) list = scoped;
+
+        const byCategory = activeCategoryFilter === 'all'
+            ? PROJECTS_DATABASE
+            : PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter);
+
+        if (activeScopeFilter === 'all') {
+            return { projects: byCategory, scopeHonoured: true, widenedFrom: null };
         }
-        return list.length > 0 ? list : (activeCategoryFilter === 'all' ? PROJECTS_DATABASE : PROJECTS_DATABASE.filter(p => p.categoryKey === activeCategoryFilter));
+
+        const scoped = byCategory.filter(p => p.scope === activeScopeFilter);
+        if (scoped.length > 0) {
+            return { projects: scoped, scopeHonoured: true, widenedFrom: null };
+        }
+
+        return { projects: byCategory, scopeHonoured: false, widenedFrom: activeScopeFilter };
     }
 
     // Pick an example the user has not seen yet (selection logic lives in core.js).
     // Returns { project, exhausted } so the caller can say when a cycle restarted.
     function getUnseenExample() {
-        const result = pickUnseenProject(getFilteredProjects(), seenProjectIds);
+        const filtered = getFilteredProjects();
+        const result = pickUnseenProject(filtered.projects, seenProjectIds);
+
+        // Carried up so the terminal can report a widened search instead of the
+        // caller having to re-derive it.
+        result.scopeHonoured = filtered.scopeHonoured;
+        result.widenedFrom = filtered.widenedFrom;
+        result.poolSize = filtered.projects.length;
 
         seenProjectIds = result.seen;
         // Background bookkeeping: if this fails, variety degrades for the session
@@ -1028,24 +1068,64 @@ Yanıtı tam olarak şu JSON şemasında ver:
         setTimeout(() => URL.revokeObjectURL(url), 0);
     }
 
-    // Scope & Ecosystem Selector Handlers
+    // Scope & Ecosystem Selector.
+    //
+    // The markup promises role="radiogroup" with role="radio" children. That is a
+    // contract: a screen reader announces "1 of 3" and its user then presses an
+    // arrow key, which did nothing — every button was also a separate tab stop,
+    // which is not how a radio group behaves. Arrow keys, Home/End and a roving
+    // tabindex are what make the promise true.
     if (scopeSelector) {
-        scopeSelector.addEventListener('click', (e) => {
-            const btn = e.target.closest('.scope-btn');
+        const scopeButtons = () => [...scopeSelector.querySelectorAll('.scope-btn')];
+
+        function selectScope(btn, { focus = false } = {}) {
             if (!btn) return;
 
-            document.querySelectorAll('.scope-btn').forEach(b => {
+            for (const b of scopeButtons()) {
                 const isActive = b === btn;
                 b.classList.toggle('active', isActive);
                 b.setAttribute('aria-checked', isActive ? 'true' : 'false');
-            });
+                // Only the checked radio is tabbable; arrows move within the group.
+                b.setAttribute('tabindex', isActive ? '0' : '-1');
+            }
+
             activeScopeFilter = btn.getAttribute('data-scope') || 'all';
+            persist('aetheria_scope_filter', activeScopeFilter);
+
+            if (focus) btn.focus();
+        }
+
+        scopeSelector.addEventListener('click', (e) => {
+            const btn = e.target.closest('.scope-btn');
+            if (btn) selectScope(btn);
         });
 
-        // Initialize scope buttons ARIA
-        document.querySelectorAll('.scope-btn').forEach(btn => {
-            btn.setAttribute('aria-checked', btn.classList.contains('active') ? 'true' : 'false');
+        scopeSelector.addEventListener('keydown', (e) => {
+            const buttons = scopeButtons();
+            const current = buttons.indexOf(document.activeElement.closest('.scope-btn'));
+            if (current === -1) return;
+
+            let next = null;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                next = buttons[(current + 1) % buttons.length];
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                next = buttons[(current - 1 + buttons.length) % buttons.length];
+            } else if (e.key === 'Home') {
+                next = buttons[0];
+            } else if (e.key === 'End') {
+                next = buttons[buttons.length - 1];
+            } else {
+                return;
+            }
+
+            e.preventDefault();   // stop the arrow keys from scrolling the page
+            selectScope(next, { focus: true });
         });
+
+        // Restore the stored choice, so a reload does not quietly reset a filter
+        // the user believes is still applied.
+        const storedBtn = scopeSelector.querySelector(`.scope-btn[data-scope="${activeScopeFilter}"]`);
+        selectScope(storedBtn || scopeButtons()[0]);
     }
 
     // Category Filter Handlers
@@ -1060,12 +1140,17 @@ Yanıtı tam olarak şu JSON şemasında ver:
             btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
         activeCategoryFilter = e.target.getAttribute('data-category');
+        persist('aetheria_category_filter', activeCategoryFilter);
     });
 
-    // Reflect the initial filter state for assistive tech on load
+    // Reflect the stored filter on load, for assistive tech and for the user: the
+    // markup hardcodes "Tüm Kategoriler" as active, so without this a restored
+    // filter would be applied while the buttons showed something else.
     document.querySelectorAll('.filter-btn').forEach(btn => {
+        const isActive = btn.getAttribute('data-category') === activeCategoryFilter;
         btn.setAttribute('type', 'button');
-        btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
 
     // ==========================================
@@ -1479,9 +1564,19 @@ Yanıtı tam olarak şu JSON şemasında ver:
                             `Fikir listesi isteniyor · ${IDEA_BATCH_SIZE} fikir · ` +
                             `${getProvider(activeProvider).label} · model: ${getProvider(activeProvider).models[0]}`,
                             'agent');
+                        // The scope was already being passed here and then thrown
+                        // away, so the one control the user had just set was the
+                        // only thing the log did not mention.
+                        const scopePreset = SCOPE_PRESETS[step.scope] || SCOPE_PRESETS.all;
+                        writeTerminalLog(`Kapsam: ${scopePreset.badge}`, 'info');
+
                         writeTerminalLog(
                             `Kısıtlar: ${step.combo.problemSource} · ${step.combo.audience} · ` +
                             `${step.combo.technical} · ${step.combo.revenue}`, 'info');
+
+                        if (step.combo.ecosystem) {
+                            writeTerminalLog(`Ekosistem açısı: ${step.combo.ecosystem}`, 'info');
+                        }
                     } else if (step.phase === 'selected') {
                         writeTerminalLog(
                             `${step.total} fikir alındı · ${step.freshCount} tanesi yeni · ` +
@@ -1526,12 +1621,29 @@ Yanıtı tam olarak şu JSON şemasında ver:
                     'örnek projeler gösteriliyor. Ayarlardan açabilirsin.', 'info');
             }
 
-            const { project, exhausted } = getUnseenExample();
+            const { project, exhausted, scopeHonoured, widenedFrom, poolSize } = getUnseenExample();
 
             if (!project) {
                 writeTerminalLog('Bu kategoride örnek proje bulunmuyor.', 'info');
                 return;
             }
+
+            // Say it before showing the project, not after: the badge on the card
+            // will disagree with the filter, and the user deserves to know why
+            // rather than concluding the filter is broken.
+            if (!scopeHonoured) {
+                const askedFor = SCOPE_PRESETS[widenedFrom] ? SCOPE_PRESETS[widenedFrom].badge : widenedFrom;
+                writeTerminalLog(
+                    `Bu kategoride ${askedFor} kapsamında örnek yok — kapsam genişletildi. ` +
+                    'Yapay zeka üretimi bu kapsamda yine de fikir üretebilir.', 'warning');
+            } else if (activeScopeFilter !== 'all' && poolSize < 2) {
+                // One example in the bucket means the next press returns the same
+                // project. Better to say so than to let it look like a stuck button.
+                writeTerminalLog(
+                    `Bu kategori + kapsam için yalnızca ${poolSize} örnek var, ` +
+                    'bu yüzden aynı proje tekrar gelebilir.', 'warning');
+            }
+
             if (exhausted) {
                 writeTerminalLog('Bu kategorideki tüm örnekler gösterildi, baştan başlanıyor.', 'info');
             }
