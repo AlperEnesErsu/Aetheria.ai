@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rememberKeyToggle = document.getElementById('rememberKeyToggle');
     const btnForgetKey = document.getElementById('btnForgetKey');
     const scopeSelector = document.getElementById('scopeSelector');
+    const btnShowSample = document.getElementById('btnShowSample');
     const filterBar = document.getElementById('filterBar');
 
     // Header Action Elements
@@ -147,11 +148,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // or corrupt entry like {"a":1} is truthy, survived the check below, and then
     // every pool operation failed on it: the drawer rendered nothing, saving did
     // nothing, and generation aborted, all without telling the user why.
-    let communityPool = readProjectArray('aetheria_community_pool');
-    if (!communityPool) {
-        communityPool = (typeof PROJECTS_DATABASE !== 'undefined') ? [...PROJECTS_DATABASE.slice(0, 3)] : [];
-        persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
-    }
+    // The pool starts empty. It used to be seeded with the first three showcase
+    // entries, which meant "kaydettiklerim" opened with three projects the user had
+    // never saved — and made the app look like it ships a catalogue. The pool holds
+    // what the user chose to keep, and nothing else.
+    let communityPool = readProjectArray('aetheria_community_pool') || [];
 
     // The key can live in localStorage (survives restarts) or sessionStorage (gone
     // when the tab closes). Session storage is the safer default on a shared or
@@ -373,7 +374,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const live = useGeminiLiveMode && geminiApiKey;
 
         keyHint.classList.toggle('is-live', Boolean(live));
-        generateButtonLabel.textContent = live ? 'PROJE ÜRET' : 'PROJE BUL';
+        // The label no longer changes with key state: the button does one thing —
+        // generate. "PROJE BUL" described looking something up, which is what the
+        // button used to do without a key and no longer does.
+        generateButtonLabel.textContent = 'PROJE ÜRET';
 
         if (live) {
             // Naming the provider matters once more than one is possible: it is the
@@ -389,21 +393,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Rebuilt rather than toggled so the button keeps its listener
         keyHint.innerHTML = '';
-        keyHint.append(
-            'Şu an ',
-            Object.assign(document.createElement('strong'), { textContent: 'örnek projeler' }),
-            ' gösteriliyor. '
-        );
 
         // Someone who already has a key does not need to be told to go get one;
         // pointing them at the signup flow reads as "your key did not save".
         if (geminiApiKey) {
-            keyHint.append('Anahtarın kayıtlı, yapay zeka üretimi kapalı. ');
+            keyHint.append('Anahtarın kayıtlı ama yapay zeka üretimi kapalı. ');
             keyHint.appendChild(btnHeroSetKey);
             btnHeroSetKey.textContent = 'Ayarlardan aç';
             return;
         }
 
+        keyHint.append(
+            'Projeler ',
+            Object.assign(document.createElement('strong'), { textContent: 'anahtarınla sıfırdan üretilir' }),
+            ', hazır bir listeden seçilmez. '
+        );
         btnHeroSetKey.textContent = 'Ücretsiz anahtarını ekle';
         keyHint.appendChild(btnHeroSetKey);
         keyHint.append(' — 30 saniye, kredi kartı gerekmez.');
@@ -1549,8 +1553,9 @@ Yanıtı tam olarak şu JSON şemasında ver:
         // script announced a "Küresel SaaS & GitHub Trend Veritabanı" connection and
         // a competition-saturation analysis, neither of which exists — the terminal
         // was theatre dressed as telemetry.
+        // Anything this function renders was generated this run; the showcase has
+        // its own entry point and never reaches here.
         let projectToRender = null;
-        let isExample = false;
 
         if (useGeminiLiveMode && geminiApiKey) {
             const started = Date.now();
@@ -1603,59 +1608,86 @@ Yanıtı tam olarak şu JSON şemasında ver:
             }
         }
 
-        // Examples are a fallback, and the log says so plainly rather than dressing
-        // a lookup up as generation.
+        // Generation is the product. When it cannot run, the honest answer is to say
+        // why and stop — not to quietly serve a stored project.
+        //
+        // The examples used to stand in here, which turned the main button into a
+        // catalogue lookup for every visitor without a key and made the app look
+        // like it suggests from a dataset. They now live behind a separate,
+        // explicitly labelled "show me a sample output" action.
         if (!projectToRender) {
-            isExample = true;
-
-            // Two different states used to share one message, and the message was
-            // wrong for one of them: a user who had saved a key but switched live
-            // mode off was told the key did not exist. Telling someone their key is
-            // missing when it is sitting in storage sends them to re-paste a key
-            // that was never the problem.
             if (!geminiApiKey) {
-                writeTerminalLog('API anahtarı tanımlı değil — örnek projeler gösteriliyor.', 'info');
-            } else if (!useGeminiLiveMode) {
                 writeTerminalLog(
-                    `${getProvider(activeProvider).label} anahtarı kayıtlı ama yapay zeka üretimi kapalı — ` +
-                    'örnek projeler gösteriliyor. Ayarlardan açabilirsin.', 'info');
-            }
-
-            const { project, exhausted, scopeHonoured, widenedFrom, poolSize } = getUnseenExample();
-
-            if (!project) {
-                writeTerminalLog('Bu kategoride örnek proje bulunmuyor.', 'info');
+                    'Üretim için bir API anahtarı gerekiyor — bu uygulama projeleri ' +
+                    'hazır bir listeden seçmez, anahtarınla sıfırdan üretir.', 'warning');
+                writeTerminalLog('Anahtar ekranı açılıyor...', 'info');
+                await sleep(1200);
+                openKeyDialog(btnFeature2Notice);
                 return;
             }
 
-            // Say it before showing the project, not after: the badge on the card
-            // will disagree with the filter, and the user deserves to know why
-            // rather than concluding the filter is broken.
-            if (!scopeHonoured) {
-                const askedFor = SCOPE_PRESETS[widenedFrom] ? SCOPE_PRESETS[widenedFrom].badge : widenedFrom;
+            if (!useGeminiLiveMode) {
                 writeTerminalLog(
-                    `Bu kategoride ${askedFor} kapsamında örnek yok — kapsam genişletildi. ` +
-                    'Yapay zeka üretimi bu kapsamda yine de fikir üretebilir.', 'warning');
-            } else if (activeScopeFilter !== 'all' && poolSize < 2) {
-                // One example in the bucket means the next press returns the same
-                // project. Better to say so than to let it look like a stuck button.
-                writeTerminalLog(
-                    `Bu kategori + kapsam için yalnızca ${poolSize} örnek var, ` +
-                    'bu yüzden aynı proje tekrar gelebilir.', 'warning');
+                    `${getProvider(activeProvider).label} anahtarı kayıtlı ama yapay zeka üretimi kapalı.`,
+                    'warning');
+                writeTerminalLog('Ayarlardan açabilirsin; ekran açılıyor...', 'info');
+                await sleep(1200);
+                openKeyDialog(btnFeature2Notice);
+                return;
             }
 
-            if (exhausted) {
-                writeTerminalLog('Bu kategorideki tüm örnekler gösterildi, baştan başlanıyor.', 'info');
-            }
-
-            projectToRender = project;
-            writeTerminalLog(`Örnek seçildi: "${project.title}" (${seenProjectIds.length} örnek görüldü)`, 'info');
+            // Live mode was on and the attempt failed; the reason is already in the
+            // log above. Say what to do next instead of substituting a project.
+            writeTerminalLog(
+                'Bu deneme başarısız oldu. Tekrar deneyebilir veya örnek bir çıktıya bakabilirsin.',
+                'info');
+            return;
         }
 
         await sleep(250);   // the log is otherwise gone before it can be read
         terminalContainer.style.display = 'none';
 
-        loadProjectIntoView(projectToRender, false, isExample);
+        loadProjectIntoView(projectToRender, false, false);
+    }
+
+    // Show one stored sample so a visitor without a key can see what the generated
+    // output looks like. Deliberately a separate action from the generate button:
+    // when these shared one control, the app behaved like a catalogue and the
+    // difference between "produced for you" and "written in advance" disappeared.
+    async function showSampleOutput() {
+        resultsWrapper.classList.remove('visible');
+        step2Container.classList.remove('visible');
+        step2Container.style.display = 'none';
+        step2TriggerWrapper.style.display = 'none';
+
+        terminalContainer.style.display = 'block';
+        terminalBody.innerHTML = '';
+
+        writeTerminalLog('Örnek çıktı gösteriliyor — bu proje şimdi üretilmedi.', 'info');
+
+        const { project, exhausted } = getUnseenExample();
+
+        if (!project) {
+            writeTerminalLog('Bu kategori için kayıtlı bir örnek çıktı yok.', 'info');
+            return;
+        }
+
+        if (exhausted) {
+            writeTerminalLog('Bu kategorideki örnekler tekrar başa sarıldı.', 'info');
+        }
+        writeTerminalLog(`Örnek: "${project.title}"`, 'info');
+
+        await sleep(400);
+        terminalContainer.style.display = 'none';
+
+        loadProjectIntoView(project, false, true);
+    }
+
+    if (btnShowSample) {
+        btnShowSample.addEventListener('click', () => {
+            setButtonBusy(btnShowSample, true);
+            showSampleOutput().finally(() => setButtonBusy(btnShowSample, false));
+        });
     }
 
     // ==========================================

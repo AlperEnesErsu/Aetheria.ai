@@ -177,14 +177,22 @@
                                 <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2z"/>
                             </svg>
                         </span>
-                        <span id="generateButtonLabel">PROJE BUL</span>
+                        <span id="generateButtonLabel">PROJE ÜRET</span>
                     </button>
 
                     <!-- Replaced by the live-mode hint once a key is configured -->
                     <p id="keyHint" class="key-hint">
-                        Şu an <strong>örnek projeler</strong> gösteriliyor.
+                        Projeler <strong>anahtarınla sıfırdan üretilir</strong>, hazır bir listeden seçilmez.
                         <button type="button" id="btnHeroSetKey" class="link-button">Ücretsiz anahtarını ekle</button>
                         — 30 saniye, kredi kartı gerekmez.
+                    </p>
+
+                    <!-- Deliberately separate from the generate button: this shows a
+                         stored sample, and conflating the two is what made the app
+                         look like a catalogue. -->
+                    <p class="sample-hint">
+                        Önce çıktının neye benzediğini görmek ister misin?
+                        <button type="button" id="btnShowSample" class="link-button">Örnek çıktıyı gör</button>
                     </p>
                 </div>
             </section>

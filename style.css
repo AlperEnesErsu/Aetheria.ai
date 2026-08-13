@@ -671,6 +671,15 @@ body {
     color: var(--accent-emerald);
 }
 
+/* Sits below the primary hint and is deliberately quieter: looking at a stored
+   sample is a side door, not the main action. */
+.sample-hint {
+    margin-top: 0.45rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    opacity: 0.85;
+}
+
 .link-button {
     background: none;
     border: none;

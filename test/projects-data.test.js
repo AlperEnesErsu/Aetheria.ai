@@ -18,7 +18,13 @@ const filterKeys = [...html.matchAll(/data-category="([^"]+)"/g)]
     .map(m => m[1])
     .filter(key => key !== 'all');
 
-const MIN_PER_CATEGORY = 3;
+// This file is a showcase, not a catalogue: exactly one sample per category so a
+// visitor without a key can see what generated output looks like. It used to be a
+// pool the main button drew from, which is why the old assertions demanded depth —
+// three per category, then two per category *per scope*. That guaranteed growth in
+// the one file that should not grow, and it made the app behave like it suggests
+// from a dataset. The constraint is now a ceiling, not a floor.
+const SHOWCASE_PER_CATEGORY = 1;
 
 test('database is a non-empty array', () => {
     assert.ok(Array.isArray(projects));
@@ -45,13 +51,14 @@ test('project titles are unique', () => {
     assert.strictEqual(new Set(titles).size, titles.length, 'yinelenen başlık var');
 });
 
-test('every category has at least three projects', () => {
+test('each category carries exactly one showcase entry', () => {
     const counts = {};
     for (const p of projects) counts[p.categoryKey] = (counts[p.categoryKey] || 0) + 1;
 
     for (const [key, count] of Object.entries(counts)) {
-        assert.ok(count >= MIN_PER_CATEGORY,
-            `"${key}" kategorisinde ${count} proje var, en az ${MIN_PER_CATEGORY} olmalı`);
+        assert.strictEqual(count, SHOWCASE_PER_CATEGORY,
+            `"${key}" kategorisinde ${count} örnek var; vitrin kategori başına ` +
+            `${SHOWCASE_PER_CATEGORY} olmalı — bu dosya bir katalog değil`);
     }
 });
 
@@ -64,11 +71,11 @@ test('every category is reachable from a filter button', () => {
     }
 });
 
-test('every filter button matches at least three projects', () => {
+test('every filter button has a showcase entry to display', () => {
     for (const key of filterKeys) {
         const matching = projects.filter(p => p.categoryKey === key);
-        assert.ok(matching.length >= MIN_PER_CATEGORY,
-            `"${key}" filtresi ${matching.length} proje getiriyor, en az ${MIN_PER_CATEGORY} olmalı`);
+        assert.strictEqual(matching.length, SHOWCASE_PER_CATEGORY,
+            `"${key}" filtresi ${matching.length} örnek getiriyor, ${SHOWCASE_PER_CATEGORY} olmalı`);
     }
 });
 
@@ -162,26 +169,28 @@ test('every project renders a complete blueprint', () => {
 // projects per category is no longer enough on its own: with a single national
 // project in a category, "Ulusal + DevOps" returned the same project on every
 // press. Each bucket the UI can actually select needs more than one entry.
-test('every category has at least two projects in each scope', () => {
-    const MIN_PER_BUCKET = 2;
-    const categories = [...new Set(projects.map(p => p.categoryKey))];
-
-    for (const categoryKey of categories) {
-        for (const scope of ['national', 'international']) {
-            const bucket = projects.filter(p => p.categoryKey === categoryKey && p.scope === scope);
-            assert.ok(bucket.length >= MIN_PER_BUCKET,
-                `${categoryKey} + ${scope}: ${bucket.length} proje var, en az ${MIN_PER_BUCKET} gerekiyor ` +
-                '(aksi hâlde aynı proje arka arkaya gelir)');
-        }
+test('every showcase entry has a valid scope', () => {
+    for (const p of projects) {
+        assert.ok(p.scope === 'national' || p.scope === 'international',
+            `${p.id}: geçersiz scope (${p.scope})`);
     }
 });
 
-test('every project has a valid scope (national or international)', () => {
-    for (const p of projects) {
-        assert.ok(p.scope === 'national' || p.scope === 'international', `${p.id}: geçersiz scope (${p.scope})`);
-    }
-    const nationalCount = projects.filter(p => p.scope === 'national').length;
-    const internationalCount = projects.filter(p => p.scope === 'international').length;
-    assert.ok(nationalCount >= 5, `Yeterli ulusal proje bulunamadı: ${nationalCount}`);
-    assert.ok(internationalCount >= 5, `Yeterli uluslararası proje bulunamadı: ${internationalCount}`);
+test('the showcase demonstrates both scopes', () => {
+    // One sample per category means scope cannot be balanced per category. What
+    // matters is that a visitor can see both a Türkiye-focused and a global
+    // example somewhere in the showcase, since the picker offers both.
+    const scopes = new Set(projects.map(p => p.scope));
+    assert.ok(scopes.has('national'), 'vitrinde ulusal örnek yok');
+    assert.ok(scopes.has('international'), 'vitrinde uluslararası örnek yok');
+});
+
+test('the showcase stays small', () => {
+    // The point of the trim was that this file had grown to 167 KB — larger than
+    // app.js and core.js combined — in an app whose promise is that it does not
+    // ship a dataset. A ceiling here is the thing that keeps that true.
+    const bytes = fs.statSync(path.join(root, 'projects-data.js')).size;
+    const LIMIT = 60 * 1024;
+    assert.ok(bytes < LIMIT,
+        `projects-data.js ${Math.round(bytes / 1024)} KB — vitrin ${LIMIT / 1024} KB altında kalmalı`);
 });
