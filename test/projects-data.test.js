@@ -149,7 +149,30 @@ test('every project renders a complete blueprint', () => {
         const md = core.buildBlueprintMarkdown(p);
         assert.ok(md.includes(p.title), `${p.id}: başlık blueprint'te yok`);
         assert.ok(md.includes('## 3. KOD MİMARİSİ'), `${p.id}: mimari bölümü blueprint'te yok`);
-        assert.ok(!md.includes('N/A'), `${p.id}: eksik meta yüzünden blueprint'te N/A var`);
+        // Check the meta lines rather than the whole document. A bare
+        // includes('N/A') matched legitimate prose — "(JSON/ARB/PO)" contains the
+        // substring — and failed a project whose meta was complete.
+        const placeholderLines = md.split('\n').filter(line => /^> \*\*.+\*\*: N\/A\s*$/.test(line));
+        assert.strictEqual(placeholderLines.length, 0,
+            `${p.id}: eksik meta yüzünden blueprint'te N/A var → ${placeholderLines.join(' | ')}`);
+    }
+});
+
+// The scope picker turned one list into sixteen buckets. Guaranteeing three
+// projects per category is no longer enough on its own: with a single national
+// project in a category, "Ulusal + DevOps" returned the same project on every
+// press. Each bucket the UI can actually select needs more than one entry.
+test('every category has at least two projects in each scope', () => {
+    const MIN_PER_BUCKET = 2;
+    const categories = [...new Set(projects.map(p => p.categoryKey))];
+
+    for (const categoryKey of categories) {
+        for (const scope of ['national', 'international']) {
+            const bucket = projects.filter(p => p.categoryKey === categoryKey && p.scope === scope);
+            assert.ok(bucket.length >= MIN_PER_BUCKET,
+                `${categoryKey} + ${scope}: ${bucket.length} proje var, en az ${MIN_PER_BUCKET} gerekiyor ` +
+                '(aksi hâlde aynı proje arka arkaya gelir)');
+        }
     }
 });
 

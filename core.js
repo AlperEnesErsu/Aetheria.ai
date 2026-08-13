@@ -17,21 +17,25 @@
     'use strict';
 
     // Diagram node types that have a matching .node-* rule in style.css
-    // Diagram node types that have a matching .node-* rule in style.css
     const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
 
-    // Scope definitions for targeting specific market ecosystems
+    // Scope definitions for targeting specific market ecosystems.
+    //
+    // `badge` is the single source of truth for what the UI shows. app.js used to
+    // hardcode its own copies of these strings, and they had already drifted
+    // ("Hibrit Kapsam" on the card vs "Hibrit Pazar" in the exported report) —
+    // the same project describing itself two different ways in two places.
     const SCOPE_PRESETS = {
         all: {
             id: 'all',
             label: '🌐 Tümü (Hibrit)',
-            badge: '🌐 Hibrit Pazar',
+            badge: '🌐 Hibrit Kapsam',
             description: 'Hem Türkiye pazarında uygulanabilir hem de küresel ölçeklenebilir hibrit projeler'
         },
         national: {
             id: 'national',
             label: '🇹🇷 Ulusal (Türkiye Odaklı)',
-            badge: '🇹🇷 Ulusal (Türkiye)',
+            badge: '🇹🇷 Ulusal (Türkiye Odaklı)',
             description: 'Türkiye şartlarına, regülasyonlarına (KVKK, GİB, e-Devlet), hibe/teşviklerine (TÜBİTAK, TEKNOFEST, KOSGEB) ve yerel sektörel sorunlarına odaklı projeler'
         },
         international: {
@@ -44,7 +48,8 @@
 
     // Asked the same question repeatedly, the model returns variations on a handful
     // of favourite ideas. Rotating a constraint combination through the prompt
-    // pushes it into a different corner each time: 5^4 = 625 combinations.
+    // pushes it into a different corner each time: 6 × 6 × 5 × 5 = 900 combinations,
+    // multiplied again by the ecosystem axis below.
     const CONSTRAINT_AXES = {
         problemSource: [
             'regülasyon ve uyum baskısı (KVKK / GDPR / GİB e-Belge / BDDK)',
@@ -78,6 +83,10 @@
         ]
     };
 
+    // Keyed by scope id so a lookup is `ECOSYSTEM_AXES[scope]` rather than a
+    // hand-written mapping. The international list was originally called `global`,
+    // which meant every read site had to remember that one of the two scopes goes
+    // by a different name here than everywhere else in the codebase.
     const ECOSYSTEM_AXES = {
         national: [
             'TÜBİTAK 1512 BİGG ve 1507 KOBİ Ar-Ge hibe desteği',
@@ -89,7 +98,7 @@
             'Deprem, AFAD, Kandilli ve erken uyarı sistemleri',
             'Akıllı tarım, DSİ sulama otomasyonu ve Çiftçi Kayıt Sistemi (ÇKS)'
         ],
-        global: [
+        international: [
             'Global SaaS ve Product Hunt lansman ekosistemi',
             'Stripe, LemonSqueezy çoklu para birimi ve global vergilendirme',
             'SOC2 Type II, ISO 27001 ve GDPR / CCPA veri güvenliği',
@@ -194,14 +203,11 @@
             combo[axis] = values[Math.floor(rng() * values.length)];
         }
 
-        if (scope === 'national') {
-            combo.ecosystem = ECOSYSTEM_AXES.national[Math.floor(rng() * ECOSYSTEM_AXES.national.length)];
-        } else if (scope === 'international') {
-            combo.ecosystem = ECOSYSTEM_AXES.global[Math.floor(rng() * ECOSYSTEM_AXES.global.length)];
-        } else {
-            const merged = [...ECOSYSTEM_AXES.national, ...ECOSYSTEM_AXES.global];
-            combo.ecosystem = merged[Math.floor(rng() * merged.length)];
-        }
+        // 'all' draws from both pools, so a hybrid run can still land on a Turkish
+        // grant programme or a global compliance angle rather than neither.
+        const pool = ECOSYSTEM_AXES[scope]
+            || [...ECOSYSTEM_AXES.national, ...ECOSYSTEM_AXES.international];
+        combo.ecosystem = pool[Math.floor(rng() * pool.length)];
 
         return combo;
     }
@@ -313,14 +319,23 @@
             consoleUrl: 'https://aistudio.google.com/app/apikey',
             consoleLabel: 'Google AI Studio',
             origin: 'https://generativelanguage.googleapis.com',
-            // Pinned flash models and fallback latest aliases
+            // A longer fallback list is good for reliability, but the order matters
+            // more than the length: every entry that fails costs a round trip before
+            // the next one is tried.
+            //
+            // The -latest aliases go first because Google repoints them as models
+            // retire, so they cannot go stale. Pinned names can and do: measured on
+            // this project, gemini-2.5-flash returns 404 "no longer available to new
+            // users" and gemini-2.5-flash-lite is gone entirely for new keys — which
+            // is why they sit at the end rather than the front. Keys issued before
+            // that change can still reach them, so they stay as a last resort.
             models: [
-                'gemini-2.5-flash',
-                'gemini-2.0-flash',
                 'gemini-flash-latest',
-                'gemini-2.5-flash-lite',
+                'gemini-2.0-flash',
+                'gemini-flash-lite-latest',
                 'gemini-2.0-flash-lite',
-                'gemini-flash-lite-latest'
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-lite'
             ],
             nativeJsonMode: true
         },
@@ -669,7 +684,17 @@ Yanıtı şu JSON şemasında ver:
             exhausted = true;
             const inThisSet = new Set(projects.map(p => p.id));
             for (const id of [...seen]) if (inThisSet.has(id)) seen.delete(id);
-            candidates = projects;
+
+            // The project on screen right now must not be a candidate for the very
+            // next press. Restarting the cycle over the full list made it one, so a
+            // two-project bucket showed the same project twice in a row half the
+            // time — the exact "it keeps suggesting the same thing" complaint the
+            // rotation exists to prevent.
+            const lastShownId = Array.isArray(seenIds) && seenIds.length
+                ? seenIds[seenIds.length - 1]
+                : null;
+            const withoutLast = projects.filter(p => p.id !== lastShownId);
+            candidates = withoutLast.length > 0 ? withoutLast : projects;
         }
 
         const project = candidates[Math.floor(rng() * candidates.length)];
