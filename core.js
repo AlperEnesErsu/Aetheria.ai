@@ -398,8 +398,17 @@
     const JSON_ONLY_SUFFIX = '\n\nYalnızca istenen JSON nesnesini döndür. ' +
         'Açıklama, giriş cümlesi veya kod bloğu işareti ekleme.';
 
+    // hasOwn, not a truthiness check: PROVIDERS['constructor'] resolves up the
+    // prototype chain to Object.prototype.constructor, which is truthy, so a
+    // stored provider id of "constructor" or "__proto__" returned the Function
+    // constructor instead of a provider — and every `.label` / `.models` read
+    // after it was undefined.
+    function isKnownProvider(providerId) {
+        return typeof providerId === 'string' && Object.hasOwn(PROVIDERS, providerId);
+    }
+
     function getProvider(providerId) {
-        return PROVIDERS[providerId] || PROVIDERS[DEFAULT_PROVIDER];
+        return isKnownProvider(providerId) ? PROVIDERS[providerId] : PROVIDERS[DEFAULT_PROVIDER];
     }
 
     // Shape one completion request. Returns the URL, the body, and the *name* and
@@ -542,7 +551,10 @@
             if (!attempt) continue;
             try {
                 const parsed = JSON.parse(attempt);
-                if (parsed && typeof parsed === 'object') return parsed;
+                // Arrays are objects too, and both callers want a keyed object. An
+                // array slipped through and then failed downstream as "Fikir listesi
+                // boş döndü", which points at the model rather than the shape.
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
             } catch { /* try the next shape */ }
         }
         throw new Error(`${what}: geçerli JSON döndürmedi`);
@@ -774,6 +786,7 @@ Yanıtı şu JSON şemasında ver:
         PROVIDERS,
         DEFAULT_PROVIDER,
         getProvider,
+        isKnownProvider,
         buildProviderRequest,
         extractProviderText,
         parseJsonResponse,

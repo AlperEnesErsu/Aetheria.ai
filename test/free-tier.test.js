@@ -15,6 +15,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const core = require('../core.js');
+const { bootApp } = require('./helpers/app-harness.js');
 
 // Fields that move a request onto a paid tier or a paid add-on
 const PAID_ONLY = [
@@ -70,7 +71,11 @@ test('every provider declares whether it costs money, honestly', () => {
     }
 });
 
-test('a provider the browser cannot reach is not selectable', () => {
+// These two were greps for a line of source. A grep cannot tell whether the
+// option is actually rendered, disabled, or labelled — it only proves someone
+// once typed the string. Both now read the rendered picker.
+
+test('a provider the browser cannot reach is not selectable', async () => {
     // Measured: api.openai.com returns no Access-Control-Allow-Origin, so a valid
     // key still fails with a network error that reads like the key was rejected.
     for (const [id, provider] of Object.entries(core.PROVIDERS)) {
@@ -78,16 +83,35 @@ test('a provider the browser cannot reach is not selectable', () => {
         assert.ok(provider.blockedReason && provider.blockedReason.trim(),
             `${id}: kullanılamama nedeni yazılmamış`);
     }
-    assert.ok(/option\.disabled = true/.test(appSource),
-        'kullanılamayan sağlayıcı listede seçilebilir kalmış');
-    assert.ok(/browserBlocked\) return DEFAULT_PROVIDER/.test(appSource),
-        'kayıtlı tercih kullanılamayan bir sağlayıcıya kilitleyebilir');
+
+    const app = await bootApp();
+    for (const [id, provider] of Object.entries(core.PROVIDERS)) {
+        const option = [...app.id('providerSelect').options].find(o => o.value === id);
+        assert.ok(option, `${id} listede yok`);
+        assert.strictEqual(option.disabled, Boolean(provider.browserBlocked),
+            `${id}: seçilebilirlik browserBlocked ile uyuşmuyor`);
+    }
 });
 
-test('the paid providers are labelled as paid in the picker itself', () => {
+test('a stored preference cannot strand the user on an unreachable provider', async () => {
+    const blocked = Object.keys(core.PROVIDERS).find(id => core.PROVIDERS[id].browserBlocked);
+    const app = await bootApp({ storage: { aetheria_provider: blocked } });
+
+    assert.strictEqual(app.id('providerSelect').value, core.DEFAULT_PROVIDER,
+        'kayıtlı tercih kullanılamayan sağlayıcıya kilitledi');
+});
+
+test('the paid providers are labelled as paid in the picker itself', async () => {
     // The note under the select is easy to miss; the option text is not.
-    assert.ok(/provider\.free \? ' — ücretsiz katman' : ' — ücretli'/.test(appSource),
-        'sağlayıcı listesi ücretli/ücretsiz ayrımını göstermiyor');
+    const app = await bootApp();
+
+    for (const [id, provider] of Object.entries(core.PROVIDERS)) {
+        if (provider.browserBlocked) continue;
+        const option = [...app.id('providerSelect').options].find(o => o.value === id);
+        const expected = provider.free ? /ücretsiz katman/ : /ücretli/;
+        assert.match(option.textContent, expected,
+            `${id}: seçenek metni ücret durumunu söylemiyor`);
+    }
 });
 
 test('no provider is wired to a paid add-on tool', () => {
@@ -115,6 +139,9 @@ test('a client-side rate limit is still in place', () => {
     assert.ok(/const MAX_CALLS_PER_HOUR = \d+/.test(appSource), 'saatlik limit kaldırılmış');
 });
 
+// The behavioural twin of this lives in app-behaviour.test.js, which drives a real
+// 429 through the app and reads the terminal. This one stays as a source check so
+// the wording cannot be quietly softened in a branch no test happens to exercise.
 test('a 429 is explained as a spent free allowance, not a bill', () => {
     // Google's own wording ("check your plan and billing details") reads like money
     // is owed; on the free tier nothing is. The app must say so.

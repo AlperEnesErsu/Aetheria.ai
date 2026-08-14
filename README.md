@@ -1,9 +1,9 @@
 # Aetheria.ai 🚀
 > **Yapay Zeka Destekli Yazılım Proje Fikri Üreteci**
 
-Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir proje fikri üreticisidir. Seçtiğin alanda bir proje önerir; beğenirsen ikinci aşamada sistem mimarisini (Clean Architecture) ve güvenlik tasarımını da üretir, kaydetmek istersen tarayıcına kaydeder.
+Aetheria.ai, kendi API anahtarınla çalışan, tarayıcıda koşan bir proje fikri üreticisidir. Seçtiğin alanda ve pazar kapsamında sıfırdan bir proje üretir; beğenirsen ikinci aşamada sistem mimarisini (Clean Architecture) ve güvenlik tasarımını da üretir, kaydetmek istersen tarayıcına kaydeder.
 
-> **Ne yapar, ne yapmaz:** Yapay zeka fikirleri **kendi eğitim verisinden** üretir; web'de canlı araştırma yapmaz. (Google Search grounding ücretsiz Gemini katmanında kullanılamıyor — ölçüm ve gerekçe için [tasarım dokümanına](docs/generation-design.md) bakabilirsin.) API anahtarı girilmediğinde uygulama, **açıkça etiketlenmiş örnek projeler** gösterir.
+> **Ne yapar, ne yapmaz:** Yapay zeka fikirleri **kendi eğitim verisinden** üretir; web'de canlı araştırma yapmaz. (Google Search grounding ücretsiz Gemini katmanında kullanılamıyor — ölçüm ve gerekçe için [tasarım dokümanına](docs/generation-design.md) bakabilirsin.) Uygulama proje **önermez, üretir**: hazır bir listeden seçim yapmaz. Anahtar girilmediğinde üretim çalışmaz ve seni anahtar ekranına yönlendirir; çıktının neye benzediğini merak ediyorsan ayrı bir **“Örnek çıktıyı gör”** bağlantısı, kategori başına bir adet saklanan ve daima *örnek* olarak etiketlenen statik çıktıyı açar.
 
 ![Aetheria.ai Preview](https://img.shields.io/badge/AI_Engine-Gemini_Flash-00f2fe?style=for-the-badge) ![License](https://img.shields.io/badge/License-MIT-7f00ff?style=for-the-badge) ![Status](https://img.shields.io/badge/Status-Active-00f5a0?style=for-the-badge)
 
@@ -17,7 +17,7 @@ Aetheria.ai, kendi Gemini API anahtarınla çalışan, tarayıcıda koşan bir p
 - **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
 - **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve proje açıklamasını tek tıkla Markdown raporu olarak indirme.
 - **🛡️ Açık Kaynak Güvenlik Korumaları**: İstemci tarafı Cooldown (20s), Saatlik Sorgu Limiti (15/saat) ve Max Output Token sınırlamaları ile kota koruması.
-- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik, DevOps, **Web & Ürün Tasarımı** ve **Mobil Uygulama**. Gördüğün projeler hatırlanır; aynı proje arka arkaya gelmez.
+- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik, DevOps, **Web & Ürün Tasarımı** ve **Mobil Uygulama** — ayrıca 🇹🇷 Ulusal / 🌍 Uluslararası pazar kapsamı. Üretilen başlıklar hatırlanır ve bir sonraki istekte modele “bunları tekrarlama” diye verilir.
 
 ---
 
@@ -50,7 +50,7 @@ Bu proje **tamamen ücretsiz** çalışacak şekilde tasarlandı ve öyle kalmas
 
 **Ücret çıkmaz, çünkü:**
 
-- Google AI Studio anahtarı varsayılan olarak **ücretsiz katmanda** çalışır. Kota bitince para alınmaz, sadece `429` döner ve uygulama örnek projelere geçer.
+- Google AI Studio anahtarı varsayılan olarak **ücretsiz katmanda** çalışır. Kota bitince para alınmaz, sadece `429` döner ve uygulama bunu terminalde açıkça söyler.
 - Ücretsiz katmanda **kullanılamayan** özellikler (Google Search grounding gibi) bilinçli olarak kullanılmıyor. `test/free-tier.test.js` bunları kodda arar ve eklenirse testi kırar.
 - Yalnızca **flash** modelleri kullanılıyor; pro modelleri hem çok daha pahalı hem de ücretsiz limitleri çok daha dar.
 - İstemci tarafı hız sınırı (20 sn bekleme, 15 üretim/saat) günlük kotanın bir oturumda tükenmesini engeller.
@@ -59,7 +59,7 @@ Bu proje **tamamen ücretsiz** çalışacak şekilde tasarlandı ve öyle kalmas
 
 > **Gizlilik notu:** Google, ücretsiz katmanda gönderilen içeriği ürün geliştirme için kullanabiliyor. Bu bir maliyet değil ama hassas bilgi göndermemek gerekir.
 
-**Kota dolduğunda ne olur?** Uygulama çökmez; "Ücretsiz Gemini kotası doldu, ücret çıkmaz" der ve örnek projeleri göstermeye devam eder. Kota her gün sıfırlanır.
+**Kota dolduğunda ne olur?** Uygulama çökmez; "Ücretsiz Gemini kotası doldu, ücret çıkmaz" der ve durur — yerine hazır bir proje koymaz. Kota her gün sıfırlanır.
 
 ### Diğer sağlayıcılar ücretsiz değil
 
@@ -116,11 +116,24 @@ Herhangi bir karmaşık paket kurulumuna (npm/node_modules) gerek yoktur.
 Uygulama bağımlılıksız çalışır; Node yalnızca lint ve testler için gerekir.
 
 ```bash
-npm install      # sadece geliştirme araçları (ESLint)
-npm run check    # lint + birim testleri
+npm install      # sadece geliştirme araçları (ESLint + jsdom)
+npm run check    # lint + testler
 ```
 
-Saf mantık (escaping, markdown, doğrulama, seçim, rate-limit kararı) `core.js` içindedir ve `test/core.test.js` tarafından `node:test` ile test edilir. `app.js` yalnızca bunları DOM'a bağlar.
+Saf mantık (escaping, markdown, doğrulama, seçim, rate-limit kararı, sağlayıcı istek/yanıt şekli) `core.js` içindedir. `app.js` bunları DOM'a bağlar.
+
+**Testler iki katmanlı:**
+
+| Dosya | Ne yapar |
+|---|---|
+| `test/core.test.js`, `test/providers.test.js` | Saf fonksiyonlar — Node'da, DOM'suz |
+| `test/app-behaviour.test.js` | **Gerçek uygulamayı jsdom'da çalıştırır**: butona basar, depoyu tohumlar, `fetch`'i taklit eder ve ekranda ne olduğuna bakar |
+| `test/api-key-safety.test.js`, `test/free-tier.test.js` | Anahtar ve maliyet garantileri — davranış + kaynak denetimi karışık |
+| `test/projects-data.test.js` | Vitrin verisi ve boyut tavanı |
+
+`app.js`'in dışa aktarımı yok (tek bir `DOMContentLoaded` kapanışı), bu yüzden `test/helpers/app-harness.js` `index.html`'i script'leriyle birlikte jsdom'da açar. Bu, iddiaların *"şu satır kodda var mı"* yerine *"kullanıcı bunu yapınca ne oluyor"* sorusunu sormasını sağlar — birincisi erişilemez koddan geçer, ikincisi geçmez.
+
+Koşum takımı sayfa içindeki yakalanmamış hataları da toplar (`app.errors`); bir event listener içinde patlayan `TypeError` normalde `.click()` çağıranına ulaşmaz ve test yeşil görünür.
 
 Ayrıntılar için [CONTRIBUTING.md](CONTRIBUTING.md).
 
