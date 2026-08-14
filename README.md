@@ -116,11 +116,24 @@ Herhangi bir karmaşık paket kurulumuna (npm/node_modules) gerek yoktur.
 Uygulama bağımlılıksız çalışır; Node yalnızca lint ve testler için gerekir.
 
 ```bash
-npm install      # sadece geliştirme araçları (ESLint)
-npm run check    # lint + birim testleri
+npm install      # sadece geliştirme araçları (ESLint + jsdom)
+npm run check    # lint + testler
 ```
 
-Saf mantık (escaping, markdown, doğrulama, seçim, rate-limit kararı) `core.js` içindedir ve `test/core.test.js` tarafından `node:test` ile test edilir. `app.js` yalnızca bunları DOM'a bağlar.
+Saf mantık (escaping, markdown, doğrulama, seçim, rate-limit kararı, sağlayıcı istek/yanıt şekli) `core.js` içindedir. `app.js` bunları DOM'a bağlar.
+
+**Testler iki katmanlı:**
+
+| Dosya | Ne yapar |
+|---|---|
+| `test/core.test.js`, `test/providers.test.js` | Saf fonksiyonlar — Node'da, DOM'suz |
+| `test/app-behaviour.test.js` | **Gerçek uygulamayı jsdom'da çalıştırır**: butona basar, depoyu tohumlar, `fetch`'i taklit eder ve ekranda ne olduğuna bakar |
+| `test/api-key-safety.test.js`, `test/free-tier.test.js` | Anahtar ve maliyet garantileri — davranış + kaynak denetimi karışık |
+| `test/projects-data.test.js` | Vitrin verisi ve boyut tavanı |
+
+`app.js`'in dışa aktarımı yok (tek bir `DOMContentLoaded` kapanışı), bu yüzden `test/helpers/app-harness.js` `index.html`'i script'leriyle birlikte jsdom'da açar. Bu, iddiaların *"şu satır kodda var mı"* yerine *"kullanıcı bunu yapınca ne oluyor"* sorusunu sormasını sağlar — birincisi erişilemez koddan geçer, ikincisi geçmez.
+
+Koşum takımı sayfa içindeki yakalanmamış hataları da toplar (`app.errors`); bir event listener içinde patlayan `TypeError` normalde `.click()` çağıranına ulaşmaz ve test yeşil görünür.
 
 Ayrıntılar için [CONTRIBUTING.md](CONTRIBUTING.md).
 

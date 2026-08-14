@@ -18,7 +18,8 @@
     "check": "npm run lint && npm test"
   },
   "devDependencies": {
-    "eslint": "^9.18.0"
+    "eslint": "^9.18.0",
+    "jsdom": "^29.1.1"
   },
   "engines": {
     "node": ">=20"

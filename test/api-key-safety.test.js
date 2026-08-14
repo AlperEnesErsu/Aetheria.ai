@@ -11,6 +11,10 @@ const root = path.join(__dirname, '..');
 const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const htmlSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const coreSource = fs.readFileSync(path.join(root, 'core.js'), 'utf8');
+const { bootApp, errorResponse } = require('./helpers/app-harness.js');
+
+const TEST_KEY = 'AIzaTESTkeySafetySuite1234567890';
+const withKey = { aetheria_key_gemini: TEST_KEY, aetheria_use_gemini: 'true' };
 
 test('the key travels in a header, never in the URL', () => {
     // A key in the query string lands in browser history, referrer headers and any
@@ -43,13 +47,16 @@ test('the key travels in a header, never in the URL', () => {
     assert.ok(!/[?&]key=/.test(appSource), 'anahtar URL query string\'inde taşınıyor');
 });
 
-test('the key is never written back into the DOM', () => {
+test('the key is never written back into the DOM', async () => {
     // Prefilling the input put the raw key in the DOM on every load, where devtools,
-    // a screen share or an extension could read it.
-    assert.ok(!/geminiApiKeyInput\.value\s*=\s*geminiApiKey/.test(appSource),
-        'anahtar input alanına geri yazılıyor');
-    assert.ok(!/\.value\s*=\s*.*apiKey/i.test(appSource.replace(/\.value = ''/g, '')),
-        'anahtar bir input değerine atanıyor');
+    // a screen share or an extension could read it. Asserted against the rendered
+    // page rather than the source: a grep cannot see what the field actually holds.
+    const app = await bootApp({ storage: withKey });
+
+    app.id('btnFeature2Notice').click();
+    assert.strictEqual(app.id('geminiApiKey').value, '', 'anahtar input alanına geri yazıldı');
+    assert.ok(!app.document.documentElement.innerHTML.includes(TEST_KEY),
+        'anahtar sayfanın DOM ağacında bir yerde duruyor');
 });
 
 test('the key input does not leak through autofill or spellcheck', () => {
@@ -70,20 +77,33 @@ test('terminal output is redacted before display', () => {
         'Google anahtar biçimi için desen yok');
 });
 
-test('the user can delete the key outright', () => {
-    assert.ok(/function forgetGeminiKey/.test(appSource), 'silme fonksiyonu yok');
-    assert.ok(/btnForgetKey/.test(htmlSource), 'silme butonu arayüzde yok');
+test('the user can delete the key outright', async () => {
+    const app = await bootApp({ storage: withKey });
+
+    app.id('btnFeature2Notice').click();
+    app.id('btnForgetKey').click();
+
     // Deleting has to clear both stores, or a copy survives in the other one
-    const forget = appSource.slice(appSource.indexOf('function forgetGeminiKey'));
-    assert.ok(/writeKeyToStorage\(''\)/.test(forget.slice(0, 600)),
-        'silme her iki depoyu da temizlemiyor');
+    assert.strictEqual(app.window.localStorage.getItem('aetheria_key_gemini'), null);
+    assert.strictEqual(app.window.sessionStorage.getItem('aetheria_key_gemini'), null);
+    assert.ok(!app.document.documentElement.innerHTML.includes(TEST_KEY));
 });
 
-test('the key is stored in exactly one place at a time', () => {
-    const writer = appSource.slice(appSource.indexOf('function writeKeyToStorage'));
-    const body = writer.slice(0, 800);
-    assert.ok(/sessionStorage\.removeItem/.test(body) && /localStorage\.removeItem/.test(body),
-        'yazmadan önce diğer depo temizlenmiyor — anahtarın iki kopyası kalabilir');
+test('the key is stored in exactly one place at a time', async () => {
+    // Session-only storage is the safer choice on a shared machine, and it is only
+    // safer if the persistent copy is actually gone rather than merely unused.
+    const app = await bootApp({ storage: withKey, fetch: async () => errorResponse(200) });
+
+    app.id('btnFeature2Notice').click();
+    app.id('rememberKeyToggle').checked = false;
+    app.id('rememberKeyToggle').dispatchEvent(new app.window.Event('change'));
+    app.id('geminiApiKey').value = TEST_KEY;
+    app.id('btnSaveGeminiKey').click();
+    await app.flush(2500);
+
+    const local = app.window.localStorage.getItem('aetheria_key_gemini');
+    const session = app.window.sessionStorage.getItem('aetheria_key_gemini');
+    assert.ok(!(local && session), 'anahtarın iki kopyası birden duruyor');
 });
 
 test('session-only storage is offered', () => {

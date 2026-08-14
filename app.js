@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         PROVIDERS,
         DEFAULT_PROVIDER,
         getProvider,
+        isKnownProvider,
         buildProviderRequest,
         extractProviderText,
         parseJsonResponse,
@@ -107,9 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Values are validated on read — a hand-edited or stale entry must not leave a
     // filter pointing at a category or scope that no longer exists.
     let activeCategoryFilter = readStoredChoice(
-        'aetheria_category_filter', 'all', id => id === 'all' || Boolean(CATEGORY_LABELS[id]));
+        'aetheria_category_filter', 'all', id => id === 'all' || Object.hasOwn(CATEGORY_LABELS, id));
     let activeScopeFilter = readStoredChoice(
-        'aetheria_scope_filter', 'all', id => Boolean(SCOPE_PRESETS[id]));
+        'aetheria_scope_filter', 'all', id => Object.hasOwn(SCOPE_PRESETS, id));
 
     function readStoredChoice(key, fallback, isValid) {
         try {
@@ -178,7 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function readActiveProvider() {
         const stored = localStorage.getItem('aetheria_provider');
-        if (!PROVIDERS[stored] || PROVIDERS[stored].browserBlocked) return DEFAULT_PROVIDER;
+        // isKnownProvider rather than a truthiness check: PROVIDERS['constructor']
+        // resolves up the prototype chain and would pass.
+        if (!isKnownProvider(stored) || PROVIDERS[stored].browserBlocked) return DEFAULT_PROVIDER;
         return stored;
     }
 
@@ -706,8 +709,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // matters — the alternative is a user who thinks the app just charged them.
         if (response.status === 429) {
             if (activeProvider === 'gemini') {
-                return 'Ücretsiz Gemini kotası doldu. Ücret çıkmaz — kota her gün sıfırlanır. ' +
-                       'O zamana kadar örnek projeler gösterilecek.';
+                // No longer promises examples: the app stopped substituting them,
+                // so telling the user they are coming was a leftover from when it did.
+                return 'Ücretsiz Gemini kotası doldu. Ücret çıkmaz — kota her gün sıfırlanır.';
             }
             // The paid providers rate-limit by spend and tier, so the same
             // reassurance would be false there.
@@ -1444,7 +1448,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
     // provider being left is untouched — a user with two keys should not lose one
     // by looking at the other.
     function switchProvider(nextId) {
-        if (!PROVIDERS[nextId] || nextId === activeProvider) return;
+        if (!isKnownProvider(nextId) || nextId === activeProvider) return;
 
         // A disabled <option> cannot normally be picked, but the stored preference
         // is also a way in — a provider that becomes unreachable must not strand a
@@ -1604,7 +1608,6 @@ Yanıtı tam olarak şu JSON şemasında ver:
             } catch (err) {
                 console.warn('Gemini üretimi başarısız:', err);
                 writeTerminalLog(`Üretim başarısız: ${err.message}`, 'warning');
-                writeTerminalLog('Örnek projelere geçiliyor.', 'info');
             }
         }
 
