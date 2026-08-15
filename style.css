@@ -26,7 +26,7 @@
     --text-tertiary: #9ca3af;
 
     /* Typography */
-    --font-sans: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
+    --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: 'Fira Code', 'Monaco', monospace;
 
     /* Spacing & Borders */
@@ -1282,6 +1282,35 @@ body {
     background: var(--accent-secondary);
 }
 
+.modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 1.25rem;
+}
+
+.btn-modal-cancel {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
+}
+
+.btn-modal-cancel:hover {
+    background: var(--bg-secondary);
+    border-color: var(--card-border);
+    color: var(--text-primary);
+}
+
+.btn-modal-save {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.btn-modal-save:hover {
+    background: var(--accent-secondary);
+}
+
 .btn-forget-key {
     display: none;
     background: transparent;
@@ -1291,6 +1320,7 @@ body {
 
 .btn-forget-key.visible {
     display: inline-block;
+    margin-right: auto;
 }
 
 .btn-forget-key:hover {

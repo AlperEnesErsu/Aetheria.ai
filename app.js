@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (type === 'agent') {
             statusTag += ` <span class="status-info">[AI AGENT]</span>`;
         } else if (type === 'warning') {
-            statusTag += ` <span class="status-info" style="color: var(--accent-amber);">[SECURITY GUARD]</span>`;
+            statusTag += ` <span class="status-info" style="color: var(--accent-warning);">[SECURITY GUARD]</span>`;
         } else {
             statusTag += ` <span class="status-info">[SCAN]</span>`;
         }
@@ -421,12 +421,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (useGeminiLiveMode && geminiApiKey) {
             // textContent, not innerHTML: the label now carries provider data.
             btnFeature2Notice.textContent = `⚡ ${getProvider(activeProvider).label} (Korumalı)`;
-            btnFeature2Notice.style.borderColor = 'var(--accent-emerald)';
-            btnFeature2Notice.style.color = 'var(--accent-emerald)';
+            btnFeature2Notice.style.borderColor = 'var(--accent-success)';
+            btnFeature2Notice.style.color = 'var(--accent-success)';
         } else {
             btnFeature2Notice.innerHTML = `<span>⚡ API Ayarları</span>`;
             btnFeature2Notice.style.borderColor = 'rgba(255, 183, 3, 0.3)';
-            btnFeature2Notice.style.color = 'var(--accent-amber)';
+            btnFeature2Notice.style.color = 'var(--accent-warning)';
         }
     }
 
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSavedProjectsList() {
         savedProjectsList.innerHTML = '';
         if (communityPool.length === 0) {
-            savedProjectsList.innerHTML = `<div style="text-align: center; color: var(--text-dark); padding: 2rem 0;">Ortak havuzda henüz kaydedilmiş proje bulunmuyor.</div>`;
+            savedProjectsList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">Ortak havuzda henüz kaydedilmiş proje bulunmuyor.</div>`;
             return;
         }
 

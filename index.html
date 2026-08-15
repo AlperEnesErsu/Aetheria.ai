@@ -17,8 +17,8 @@
     <title>Aetheria.ai | Yapay Zeka Destekli Yazılım Proje Fikri Üreteci</title>
     <meta name="description" content="Kendi Gemini API anahtarınla özgün yazılım proje fikirleri üret; sistem mimarisi ve güvenlik tasarımıyla birlikte incele ve kaydet.">
     <link rel="canonical" href="https://alperenesersu.github.io/Aetheria.ai/">
-    <meta name="theme-color" content="#07090e">
-    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#f8f9fb">
+    <meta name="color-scheme" content="light">
 
     <!-- Icons -->
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -60,12 +60,6 @@
         </div>
     </noscript>
 
-    <!-- Animated Ambient Background Blobs -->
-    <div class="bg-glow-container">
-        <div class="bg-blob bg-blob-1"></div>
-        <div class="bg-blob bg-blob-2"></div>
-        <div class="bg-blob bg-blob-3"></div>
-    </div>
 
     <!-- Shown only when a write to localStorage fails (quota full, storage blocked) -->
     <div id="storageWarning" class="storage-warning" role="alert">
@@ -404,8 +398,8 @@
                     <label for="geminiApiKey"><span id="keyFieldLabel">Gemini</span> API Key</label>
                     <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width: 100%;"
                            autocomplete="off" spellcheck="false" data-1p-ignore>
-                    <small style="color: var(--accent-cyan); display: block; margin-top: 0.4rem;">
-                        <a id="providerConsoleLink" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">👉 API anahtarı al (Google AI Studio)</a>
+                    <small style="color: var(--accent-primary); display: block; margin-top: 0.4rem;">
+                        <a id="providerConsoleLink" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); text-decoration: underline;">👉 API anahtarı al (Google AI Studio)</a>
                     </small>
                     <small class="key-storage-warning">
                         🔒 Anahtar yalnızca bu tarayıcıda saklanır, hiçbir sunucuya gönderilmez.
@@ -421,7 +415,7 @@
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; background: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm);">
                     <label for="rememberKeyToggle" style="font-size: 0.9rem; font-weight: 600; cursor: pointer;">
                         Anahtarı bu tarayıcıda sakla
-                        <span style="display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">
+                        <span style="display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.15rem;">
                             Kapalıysa yalnızca bu sekme açık kaldığı sürece tutulur
                         </span>
                     </label>
@@ -431,11 +425,10 @@
                 <!-- Save result: the dialog used to close with no indication of anything -->
                 <p id="keyStatus" class="key-status" role="status" aria-live="polite"></p>
 
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-                    <button type="button" id="btnForgetKey" class="btn-close-modal btn-forget-key"
-                            style="margin-right: auto;">Anahtarı Sil</button>
-                    <button id="btnCloseModal" class="btn-close-modal" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">İptal</button>
-                    <button id="btnSaveGeminiKey" class="btn-close-modal" style="background: var(--gradient-glow);">Kaydet & Başlat</button>
+                <div class="modal-actions">
+                    <button type="button" id="btnForgetKey" class="btn-close-modal btn-forget-key">Anahtarı Sil</button>
+                    <button type="button" id="btnCloseModal" class="btn-close-modal btn-modal-cancel">İptal</button>
+                    <button type="button" id="btnSaveGeminiKey" class="btn-close-modal btn-modal-save">Kaydet & Başlat</button>
                 </div>
             </div>
         </div>
