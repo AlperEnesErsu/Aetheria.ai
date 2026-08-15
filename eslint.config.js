@@ -14,6 +14,7 @@ module.exports = [
             globals: {
                 window: 'readonly',
                 document: 'readonly',
+                navigator: 'readonly',
                 self: 'readonly',
                 console: 'readonly',
                 localStorage: 'readonly',

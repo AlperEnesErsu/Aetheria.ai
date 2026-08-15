@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGenerateProject = document.getElementById('btnGenerateProject');
     const btnTriggerStep2 = document.getElementById('btnTriggerStep2');
     const btnExportBlueprint = document.getElementById('btnExportBlueprint');
+    const btnCopyBlueprint = document.getElementById('btnCopyBlueprint');
+    const copyToast = document.getElementById('copyToast');
     const btnSaveProject = document.getElementById('btnSaveProject');
     const terminalContainer = document.getElementById('terminalContainer');
     const terminalBody = document.getElementById('terminalBody');
@@ -1076,6 +1078,52 @@ Yanıtı tam olarak şu JSON şemasında ver:
         setTimeout(() => URL.revokeObjectURL(url), 0);
     }
 
+    let copyToastTimeout = null;
+    function showCopyToast(msg = '✓ Markdown panoya kopyalandı!') {
+        if (!copyToast) return;
+        copyToast.textContent = msg;
+        copyToast.classList.add('visible');
+        clearTimeout(copyToastTimeout);
+        copyToastTimeout = setTimeout(() => {
+            copyToast.classList.remove('visible');
+        }, 2500);
+    }
+
+    async function copyCurrentBlueprintToClipboard() {
+        if (!currentProject) return;
+        const markdown = buildBlueprintMarkdown(currentProject);
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(markdown);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = markdown;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            if (btnCopyBlueprint) {
+                btnCopyBlueprint.classList.add('is-copied');
+                const span = btnCopyBlueprint.querySelector('span');
+                const prevText = span ? span.textContent : '';
+                if (span) span.textContent = '✓ Kopyalandı';
+                setTimeout(() => {
+                    btnCopyBlueprint.classList.remove('is-copied');
+                    if (span) span.textContent = prevText || 'Panoya Kopyala';
+                }, 2000);
+            }
+
+            showCopyToast('✓ Markdown panoya kopyalandı!');
+        } catch (err) {
+            console.warn('Panoya kopyalama başarısız:', err);
+            showCopyToast('✗ Panoya kopyalanamadı.');
+        }
+    }
+
     // Scope & Ecosystem Selector.
     //
     // The markup promises role="radiogroup" with role="radio" children. That is a
@@ -1524,8 +1572,11 @@ Yanıtı tam olarak şu JSON şemasında ver:
         if (currentProject) setOriginBadge(originBadge.textContent.includes('Örnek'));
     }
 
-    // Export Blueprint Handler
+    // Export / Copy Blueprint Handlers
     btnExportBlueprint.addEventListener('click', () => exportBlueprintMarkdown());
+    if (btnCopyBlueprint) {
+        btnCopyBlueprint.addEventListener('click', copyCurrentBlueprintToClipboard);
+    }
 
     // ==========================================
     // STEP 1: GENERATE PROJECT IDEA & MARKET GAP

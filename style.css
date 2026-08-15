@@ -981,7 +981,8 @@ body {
 }
 
 .btn-save-project,
-.btn-export-blueprint {
+.btn-export-blueprint,
+.btn-copy-blueprint {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -1002,20 +1003,23 @@ body {
     background: white;
 }
 
-.btn-export-blueprint:hover {
+.btn-export-blueprint:hover,
+.btn-copy-blueprint:hover {
     border-color: var(--accent-primary);
     color: var(--accent-primary);
     background: white;
 }
 
-.btn-save-project.is-saved {
+.btn-save-project.is-saved,
+.btn-copy-blueprint.is-copied {
     border-color: var(--accent-success);
     color: var(--accent-success);
     background: #d1fae5;
 }
 
 .btn-save-project svg,
-.btn-export-blueprint svg {
+.btn-export-blueprint svg,
+.btn-copy-blueprint svg {
     width: 16px;
     height: 16px;
     fill: currentColor;
@@ -1512,5 +1516,81 @@ body {
     * {
         animation-duration: 0.01ms !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+/* Copy Toast Notification */
+.copy-toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: #111827;
+    color: #ffffff;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: all var(--transition-normal);
+    z-index: 3000;
+}
+
+.copy-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Print / PDF Document Styles */
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+
+    .header,
+    .hero-section,
+    .terminal-container,
+    .header-card-actions,
+    .step2-trigger-wrapper,
+    .drawer-overlay,
+    .modal-overlay,
+    .footer,
+    .example-notice,
+    .storage-warning,
+    .copy-toast {
+        display: none !important;
+    }
+
+    .app-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .results-wrapper {
+        display: block !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .glass-card {
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
+        page-break-inside: avoid;
+        margin-bottom: 1.5rem !important;
+        padding: 1.5rem !important;
+    }
+
+    .project-header-card {
+        background: #f9fafb !important;
+        border: 1px solid #111827 !important;
+    }
+
+    .step2-container {
+        display: block !important;
+        opacity: 1 !important;
     }
 }

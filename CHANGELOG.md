@@ -6,6 +6,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir.
 ## [Yayınlanmamış]
 
 ### Eklendi
+- **Tek tıkla Markdown panoya kopyalama**: Teknik mimari ve blueprint çıktısını panoya kopyalayan `Panoya Kopyala` butonu ve görsel toast bildirimi
+- **Yazdırma ve PDF desteği**: `@media print` stilleri ile teknik şartnameyi doğrudan tarayıcıdan temiz PDF/yazıcı çıktısı olarak alabilme
 - **12 yeni proje**: veritabanı 6 → 18 projeye çıktı; her kategoride artık en az 3 proje var
   - Sağlık & AI: PharmaGuard AI, MindPulse RPM
   - Web3 & Güvenlik: ChainProof, KeyWard
@@ -24,6 +26,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir.
 - Havuzdan proje çıkarırken onay adımı
 
 ### Düzeltildi
+- **Modal İptal butonu kontrastı**: Beyaz arka planda görünmez kalan "İptal" butonu metni ve kenarlığı modern açık tema stilleriyle düzeltildi
+- **Tanımsız CSS değişkenleri**: `--accent-cyan`, `--text-muted`, `--gradient-glow`, `--accent-emerald`, `--accent-amber`, `--text-dark` değişkenleri güncel tasarım belirteçlerine (`var(--accent-primary)`, `var(--accent-success)`, `var(--accent-warning)`, `var(--text-secondary)`) eşitlendi
+- **Font senkronizasyonu**: `style.css`'teki `--font-sans` ailesi `index.html`'de yüklenen `Outfit` fontuyla senkronize edildi
+- **Tema meta etiketleri**: `theme-color` ve `color-scheme` açık temaya uyarlandı, işlevsiz `.bg-glow-container` DOM'dan temizlendi
 - **Aşama 2 akışı**: mimari ve güvenlik raporu, proje bulunur bulunmaz açılıyordu; iki aşamalı keşif tamamen bypass ediliyordu
 - **Gemini canlı modu**: `maxOutputTokens: 1000` her yanıtı JSON'un ortasında kesiyordu, canlı mod hiç çalışmıyordu
 - Gemini yanıtları artık doğrulanıyor; eksik `candidates`, `finishReason`, JSON olmayan gövde ve bozuk şema ele alınıyor
@@ -45,3 +51,4 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir.
 
 ### Kaldırıldı
 - Hiçbir HTML'de kullanılmayan auth modal CSS blokları (~70 satır)
+
