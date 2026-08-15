@@ -477,3 +477,28 @@ test('a provider without a JSON mode is told to return only JSON', async () => {
     assert.match(prompt, /Yalnızca istenen JSON/,
         'JSON modu olmayan sağlayıcıya yalnızca-JSON talimatı gitmedi');
 });
+
+test('copy blueprint button copies markdown and triggers toast notification', async () => {
+    const app = await bootApp({ storage: withKey, fetch: twoPassGemini() });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(2000);
+
+    const copyBtn = app.id('btnCopyBlueprint');
+    assert.ok(copyBtn, 'Panoya kopyala butonu bulunamadı');
+
+    let clipboardText = '';
+    app.window.navigator.clipboard = {
+        writeText: async (text) => { clipboardText = text; }
+    };
+
+    copyBtn.click();
+    await app.flush(100);
+
+    assert.match(clipboardText, /^# Test Projesi — Technical Blueprint & Architecture/);
+    assert.ok(copyBtn.classList.contains('is-copied'));
+
+    const toast = app.id('copyToast');
+    assert.ok(toast.classList.contains('visible'), 'Toast bildirimi görünür olmadı');
+});
+
