@@ -189,7 +189,90 @@ mevcut modellerce reddediliyordu, ve `.env` okuması Windows BOM'unda kırılıy
 
 ---
 
-## 9. Kaynaklar
+## 9. Kanıt katmanı — §3'te kalan açık soruya cevap
+
+§3 uygulamanın iddiası ile yaptığı arasındaki farkı kapatmıştı, ama bir yer açık
+kalmıştı: `step1.marketGap` içeriği. Model orada bir pazar analizi yazıyor ve bunu
+**hatırlayarak** yapıyor, araştırarak değil. §2 grounding'in ücretsiz katmanda
+olmadığını ölçmüştü, dolayısıyla o kapı kapalıydı.
+
+Ayrıntılı üretim modu üçüncü bir yol izliyor: **ücretsiz, anahtarsız, sunucusuz
+gerçek ölçüm.** Model bir kıyas iddiası kuruyor, uygulama o iddiayı ölçüyor.
+
+### 9.1 Ölçülen gerçekler (18 Ağustos 2026)
+
+OpenAlex `title_and_abstract.search` filtresiyle:
+
+```
+fraud detection fintech        1028
+fraud detection healthcare     1853   ← daha FAZLA
+fraud detection agriculture     276
+```
+
+"Dolandırıcılık tespiti fintech'te çözülmüş, sağlıkta değil" hipotezi yanlış. Bir
+model bunu güvenle yazardı; ölçüm saniyeler içinde çürüttü. Katmanın varlık sebebi
+bu.
+
+**Filtre biçimi taşıyıcı.** OpenAlex'in çıplak `search` parametresi artık tam metin
+araması yapıyor ve aynı üç sorgu 13563 / 42380 / 25391 dönüyor — agriculture "açık
+ara az araştırılmış" olmaktan çıkıp fintech'in neredeyse iki katına çıkıyor. Dar
+filtre bir tercih değil, ölçümün kendisi.
+
+### 9.2 Doğrulama yokluğu kanıtlayamıyor
+
+```
+"X-Road"                 → 6 sonuç   ✓ gerçek, bulundu
+"Servis Takip Veli"      → 0 sonuç   ✓ uydurma, bulunamadı
+"Estonian e-Residency"   → 0 sonuç   ⚠ GERÇEK, ama bulunamadı
+```
+
+e-Residency dünyanın en bilinen e-devlet programlarından biri; sorgu yalnızca ifade
+tutmadığı için 0 döndü. **"0 sonuç = uydurma" kuralı kullanılamaz.**
+
+Bu bulgu iki değişmezi belirledi:
+
+1. **Doğrulama asla puan düşürmez.** Çürüten ölçüm bonus almaz ve ⚠ ile işaretlenir,
+   ama ceza da almaz — rakipleri kazanırken onun kazanmaması geriye düşmesi için
+   yeterli. Kural tek satır, istisnası yok.
+2. **`error` asla `not_found`'a karışmaz.** Zaman aşımı gerçek bir sıfırla aynı
+   raporlansaydı, uydurma referansları yakalamak için kurulan katman kendi
+   bulgularını uyduruyor olurdu.
+
+### 9.3 Uygulama sırasında çıkan üçüncü bulgu
+
+Yukarıdaki iki ölçüm katmanı tasarlanırken yapılmıştı. Katman **canlı servislere
+karşı** çalıştırılınca §9.2'nin yalnızca yarısını gördüğü ortaya çıktı:
+
+```
+aranan: "Servis Takip Veli"      (uydurma)
+gelen:  noktaturizm63/servisnoktam_veli   → verified ❌
+
+aranan: "Estonian e-Residency"
+gelen:  perguth/chromeos-welcome-to-estonia → verified ❌
+```
+
+§9.2 *yanlış negatifi* tespit etmişti (gerçek olan bulunamıyor). Canlı çalıştırma
+**yanlış pozitifi** gösterdi: her iki varlık kaynağı da o kadar bulanık eşleşiyor ki
+neredeyse her ifade bir şey getiriyor, ve uydurma bir ad link ve puan bonusuyla
+"doğrulandı" olarak raporlanıyordu. Katmanın önlemek için var olduğu yapılandırılmış
+halüsinasyonun, kontrolün kendi içinde tekrarlanması.
+
+Çözüm: eşleşmenin aranana benzemesi şartı, mevcut `titleOverlap` ile ve tazelik
+filtresinin zaten kullandığı 0.6 eşiğiyle. İkisini temiz ayırıyor — gerçek eşleşme
+1.00, bu ikisi 0.00-0.50.
+
+### 9.4 Kalan sınırlar
+
+| Konu | Durum |
+|---|---|
+| "Türkiye'de yok"u ölçmek | **Yapısal olarak imkânsız.** Türkçe ticari ürün ekosistemi bu kaynaklarda yok. Çıktı bunu iddia etmiyor. |
+| Ölçek (kurumsal ↔ KOBİ) kıyası | Hiçbir ücretsiz kaynak bu ayrımı tutmuyor. Metot duruyor ama `unverifiable` rozetiyle. |
+| GitHub oran limiti | Anahtarsız arama 10 istek/dk (ölçüldü). `VERIFY_TOP_K = 3` × 2 istek = 6, tek üretim için güvenli. |
+| Ücretli grounding | Hâlâ kapsam dışı; `7b9fd47`'deki JSON modu kısıtı geçerli. |
+
+---
+
+## 10. Kaynaklar
 
 - [Gemini API fiyatlandırma](https://ai.google.dev/gemini-api/docs/pricing) — grounding ücretsiz katmanda "Not available"
 - [Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search)

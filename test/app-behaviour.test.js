@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const {
-    bootApp, errorResponse, validProject, twoPassGemini
+    bootApp, errorResponse, validProject, twoPassGemini, geminiResponse
 } = require('./helpers/app-harness.js');
 
 // These drive the real app in a real DOM. Everything here was previously covered
@@ -502,3 +502,296 @@ test('copy blueprint button copies markdown and triggers toast notification', as
     assert.ok(toast.classList.contains('visible'), 'Toast bildirimi görünür olmadı');
 });
 
+// =========================================================== detailed mode
+
+// Detailed mode candidates, each carrying its own comparison, search terms and
+// scores. The two differ only on evidence vs feasibility, so the weights alone
+// decide which one wins.
+const detailedIdeas = () => ({
+    ideas: [
+        {
+            title: 'Dayanağı Sağlam Olan',
+            summary: 'özet',
+            comparison: {
+                referenceExample: 'X-Road',
+                localState: 'bilinmiyor',
+                structuralReason: 'sebep'
+            },
+            searchTerms: ['fraud detection', 'agriculture'],
+            evidence: { quote: 'BELGEDEN GELEN ALINTI', kind: 'source' },
+            scores: { evidence: 100, feasibility: 10, gap: 50, originality: 50 }
+        },
+        {
+            title: 'Hemen Yapılabilir Olan',
+            summary: 'özet',
+            comparison: {
+                referenceExample: 'Uydurulmuş Bir Ad',
+                localState: 'bilinmiyor',
+                structuralReason: 'sebep'
+            },
+            searchTerms: ['fraud detection', 'logistics'],
+            evidence: { quote: 'ikinci alıntı', kind: 'source' },
+            scores: { evidence: 10, feasibility: 100, gap: 50, originality: 50 }
+        }
+    ]
+});
+
+// Routes the model passes to the detailed fixtures and answers every evidence
+// query with whatever the test decides the sources say.
+function detailedFetch({ project = validProject(), evidence, ideas = detailedIdeas() } = {}) {
+    return (url, init) => {
+        const target = String(url);
+
+        if (/openalex|wikidata|api\.github\.com/.test(target)) {
+            if (typeof evidence === 'function') return evidence(target);
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    meta: { count: /agriculture/.test(target) ? 276 : 1028 },
+                    group_by: []
+                })
+            };
+        }
+
+        const prompt = JSON.parse(init.body).contents[0].parts[0].text;
+        return geminiResponse(/"ideas"/.test(prompt) ? ideas : project, 512);
+    };
+}
+
+const detailed = (extra = {}) => Object.assign({
+    aetheria_key_gemini: KEY,
+    aetheria_use_gemini: 'true',
+    aetheria_mode: 'detailed',
+    aetheria_method: 'sector',
+    aetheria_reference: 'fintech'
+}, extra);
+
+test('no credential ever reaches an evidence source', async () => {
+    // The single most important assertion in this feature. Widening the CSP to
+    // three more origins is only defensible while the key cannot travel to them,
+    // and a source-level grep cannot prove what the running app actually sent.
+    const app = await bootApp({ storage: detailed(), fetch: detailedFetch() });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    const evidenceCalls = app.fetchCalls.filter(c => /openalex|wikidata|api\.github\.com/.test(String(c.url)));
+    assert.ok(evidenceCalls.length > 0, 'hiç kanıt sorgusu yapılmamış');
+
+    for (const call of evidenceCalls) {
+        const headers = (call.init && call.init.headers) || {};
+        const names = Object.keys(headers).map(h => h.toLowerCase());
+
+        for (const forbidden of ['authorization', 'x-goog-api-key', 'x-api-key', 'api-key']) {
+            assert.ok(!names.includes(forbidden),
+                `kanıt isteği ${forbidden} başlığı taşıyor: ${call.url}`);
+        }
+
+        assert.ok(!String(call.url).includes(KEY), 'anahtar kanıt URL\'sine sızmış');
+        assert.strictEqual(JSON.stringify(headers).includes(KEY), false, 'anahtar başlıkta');
+        assert.strictEqual(call.init && call.init.credentials, 'omit',
+            'kanıt isteği ortam kimlik bilgilerini dışlamıyor');
+        assert.ok(!call.body, 'kanıt isteği gövde taşıyor');
+    }
+
+    assert.deepStrictEqual(app.errors, []);
+});
+
+test('moving the weights changes which idea the app actually ships', async () => {
+    // The assertion a prompt-text approach cannot make. Same candidates, same
+    // model output, different sliders — different project on screen.
+    const byEvidence = await bootApp({
+        storage: detailed({
+            aetheria_weights: JSON.stringify({ evidence: 100, feasibility: 0, gap: 0, originality: 0 })
+        }),
+        fetch: detailedFetch()
+    });
+    byEvidence.id('btnGenerateProject').click();
+    await byEvidence.flush(3000);
+
+    const byFeasibility = await bootApp({
+        storage: detailed({
+            aetheria_weights: JSON.stringify({ evidence: 0, feasibility: 100, gap: 0, originality: 0 })
+        }),
+        fetch: detailedFetch()
+    });
+    byFeasibility.id('btnGenerateProject').click();
+    await byFeasibility.flush(3000);
+
+    const pick = app => app.terminal().find(l => /\[SELECT\]/.test(l)) || '';
+
+    assert.match(pick(byEvidence), /Dayanağı Sağlam Olan/, 'kanıt ağırlıklı seçim yanlış');
+    assert.match(pick(byFeasibility), /Hemen Yapılabilir Olan/, 'uygulanabilirlik ağırlıklı seçim yanlış');
+});
+
+test('the pasted material is not sent again in pass 2', async () => {
+    // Stage 2 needs the quote the model already pulled out, not the document. If
+    // the whole thing travelled twice it would double its token cost for nothing,
+    // and the free tier is the constraint this app is built around.
+    const marker = 'BENZERSIZ_MATERYAL_IMZASI_42';
+    const app = await bootApp({ storage: detailed(), fetch: detailedFetch() });
+
+    app.id('sourceMaterialInput').value = `Giriş cümlesi. ${marker} Kapanış cümlesi.`;
+    app.id('sourceMaterialInput').dispatchEvent(new app.window.Event('input'));
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    const modelCalls = app.fetchCalls.filter(c => /generativelanguage|anthropic/.test(String(c.url)));
+    assert.strictEqual(modelCalls.length, 2, 'ayrıntılı mod hâlâ iki LLM çağrısı yapmalı');
+
+    const prompts = modelCalls.map(c => c.body.contents[0].parts[0].text);
+    assert.ok(prompts[0].includes(marker), 'materyal 1. geçişe girmemiş');
+    assert.ok(!prompts[1].includes(marker), 'materyal 2. geçişte tekrar gönderilmiş');
+});
+
+test('the pasted material never lands in storage', async () => {
+    const marker = 'GIZLI_BELGE_IMZASI_99';
+    const app = await bootApp({ storage: detailed(), fetch: detailedFetch() });
+
+    app.id('sourceMaterialInput').value = marker;
+    app.id('sourceMaterialInput').dispatchEvent(new app.window.Event('input'));
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    for (const store of [app.window.localStorage, app.window.sessionStorage]) {
+        for (let i = 0; i < store.length; i += 1) {
+            const key = store.key(i);
+            assert.ok(!String(store.getItem(key)).includes(marker),
+                `kullanıcının belgesi ${key} altında saklanmış`);
+        }
+    }
+});
+
+test('a dead evidence source does not take the generation down with it', async () => {
+    // The evidence layer is allowed to fail; it is not allowed to cost the user
+    // the project they asked for.
+    const app = await bootApp({
+        storage: detailed(),
+        fetch: detailedFetch({ evidence: () => errorResponse(500, 'kaynak çöktü') })
+    });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    assert.strictEqual(app.id('resultsWrapper').classList.contains('visible'), true,
+        'kanıt kaynağı çökünce üretim de düştü');
+    assert.strictEqual(app.id('evidenceCard').classList.contains('visible'), true);
+    assert.match(app.id('evidenceContent').textContent, /error/,
+        'başarısız kaynak error olarak raporlanmadı');
+    assert.deepStrictEqual(app.errors, []);
+});
+
+test('a source that returns nothing is never reported as proof of absence', async () => {
+    // Wikidata returns zero for real programmes whose phrasing does not match, so
+    // a miss must read as a miss and nothing more.
+    const app = await bootApp({
+        storage: detailed({ aetheria_method: 'country' }),
+        fetch: detailedFetch({
+            evidence: () => ({ ok: true, status: 200, json: async () => ({ search: [], total_count: 0, items: [] }) })
+        })
+    });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    const shown = app.id('evidenceContent').textContent;
+    assert.match(shown, /not_found/);
+    assert.match(shown, /bulunamadı/);
+    assert.ok(!/uydurma|sahte/.test(shown), 'bulunamayan referans uydurma diye sunuldu');
+    assert.match(shown, /göstermez|olabilir/, 'yokluk kanıtı olmadığı söylenmedi');
+});
+
+test('an unverifiable comparison says so instead of running a query', async () => {
+    const app = await bootApp({
+        storage: detailed({ aetheria_method: 'scale' }),
+        fetch: detailedFetch()
+    });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    const evidenceCalls = app.fetchCalls.filter(c => /openalex|wikidata|api\.github\.com/.test(String(c.url)));
+    assert.strictEqual(evidenceCalls.length, 0, 'doğrulanamaz metot için sorgu atılmış');
+
+    assert.ok(app.terminal().some(l => /doğrulanamıyor/.test(l)),
+        'terminal doğrulamanın çalıştırılmadığını söylemedi');
+    assert.match(app.id('evidenceContent').textContent, /unverifiable|doğrulanamıyor/);
+});
+
+test('a measurement that refutes its claim is shown and costs no points', async () => {
+    // The candidate claims agriculture is the under-served sector. Answering with
+    // a larger count for the target than the reference refutes exactly that.
+    const app = await bootApp({
+        storage: detailed(),
+        fetch: detailedFetch({
+            evidence: (url) => ({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    meta: { count: /agriculture|logistics/.test(url) ? 9999 : 1028 },
+                    group_by: []
+                })
+            })
+        })
+    });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    assert.match(app.id('evidenceContent').textContent, /desteklemiyor/,
+        'çürüten ölçüm kullanıcıya söylenmedi');
+    assert.ok(app.terminal().some(l => /iddiayı desteklemiyor/.test(l)));
+
+    // No bonus row means verification added nothing, which is the rule: a refuting
+    // measurement earns nothing and is charged nothing.
+    assert.ok(!/Doğrulama katkısı/.test(app.id('scoreBreakdownContent').textContent),
+        'çürüten ölçüm bonus almış');
+});
+
+test('the score breakdown adds up to the number beside it', async () => {
+    const app = await bootApp({ storage: detailed(), fetch: detailedFetch() });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+
+    assert.strictEqual(app.id('scoreBreakdownCard').classList.contains('visible'), true);
+
+    const rows = [...app.id('scoreBreakdownContent').querySelectorAll('tr')];
+    const total = rows.find(r => r.classList.contains('total-row'));
+    assert.ok(total, 'toplam satırı yok');
+
+    const contributions = rows
+        .filter(r => !r.classList.contains('total-row') && r.querySelector('td'))
+        .map(r => Number([...r.children].pop().textContent.replace('+', '')))
+        .filter(Number.isFinite);
+
+    const shown = Number([...total.children].pop().textContent);
+    const summed = contributions.reduce((a, b) => a + b, 0);
+    assert.ok(Math.abs(shown - summed) < 0.2, `tablo ${summed} veriyor ama ${shown} yazıyor`);
+});
+
+test('quick mode is untouched by any of this', async () => {
+    const app = await bootApp({
+        storage: { aetheria_key_gemini: KEY, aetheria_use_gemini: 'true' },
+        fetch: twoPassGemini()
+    });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(2500);
+
+    assert.strictEqual(app.id('resultsWrapper').classList.contains('visible'), true);
+    assert.strictEqual(app.id('detailedPanel').classList.contains('visible'), false,
+        'hızlı modda ayrıntılı panel açık');
+
+    for (const id of ['verificationCard', 'evidenceCard', 'scoreBreakdownCard']) {
+        assert.strictEqual(app.id(id).classList.contains('visible'), false,
+            `hızlı modda ${id} gösterildi`);
+    }
+
+    const evidenceCalls = app.fetchCalls.filter(c => /openalex|wikidata|api\.github\.com/.test(String(c.url)));
+    assert.strictEqual(evidenceCalls.length, 0, 'hızlı mod kanıt sorgusu attı');
+    assert.deepStrictEqual(app.errors, []);
+});
