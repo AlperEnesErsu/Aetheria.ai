@@ -1761,25 +1761,14 @@ Yanıtı tam olarak şu JSON şemasında ver:
         }
     }
 
-    async function runStep2() {
-        terminalContainer.style.display = 'block';
-        terminalBody.innerHTML = '';
-
-        writeTerminalLog(`"${currentProject.title}" için Derin Mimari Scanner çalıştırılıyor...`, 'agent');
-        await sleep(350);
-        writeTerminalLog('Clean Architecture katmanları ve mikroservis sınırları çiziliyor...', 'info');
-        await sleep(400);
-        writeTerminalLog('Sistem akış diyagramı düğümleri (Interactive Diagram Nodes) oluşturuluyor...', 'info');
-        await sleep(400);
-        writeTerminalLog('Veritabanı varlık ilişkileri ve storage katmanları optimizasyonu...', 'info');
-        await sleep(400);
-        writeTerminalLog('Tehdit Modellemesi (OWASP Top 10 & Zero-Trust) yürütülüyor...', 'info');
-        await sleep(400);
-        writeTerminalLog('Mimari ve Güvenlik Çözüm Raporu Başarıyla Tamamlandı!', 'success');
-        await sleep(300);
-
-        terminalContainer.style.display = 'none';
-
+    // The Aşama 2 payload arrives with the project from Pass 2, so this button
+    // only reveals what is already in memory. There is no work here to narrate.
+    //
+    // It used to open the terminal and type "Tehdit Modellemesi (OWASP Top 10 &
+    // Zero-Trust) yürütülüyor..." across 1.85s of sleep() without issuing a
+    // single request — the fake-scan pattern docs/generation-design.md §3 struck
+    // everywhere else. This was the last place it survived.
+    function runStep2() {
         renderStep2Content();
         setStep2Visibility(true);
 

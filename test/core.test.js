@@ -413,6 +413,17 @@ test('buildBlueprintMarkdown appends stage 2 when present', () => {
     assert.ok(md.includes('güvenlik metni'));
 });
 
+// The scope fallback used to hardcode its own badge string, and it had drifted
+// from SCOPE_PRESETS.all.badge — the exported report said "Hibrit Pazar" while
+// the card said "Hibrit Kapsam". core.js:24-27 documents that drift as fixed, so
+// this pins the fallback to the preset rather than to any literal.
+test('an unknown scope falls back to the same badge the card shows', () => {
+    const md = core.buildBlueprintMarkdown({ ...validProject(), id: 'x', scope: 'bilinmeyen' });
+    assert.ok(md.includes(core.SCOPE_PRESETS.all.badge),
+        'bilinmeyen kapsam SCOPE_PRESETS.all.badge ile eşleşmeli');
+    assert.ok(!md.includes('Hibrit Pazar'), 'eski drift dizesi geri gelmiş');
+});
+
 test('buildBlueprintMarkdown handles a missing project', () => {
     assert.strictEqual(core.buildBlueprintMarkdown(null), '');
 });
