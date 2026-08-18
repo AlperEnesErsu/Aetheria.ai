@@ -777,6 +777,304 @@ Yanıtı şu JSON şemasında ver:
         return doc;
     }
 
+    // ── Ayrıntılı üretim: açı, kıyas metodu ve ağırlıklı seçim ──────────────
+    //
+    // Detailed mode replaces quick mode's random pick with a weighted one: the
+    // user says what matters, and the app shows what it chose and why.
+
+    // How the model should come at the material. The angle changes what kind of
+    // idea comes back; it has no effect on how one is scored.
+    const IDEATION_ANGLES = {
+        contrarian: {
+            id: 'contrarian',
+            label: '🔀 Aykırı Görüş',
+            promptGuidance: 'Alanda yaygın kabul gören bir varsayımı tersine çevir. '
+                + 'Fikir, "herkes X yapıyor ama Y daha doğru" biçiminde bir gerilim taşısın.'
+        },
+        story: {
+            id: 'story',
+            label: '📖 Kişisel Hikaye',
+            promptGuidance: 'Somut, tek bir kullanıcının yaşadığı bir sıkıntıdan yola çık. '
+                + 'Soyut pazar büyüklüğü değil, yaşanan an anlatılsın.'
+        },
+        evidence: {
+            id: 'evidence',
+            label: '📊 Veri / Kanıt',
+            promptGuidance: 'Fikri ölçülebilir bir gözleme dayandır. '
+                + 'Kaynak materyalde sayı, oran veya tarih varsa onu merkeze al.'
+        },
+        practical: {
+            id: 'practical',
+            label: '🔧 Pratik Uygulama',
+            promptGuidance: 'Yarın inşa edilmeye başlanabilecek kadar somut ol. '
+                + 'Kapsamı tek bir MVP içine sığacak şekilde daralt.'
+        }
+    };
+
+    // How the idea is positioned against something that already exists.
+    //
+    // `verifiability` reaches the user as a badge and is not decoration: the four
+    // methods are genuinely not equally checkable.
+    //   measurable   — a free source returns a number that settles it
+    //   partial      — "it exists over there" is checkable, "it is missing here" is not
+    //   unverifiable — no free source holds this distinction at all
+    //
+    // Keeping the weak ones rather than hiding them is deliberate. Dropping the
+    // unverifiable method would quietly imply the remaining three are all solid.
+    const COMPARISON_METHODS = {
+        sector: {
+            id: 'sector',
+            label: 'Sektör transferi',
+            referenceLabel: 'Çözümün olgunlaştığı sektör',
+            verifiability: 'measurable',
+            verifyStrategy: 'sector-asymmetry',
+            promptGuidance: 'Bir sektörde olgunlaşmış bir çözümün başka bir sektörde '
+                + 'neden hâlâ uygulanmadığını açıkla.'
+        },
+        time: {
+            id: 'time',
+            label: 'Zaman / olgunluk',
+            referenceLabel: 'Karşılaştırılacak dönem',
+            verifiability: 'measurable',
+            verifyStrategy: 'year-histogram',
+            promptGuidance: 'Yakın zamanda ucuzlayan veya erişilebilir hale gelen bir '
+                + 'teknolojinin daha önce imkânsız kıldığı şeyi anlat.'
+        },
+        country: {
+            id: 'country',
+            label: 'Ülke / pazar',
+            referenceLabel: 'Referans ülke veya pazar',
+            verifiability: 'partial',
+            verifyStrategy: 'named-entity',
+            promptGuidance: 'Başka bir pazarda adı konmuş, aranabilir bir örneği referans al. '
+                + 'Türkiye\'deki karşılığını biliyorsan adını yaz, bilmiyorsan bilmediğini yaz.'
+        },
+        scale: {
+            id: 'scale',
+            label: 'Ölçek (kurumsal ↔ KOBİ)',
+            referenceLabel: 'Çözümün bugün hitap ettiği ölçek',
+            verifiability: 'unverifiable',
+            verifyStrategy: null,
+            promptGuidance: 'Yalnızca büyük kurumların erişebildiği bir yeteneği küçük '
+                + 'işletmelerin kullanabileceği biçime indirgemeyi anlat.'
+        }
+    };
+
+    // The four axes an idea is scored on, with the weights the panel opens at.
+    // The weights belong to the user; these are only the starting position.
+    const SCORING_CRITERIA = {
+        evidence: { id: 'evidence', label: 'Kanıt gücü', defaultWeight: 40 },
+        feasibility: { id: 'feasibility', label: 'Uygulanabilirlik', defaultWeight: 30 },
+        gap: { id: 'gap', label: 'Pazar boşluğu', defaultWeight: 20 },
+        originality: { id: 'originality', label: 'Teknik özgünlük', defaultWeight: 10 }
+    };
+
+    // Pasted material is billed as prompt tokens on every generation, so it is
+    // capped rather than trusted to arrive short.
+    const SOURCE_MATERIAL_MAX_CHARS = 12000;
+
+    // Turn whatever the panel produced into weights that sum to 1.
+    //
+    // Unknown keys are dropped rather than carried through, so a stale
+    // localStorage entry written by an older build cannot introduce a criterion
+    // the scorer has no idea how to apply. Every slider at zero is a state the UI
+    // can reach, and dividing by that total would make every score NaN — it falls
+    // back to an equal split instead.
+    function normalizeWeights(raw) {
+        const ids = Object.keys(SCORING_CRITERIA);
+        const cleaned = {};
+        let sum = 0;
+
+        for (const id of ids) {
+            const value = raw && Number.isFinite(raw[id]) ? raw[id] : 0;
+            const clamped = Math.min(100, Math.max(0, value));
+            cleaned[id] = clamped;
+            sum += clamped;
+        }
+
+        if (sum === 0) {
+            const equal = 1 / ids.length;
+            for (const id of ids) cleaned[id] = equal;
+            return cleaned;
+        }
+
+        for (const id of ids) cleaned[id] = cleaned[id] / sum;
+        return cleaned;
+    }
+
+    // Score every idea against the weights and return them best-first.
+    //
+    // `breakdown` travels with the total because the UI has to be able to say why
+    // an idea won. A bare number would be one more thing the user has to take on
+    // trust, which is the habit this mode exists to break.
+    function scoreIdeas(ideas, weights) {
+        const w = normalizeWeights(weights);
+
+        return (Array.isArray(ideas) ? ideas : [])
+            .filter(idea => idea && typeof idea === 'object')
+            .map(idea => {
+                const scores = idea.scores || {};
+                const breakdown = Object.keys(SCORING_CRITERIA).map(id => {
+                    const raw = Number.isFinite(scores[id]) ? scores[id] : 0;
+                    const score = Math.min(100, Math.max(0, raw));
+                    return {
+                        criterion: id,
+                        label: SCORING_CRITERIA[id].label,
+                        score,
+                        weight: w[id],
+                        contribution: score * w[id]
+                    };
+                });
+
+                return {
+                    idea,
+                    total: breakdown.reduce((total, b) => total + b.contribution, 0),
+                    breakdown
+                };
+            })
+            .sort((a, b) => b.total - a.total);
+    }
+
+    // Pick the idea the weights actually favour.
+    //
+    // Freshness is applied first and scoring second, never the other way round: a
+    // high score must not buy an idea past the repeat filter, or moving a slider
+    // would start handing back projects the user has already been shown.
+    //
+    // `random` breaks exact ties only — the winner is otherwise fully determined by
+    // the weights, which is what makes "move a slider, get a different idea"
+    // testable. selectFreshIdea is deliberately left alone: quick mode wants a
+    // random pick, and that is the right behaviour there.
+    function pickWeightedIdea(ideas, knownTitles, weights, random) {
+        const rng = typeof random === 'function' ? random : Math.random;
+
+        const usable = (Array.isArray(ideas) ? ideas : []).filter(
+            i => i && typeof i.title === 'string' && i.title.trim()
+        );
+        if (usable.length === 0) {
+            return { idea: null, scored: [], freshCount: 0, exhausted: false };
+        }
+
+        const known = (Array.isArray(knownTitles) ? knownTitles : []).filter(
+            t => typeof t === 'string' && t.trim()
+        );
+
+        const SIMILAR = 0.6;
+        const fresh = usable.filter(
+            idea => !known.some(t => titleOverlap(idea.title, t) >= SIMILAR)
+        );
+
+        const exhausted = fresh.length === 0;
+        const scored = scoreIdeas(exhausted ? usable : fresh, weights);
+
+        const best = scored[0].total;
+        const tied = scored.filter(s => s.total === best);
+        const winner = tied.length > 1 ? tied[Math.floor(rng() * tied.length)] : tied[0];
+
+        return { idea: winner.idea, scored, freshCount: fresh.length, exhausted };
+    }
+
+    // Cut pasted material down to the token budget, at a word boundary when one is
+    // close enough that the cut does not cost most of the final line.
+    function clampSourceMaterial(text) {
+        const raw = typeof text === 'string' ? text : '';
+        if (raw.length <= SOURCE_MATERIAL_MAX_CHARS) {
+            return { text: raw, chars: raw.length, truncated: false };
+        }
+
+        const slice = raw.slice(0, SOURCE_MATERIAL_MAX_CHARS);
+        const lastBreak = slice.search(/\s\S*$/);
+        const cut = lastBreak > SOURCE_MATERIAL_MAX_CHARS * 0.9
+            ? slice.slice(0, lastBreak)
+            : slice;
+
+        return { text: cut, chars: cut.length, truncated: true };
+    }
+
+    // Pass 1 of detailed mode: ask for several candidates, each already carrying
+    // its comparison claim, its search terms and its own scores.
+    //
+    // Two of the rules in here are load-bearing rather than stylistic:
+    //
+    //   1. With material present the quote must be verbatim from it. A paraphrase
+    //      cannot be checked against the document the user actually pasted.
+    //   2. referenceExample must be a searchable name. "bazı Avrupa ülkelerinde
+    //      benzer çözümler" is unfalsifiable by construction, and the model is told
+    //      outright that the name will be looked up — which on its own changes what
+    //      it writes.
+    function buildDetailedIdeationPrompt(opts) {
+        const o = opts || {};
+        const count = Number.isFinite(o.count) && o.count > 0 ? Math.floor(o.count) : 8;
+        const categoryLabel = o.categoryLabel || CATEGORY_LABELS.all;
+        const angle = IDEATION_ANGLES[o.angle] || IDEATION_ANGLES.evidence;
+        const method = COMPARISON_METHODS[o.method] || COMPARISON_METHODS.sector;
+        const reference = typeof o.reference === 'string' ? o.reference.trim() : '';
+
+        const material = clampSourceMaterial(o.sourceMaterial);
+        const materialBlock = material.text
+            ? '\n\nKAYNAK MATERYAL — fikirler bu metne dayansın:\n"""\n'
+                + material.text + '\n"""\n'
+                + (material.truncated ? '(Metin uzunluk sınırı nedeniyle kesildi.)\n' : '')
+            : '';
+
+        const avoid = (Array.isArray(o.avoidTitles) ? o.avoidTitles : [])
+            .filter(t => typeof t === 'string' && t.trim());
+        const avoidBlock = avoid.length
+            ? '\n\nBu fikirler kullanıcıya zaten gösterildi. Bunlardan ve varyasyonlarından KAÇIN:\n'
+                + avoid.map(t => '- ' + t).join('\n')
+            : '';
+
+        let scopeInstruction = '';
+        if (o.scope === 'national') {
+            scopeInstruction = '\nÖZEL ODAK: 🇹🇷 ULUSAL (Türkiye şartları ve yerel pazar).';
+        } else if (o.scope === 'international') {
+            scopeInstruction = '\nÖZEL ODAK: 🌍 ULUSLARARASI (global pazar).';
+        }
+
+        const referenceLine = reference ? `\n- ${method.referenceLabel}: ${reference}` : '';
+
+        const quoteRule = material.text
+            ? 'evidence.quote alanı KAYNAK MATERYALDEN BİREBİR alıntı olsun ve '
+                + 'evidence.kind "source" olsun. Alıntıyı değiştirme, özetleme, kısaltma.'
+            : 'Kaynak materyal verilmedi; evidence.kind "model-knowledge" olsun ve '
+                + 'evidence.quote alanına dayandığın genel gözlemi yaz.';
+
+        return `${categoryLabel} alanında ${count} farklı yazılım projesi fikri üret.${scopeInstruction}
+
+FİKİR AÇISI — ${angle.label}: ${angle.promptGuidance}
+
+KIYAS METODU — ${method.label}: ${method.promptGuidance}${referenceLine}${materialBlock}${avoidBlock}
+
+Her fikir için şu kurallara uy:
+
+1. ${quoteRule}
+
+2. comparison.referenceExample ADI KONMUŞ, aranabilir bir ürün, hizmet veya program
+   olmalı. "bazı Avrupa ülkelerinde benzer çözümler" gibi belirsiz ifadeler REDDEDİLİR.
+   Yazdığın bu ad otomatik olarak aranacak ve sonucu kullanıcıya gösterilecek.
+
+3. comparison.localState alanına Türkiye'deki karşılığın adını yaz. Karşılığı olmadığını
+   düşünüyorsan bunu açıkça belirt; emin değilsen emin olmadığını yaz.
+
+4. searchTerms alanına 2-3 İNGİLİZCE arama terimi yaz — cümle değil, terim.
+
+5. scores alanındaki dört değeri 0-100 arasında ver.
+
+Yanıtı şu JSON şemasında ver:
+{ "ideas": [ {
+  "title": "Kısa proje adı",
+  "summary": "Tek cümlelik açıklama",
+  "comparison": {
+    "referenceExample": "Adı konmuş, aranabilir ürün/hizmet",
+    "localState": "Türkiye'deki karşılığı: adı, ya da açıkça bilinmediği",
+    "structuralReason": "Farkın yapısal sebebi"
+  },
+  "searchTerms": ["arama terimi", "arama terimi"],
+  "evidence": { "quote": "dayanak alıntı", "kind": "source" },
+  "scores": { "evidence": 0, "feasibility": 0, "gap": 0, "originality": 0 }
+} ] }`;
+    }
+
     return {
         NODE_TYPES,
         SCOPE_PRESETS,
@@ -805,6 +1103,15 @@ Yanıtı şu JSON şemasında ver:
         pickRandomProject,
         pickUnseenProject,
         evaluateRateLimit,
-        buildBlueprintMarkdown
+        buildBlueprintMarkdown,
+        IDEATION_ANGLES,
+        COMPARISON_METHODS,
+        SCORING_CRITERIA,
+        SOURCE_MATERIAL_MAX_CHARS,
+        normalizeWeights,
+        scoreIdeas,
+        pickWeightedIdea,
+        clampSourceMaterial,
+        buildDetailedIdeationPrompt
     };
 });
