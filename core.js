@@ -1075,6 +1075,490 @@ Yanıtı şu JSON şemasında ver:
 } ] }`;
     }
 
+    // ── Kanıt katmanı: iddiayı ölçmek ───────────────────────────────────────
+    //
+    // The model recalls, it does not research, and a recalled claim dressed in a
+    // named reference and a table reads as far more rigorous than it is. This
+    // layer measures what can actually be measured and is explicit about the rest.
+    //
+    // Every source here is free, keyless, read-only and CORS-open. Measured
+    // 18 Aug 2026 against Origin: http://localhost:3000 — all three answer with
+    // Access-Control-Allow-Origin: *.
+    //
+    // No credential of any kind is attached to these requests. The API key is
+    // added in postToModel and nowhere else.
+
+    const EVIDENCE_TIMEOUT_MS = 8000;
+
+    // Only the top few candidates are verified. Verifying one reduces the evidence
+    // to decoration — it cannot change the ranking. Verifying all eight burns
+    // GitHub's unauthenticated search budget, measured at X-RateLimit-Limit: 10
+    // per minute. Three is the cheapest number at which a measurement can still
+    // overturn the order.
+    const VERIFY_TOP_K = 3;
+
+    // What a status is worth. Deliberately small relative to the 0-100 criteria
+    // scores: evidence adjusts the ranking, it does not overrule what the user
+    // said matters.
+    const VERIFICATION_BONUS = { verified: 12, measured: 8 };
+
+    const EVIDENCE_SOURCES = {
+        openalex: {
+            id: 'openalex',
+            label: 'OpenAlex',
+            origin: 'https://api.openalex.org',
+            capabilities: ['count', 'year-histogram'],
+
+            // title_and_abstract.search, not the bare `search` parameter.
+            //
+            // OpenAlex's default search now runs full text ("works where full text
+            // has ..."), which matches any paper mentioning the words anywhere at
+            // all — including once in a related-work paragraph. Measured 18 Aug
+            // 2026, the same three queries return:
+            //
+            //   fulltext                 title_and_abstract
+            //   fintech      13563       1028
+            //   healthcare   42380       1853
+            //   agriculture  25391        276
+            //
+            // Agriculture goes from clearly under-researched to nearly twice
+            // fintech. The loose form would make the asymmetry unmeasurable, so
+            // the narrow filter is not a preference here, it is the measurement.
+            buildUrl(query, opts) {
+                const o = opts || {};
+                const filter = `title_and_abstract.search:${encodeURIComponent(query)}`;
+                const base = `https://api.openalex.org/works?filter=${filter}&per-page=1`;
+                return o.histogram ? `${base}&group_by=publication_year` : base;
+            },
+
+            parse(payload) {
+                const p = payload || {};
+                // A plain count response carries group_by as an EMPTY array rather
+                // than omitting it — measured 18 Aug 2026. Testing Array.isArray on
+                // its own sent every count down the histogram path and dropped
+                // meta.count on the floor, which surfaced as the sector comparison
+                // reporting an error with both of its counts sitting right there.
+                if (Array.isArray(p.group_by) && p.group_by.length > 0) {
+                    const years = {};
+                    for (const row of p.group_by) {
+                        const year = Number(row && row.key);
+                        if (Number.isFinite(year) && year > 1900) {
+                            years[year] = Number(row.count) || 0;
+                        }
+                    }
+                    return { kind: 'years', years };
+                }
+                const count = p.meta && Number(p.meta.count);
+                if (!Number.isFinite(count)) return null;
+                return { kind: 'count', count };
+            }
+        },
+
+        wikidata: {
+            id: 'wikidata',
+            label: 'Wikidata',
+            origin: 'https://www.wikidata.org',
+            capabilities: ['entity-search'],
+
+            // origin=* is what makes the MediaWiki API answer cross-origin.
+            buildUrl(query) {
+                return 'https://www.wikidata.org/w/api.php'
+                    + '?action=wbsearchentities'
+                    + `&search=${encodeURIComponent(query)}`
+                    + '&language=en&format=json&origin=*';
+            },
+
+            parse(payload) {
+                const hits = payload && Array.isArray(payload.search) ? payload.search : null;
+                if (!hits) return null;
+                return {
+                    kind: 'entities',
+                    matches: hits.slice(0, 3).map(hit => ({
+                        label: (hit && (hit.label || hit.title)) || '',
+                        description: (hit && hit.description) || '',
+                        url: hit && hit.concepturi ? hit.concepturi : ''
+                    }))
+                };
+            }
+        },
+
+        github: {
+            id: 'github',
+            label: 'GitHub',
+            origin: 'https://api.github.com',
+            capabilities: ['repo-search'],
+
+            buildUrl(query) {
+                return 'https://api.github.com/search/repositories'
+                    + `?q=${encodeURIComponent(query)}&per_page=3&sort=stars`;
+            },
+
+            parse(payload) {
+                const p = payload || {};
+                if (!Number.isFinite(Number(p.total_count))) return null;
+                const items = Array.isArray(p.items) ? p.items : [];
+                return {
+                    kind: 'repos',
+                    total: Number(p.total_count),
+                    matches: items.slice(0, 3).map(item => ({
+                        label: (item && item.full_name) || '',
+                        description: (item && item.description) || '',
+                        url: (item && item.html_url) || ''
+                    }))
+                };
+            }
+        }
+    };
+
+    // Build the queries for a candidate.
+    //
+    // The app writes these, not the model. If the model handed back its own query
+    // string there would be no way to test what we actually searched for, and a
+    // model that phrased the query to match its own claim would be marking its own
+    // homework.
+    function buildEvidenceQueries(idea, methodId, reference) {
+        const method = COMPARISON_METHODS[methodId];
+        if (!method || !method.verifyStrategy) return [];
+
+        const terms = (idea && Array.isArray(idea.searchTerms) ? idea.searchTerms : [])
+            .filter(t => typeof t === 'string' && t.trim())
+            .map(t => t.trim().replace(/\s+/g, ' '));
+
+        const base = terms[0] || '';
+        if (!base) return [];
+
+        const ref = typeof reference === 'string' ? reference.trim() : '';
+        const named = idea && idea.comparison && typeof idea.comparison.referenceExample === 'string'
+            ? idea.comparison.referenceExample.trim()
+            : '';
+
+        switch (method.verifyStrategy) {
+            case 'sector-asymmetry':
+                // Two counts under one base term. Without a second sector there is
+                // nothing to compare, so the pair is dropped rather than reported
+                // as a one-sided finding.
+                if (!ref || !terms[1]) return [];
+                return [
+                    { sourceId: 'openalex', role: 'reference', query: `${base} ${ref}` },
+                    { sourceId: 'openalex', role: 'target', query: `${base} ${terms[1]}` }
+                ];
+
+            case 'year-histogram':
+                return [
+                    { sourceId: 'openalex', role: 'histogram', query: base, options: { histogram: true } }
+                ];
+
+            case 'named-entity':
+                // The named example is what gets looked up — the thing the model was
+                // told outright would be searched.
+                if (!named) return [];
+                return [
+                    { sourceId: 'wikidata', role: 'entity', query: named },
+                    { sourceId: 'github', role: 'entity', query: named }
+                ];
+
+            default:
+                return [];
+        }
+    }
+
+    function buildEvidenceRequest(sourceId, query, opts) {
+        const source = EVIDENCE_SOURCES[sourceId];
+        if (!source || typeof query !== 'string' || !query.trim()) return null;
+        return { url: source.buildUrl(query.trim(), opts) };
+    }
+
+    function parseEvidenceResponse(sourceId, payload) {
+        const source = EVIDENCE_SOURCES[sourceId];
+        if (!source) return null;
+        try {
+            return source.parse(payload);
+        } catch {
+            // A shape we did not expect is a parse failure, not a finding.
+            return null;
+        }
+    }
+
+    // Turn raw source answers into one five-valued result.
+    //
+    // `raws` is [{ sourceId, role, ok, data, error, link }].
+    //
+    // The five values exist because collapsing any two of them loses something
+    // that matters:
+    //
+    //   verified     found, with a source and a link
+    //   measured     a numeric asymmetry was actually computed
+    //   not_found    this source did not return it for this query — NOT evidence
+    //                of absence
+    //   unverifiable this claim type cannot be checked with these tools at all
+    //   error        the network or the service failed
+    //
+    // error must never merge into not_found. Wikidata returns zero results for
+    // "Estonian e-Residency" — one of the best known e-government programmes there
+    // is — purely because the phrasing does not match. If a timeout were reported
+    // the same way a genuine zero is, the layer meant to catch invented references
+    // would itself be inventing findings.
+    function interpretEvidence(methodId, raws) {
+        const method = COMPARISON_METHODS[methodId];
+        const list = (Array.isArray(raws) ? raws : []).filter(Boolean);
+        const firstLink = list.find(r => r.link);
+        const link = firstLink ? firstLink.link : null;
+        const sourceId = list.length ? list[0].sourceId : null;
+
+        if (!method || !method.verifyStrategy) {
+            return {
+                sourceId: null,
+                status: 'unverifiable',
+                detail: 'Bu kıyas tipi ücretsiz ve anahtarsız kaynaklarla doğrulanamıyor. '
+                    + 'Sıralamaya etkisi yok.',
+                measurement: null,
+                supportsClaim: null,
+                link: null
+            };
+        }
+
+        const usable = list.filter(r => r.ok && r.data);
+        if (list.length === 0 || usable.length === 0) {
+            const reason = list.find(r => r.error);
+            return {
+                sourceId,
+                status: 'error',
+                detail: 'Kaynak yanıt vermedi'
+                    + (reason && reason.error ? ` (${reason.error})` : '')
+                    + '. Bu bir bulgu değil; sıralamaya etkisi yok.',
+                measurement: null,
+                supportsClaim: null,
+                link
+            };
+        }
+
+        switch (method.verifyStrategy) {
+            case 'sector-asymmetry': {
+                const ref = usable.find(r => r.role === 'reference');
+                const target = usable.find(r => r.role === 'target');
+                if (!ref || !target || ref.data.kind !== 'count' || target.data.kind !== 'count') {
+                    return {
+                        sourceId,
+                        status: 'error',
+                        detail: 'Kıyas için iki sayım da gerekiyordu, ikisi birden gelmedi. '
+                            + 'Sıralamaya etkisi yok.',
+                        measurement: null,
+                        supportsClaim: null,
+                        link
+                    };
+                }
+
+                // The claim is that the target sector is the under-served one.
+                const supportsClaim = target.data.count < ref.data.count;
+                return {
+                    sourceId,
+                    status: 'measured',
+                    supportsClaim,
+                    measurement: { reference: ref.data.count, target: target.data.count },
+                    detail: supportsClaim
+                        ? `Ölçüm iddiayı destekliyor: referans alanda ${ref.data.count}, `
+                          + `hedef alanda ${target.data.count} yayın.`
+                        : `Ölçüm iddiayı desteklemiyor: hedef alanda ${target.data.count} yayın var, `
+                          + `referans alandaki ${ref.data.count} yayından az değil.`,
+                    link
+                };
+            }
+
+            case 'year-histogram': {
+                const hist = usable.find(r => r.data.kind === 'years');
+                if (!hist) {
+                    return {
+                        sourceId,
+                        status: 'error',
+                        detail: 'Yıl dağılımı okunamadı. Sıralamaya etkisi yok.',
+                        measurement: null,
+                        supportsClaim: null,
+                        link
+                    };
+                }
+
+                const years = hist.data.years;
+                const keys = Object.keys(years).map(Number).filter(Number.isFinite);
+                const total = keys.reduce((sum, y) => sum + years[y], 0);
+                const cutoff = Math.max(...keys, 0) - 2;
+                const recent = keys.filter(y => y >= cutoff).reduce((sum, y) => sum + years[y], 0);
+                const share = total > 0 ? recent / total : 0;
+
+                // A field whose output is concentrated in the last three years is a
+                // recently-opened one, which is what this comparison claims.
+                const supportsClaim = share >= 0.5;
+                return {
+                    sourceId,
+                    status: 'measured',
+                    supportsClaim,
+                    measurement: { years, recentShare: share },
+                    detail: `Yayınların %${Math.round(share * 100)}'i son üç yılda. `
+                        + (supportsClaim
+                            ? 'Alan gerçekten yeni açılmış görünüyor.'
+                            : 'Alan iddia edildiği kadar yeni görünmüyor.'),
+                    link
+                };
+            }
+
+            case 'named-entity': {
+                // A hit only counts when what came back actually resembles what was
+                // searched for. Both sources match loosely enough that almost any
+                // phrase retrieves something: measured 18 Aug 2026, the invented name
+                // Servis Takip Veli retrieved a repository called
+                // noktaturizm63/servisnoktam_veli, and Estonian e-Residency retrieved
+                // perguth/chromeos-welcome-to-estonia.
+                //
+                // Reporting either as a found reference would let this layer
+                // manufacture the confidence it exists to withhold: an invented name
+                // would come back verified, with a link and a score bonus. That is the
+                // structured-hallucination failure reproduced inside the check meant to
+                // prevent it. titleOverlap separates the two cleanly — 1.00 for a real
+                // match against 0.00-0.50 for those retrievals — at the same 0.6 the
+                // freshness filter already uses.
+                const NAME_MATCH = 0.6;
+
+                for (const r of usable) {
+                    if (r.data && Array.isArray(r.data.matches)) {
+                        r.data.matches = r.data.matches.filter(
+                            m => titleOverlap(r.query || '', (m && m.label) || '') >= NAME_MATCH
+                        );
+                    }
+                }
+
+                const hits = usable.filter(r => {
+                    const d = r.data;
+                    if (d.kind === 'entities') return d.matches.length > 0;
+                    if (d.kind === 'repos') return d.matches.length > 0;
+                    return false;
+                });
+
+                if (hits.length > 0) {
+                    const names = hits
+                        .flatMap(r => (r.data.matches || []).map(m => m.label))
+                        .filter(Boolean)
+                        .slice(0, 3);
+                    const found = hits.find(r => (r.data.matches || []).some(m => m.url));
+                    const foundUrl = found
+                        ? (found.data.matches.find(m => m.url) || {}).url
+                        : link;
+                    return {
+                        sourceId: hits[0].sourceId,
+                        status: 'verified',
+                        supportsClaim: true,
+                        measurement: { matches: names },
+                        detail: `Referans bulundu: ${names.join(', ')}.`,
+                        link: foundUrl || link
+                    };
+                }
+
+                // Nothing came back — and that is genuinely all this means. The
+                // wording here is load-bearing: it must not read as "this does not
+                // exist" or "the model made it up", because a query that simply
+                // does not match returns exactly the same zero.
+                return {
+                    sourceId,
+                    status: 'not_found',
+                    supportsClaim: null,
+                    measurement: null,
+                    detail: 'Bu kaynaklarda bu sorguyla kayıt bulunamadı. '
+                        + 'Sorgu tutmamış da olabilir; bulunamaması referansın gerçek '
+                        + 'olmadığını göstermez. Sıralamaya etkisi yok.',
+                    link
+                };
+            }
+
+            default:
+                return {
+                    sourceId,
+                    status: 'unverifiable',
+                    supportsClaim: null,
+                    measurement: null,
+                    detail: 'Bu kıyas için tanımlı bir doğrulama stratejisi yok.',
+                    link: null
+                };
+        }
+    }
+
+    // What a verification result adds to a candidate's score.
+    //
+    // Nothing here can return a negative number, and that is the whole rule.
+    function verificationBonus(result) {
+        if (!result) return 0;
+        if (result.status === 'verified') return VERIFICATION_BONUS.verified;
+        if (result.status === 'measured' && result.supportsClaim) return VERIFICATION_BONUS.measured;
+        return 0;
+    }
+
+    // Re-rank the scored candidates once verification has run.
+    //
+    // Verification only ever adds. A measurement that refutes its own claim earns
+    // no bonus and carries a visible warning, but takes no penalty either — its
+    // rivals gaining while it does not is enough to push it down, which gets the
+    // ranking effect without the rule needing an exception.
+    //
+    // The reason it must not subtract is Wikidata's zero for "Estonian
+    // e-Residency": a real reference that simply did not match the query. A
+    // penalty would let a phrasing mismatch kill a good idea.
+    function applyVerificationBoost(scored, results) {
+        const lookup = results instanceof Map
+            ? results
+            : new Map(Object.entries(results || {}));
+
+        return (Array.isArray(scored) ? scored : [])
+            .filter(row => row && row.idea)
+            .map(row => {
+                const result = lookup.get(row.idea.title) || null;
+                const bonus = verificationBonus(result);
+                return Object.assign({}, row, {
+                    verification: result,
+                    verificationBonus: bonus,
+                    baseTotal: row.total,
+                    total: row.total + bonus
+                });
+            })
+            .sort((a, b) => b.total - a.total);
+    }
+
+    // The comparison and evidence section of the exported blueprint.
+    function buildVerificationMarkdown(v) {
+        if (!v) return '';
+        const c = v.comparison || {};
+
+        let out = '';
+        if (c.referenceExample) out += `**Referans örnek**: ${c.referenceExample}\n\n`;
+        if (c.localState) out += `**Türkiye'deki durum**: ${c.localState}\n\n`;
+        if (c.structuralReason) out += `**Farkın yapısal sebebi**: ${c.structuralReason}\n\n`;
+
+        if (v.method) {
+            const method = COMPARISON_METHODS[v.method];
+            if (method) {
+                const badge = {
+                    measurable: '🟢 ölçülebilir',
+                    partial: '🟡 kısmen ölçülebilir',
+                    unverifiable: '🔴 bu araçlarla doğrulanamaz'
+                }[method.verifiability];
+                out += `**Kıyas metodu**: ${method.label} — ${badge}\n\n`;
+            }
+        }
+
+        const results = Array.isArray(v.results) ? v.results : [];
+        if (results.length > 0) {
+            out += '### Kanıt sonuçları\n\n';
+            for (const r of results) {
+                if (!r) continue;
+                const source = EVIDENCE_SOURCES[r.sourceId];
+                const label = source ? source.label : (r.sourceId || 'kaynak');
+                out += `- **${label}** · \`${r.status}\` — ${r.detail || ''}`;
+                if (r.link) out += ` ([kaynağa bak](${r.link}))`;
+                out += '\n';
+            }
+            out += '\n';
+        }
+
+        if (c.howToCheck) out += `**Kendin nasıl doğrularsın**: ${c.howToCheck}\n\n`;
+        return out;
+    }
+
     return {
         NODE_TYPES,
         SCOPE_PRESETS,
@@ -1112,6 +1596,16 @@ Yanıtı şu JSON şemasında ver:
         scoreIdeas,
         pickWeightedIdea,
         clampSourceMaterial,
-        buildDetailedIdeationPrompt
+        buildDetailedIdeationPrompt,
+        EVIDENCE_SOURCES,
+        EVIDENCE_TIMEOUT_MS,
+        VERIFY_TOP_K,
+        VERIFICATION_BONUS,
+        buildEvidenceQueries,
+        buildEvidenceRequest,
+        parseEvidenceResponse,
+        interpretEvidence,
+        applyVerificationBoost,
+        buildVerificationMarkdown
     };
 });
