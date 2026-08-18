@@ -795,3 +795,64 @@ test('quick mode is untouched by any of this', async () => {
     assert.strictEqual(evidenceCalls.length, 0, 'hızlı mod kanıt sorgusu attı');
     assert.deepStrictEqual(app.errors, []);
 });
+
+test('a project saved from detailed mode brings its measurement back', async () => {
+    // Saving the prose but losing the comparison would leave the pool holding a
+    // claim with no record of whether it was ever checked.
+    const app = await bootApp({ storage: detailed(), fetch: detailedFetch() });
+
+    app.id('btnGenerateProject').click();
+    await app.flush(3000);
+    assert.strictEqual(app.id('verificationCard').classList.contains('visible'), true);
+
+    app.id('btnSaveProject').click();
+    await app.flush(200);
+
+    // Reopen it from the pool, the way a user would on a later visit.
+    app.id('btnSavedProjects').click();
+    await app.flush(200);
+    const load = app.$$('.btn-saved-action').find(b => !b.classList.contains('btn-delete'));
+    assert.ok(load, 'havuzda projeyi açan buton yok');
+    load.click();
+    await app.flush(500);
+
+    assert.strictEqual(app.id('verificationCard').classList.contains('visible'), true,
+        'havuzdan açılan ayrıntılı proje ölçümünü geri getirmedi');
+    assert.match(app.id('evidenceContent').textContent, /measured|not_found|error/);
+    assert.deepStrictEqual(app.errors, []);
+});
+
+test('a hand-edited pool entry cannot write into the evidence class attribute', async () => {
+    // The pool is localStorage, so its contents are user-editable, and the status
+    // lands in a class name. Same hole safeNodeType closes for diagram nodes.
+    const evil = 'x" onload=alert(1) class="pwned';
+    const poisoned = {
+        ...validProject(),
+        id: 'zehirli',
+        verification: { method: 'sector', comparison: {}, breakdown: [], total: 10,
+            results: [{ sourceId: 'openalex', status: evil, detail: 'd' }] }
+    };
+
+    const app = await bootApp({
+        storage: Object.assign(detailed(), {
+            aetheria_community_pool: JSON.stringify([poisoned])
+        }),
+        fetch: detailedFetch()
+    });
+
+    app.id('btnSavedProjects').click();
+    await app.flush(200);
+    const load = app.$$('.btn-saved-action').find(b => !b.classList.contains('btn-delete'));
+    if (load) {
+        load.click();
+        await app.flush(500);
+    }
+
+    assert.strictEqual(app.window.__pwned, undefined, 'enjekte edilen kod çalıştı');
+    for (const item of app.$$('.evidence-item')) {
+        assert.match(item.className, /status-(verified|measured|not_found|unverifiable|error)/,
+            `beklenmeyen kanıt sınıfı: ${item.className}`);
+        assert.ok(!/onload|pwned/i.test(item.className));
+    }
+    assert.deepStrictEqual(app.errors, []);
+});

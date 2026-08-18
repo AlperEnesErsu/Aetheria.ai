@@ -19,6 +19,11 @@
     // Diagram node types that have a matching .node-* rule in style.css
     const NODE_TYPES = ['source', 'service', 'ai', 'storage', 'client'];
 
+    // The five values a verification result may carry. Listed here for the same
+    // reason NODE_TYPES is: the renderer builds a CSS class out of the status, and
+    // a project reloaded from the pool came out of hand-editable localStorage.
+    const EVIDENCE_STATUSES = ['verified', 'measured', 'not_found', 'unverifiable', 'error'];
+
     // Scope definitions for targeting specific market ecosystems.
     //
     // `badge` is the single source of truth for what the UI shows. app.js used to
@@ -185,6 +190,26 @@
             && typeof s2.security === 'string' && s2.security.trim();
         if (!hasStep2) delete p.step2;
 
+        // Detailed mode attaches this; quick mode and the bundled examples do not, so
+        // it stays optional and validateProjectShape does not ask for it. What it does
+        // need is clamping: a project that has been through the pool came back out of
+        // localStorage, and its status ends up in a CSS class.
+        if (p.verification && typeof p.verification === 'object') {
+            const v = { ...p.verification };
+            v.method = COMPARISON_METHODS[v.method] ? v.method : null;
+            v.results = Array.isArray(v.results)
+                ? v.results.filter(r => r && typeof r === 'object').map(r => ({
+                    ...r,
+                    status: safeEvidenceStatus(r.status),
+                    sourceId: EVIDENCE_SOURCES[r.sourceId] ? r.sourceId : null,
+                    link: (typeof r.link === 'string' && r.link.startsWith('https://')) ? r.link : null
+                }))
+                : [];
+            p.verification = v;
+        } else {
+            delete p.verification;
+        }
+
         return p;
     }
 
@@ -192,6 +217,13 @@
     // up in a class attribute, so an arbitrary string is also an injection risk.
     function safeNodeType(type) {
         return NODE_TYPES.includes(type) ? type : 'service';
+    }
+
+    // The same guard, one layer along. An unknown status must not reach the class
+    // attribute, and 'error' is the honest fallback: a result we cannot read is not
+    // a finding.
+    function safeEvidenceStatus(status) {
+        return EVIDENCE_STATUSES.includes(status) ? status : 'error';
     }
 
     // Draw one value from each constraint axis. Returned as a plain object so the
@@ -1065,12 +1097,15 @@ Her fikir için şu kurallara uy:
    olmalı. "bazı Avrupa ülkelerinde benzer çözümler" gibi belirsiz ifadeler REDDEDİLİR.
    Yazdığın bu ad otomatik olarak aranacak ve sonucu kullanıcıya gösterilecek.
 
-3. comparison.localState alanına Türkiye'deki karşılığın adını yaz. Karşılığı olmadığını
+3. comparison.howToCheck alanına, kullanıcının bu iddiayı KENDİ BAŞINA nasıl
+   doğrulayabileceğini yaz — hangi kaynağa bakacağını, ne arayacağını.
+
+4. comparison.localState alanına Türkiye'deki karşılığın adını yaz. Karşılığı olmadığını
    düşünüyorsan bunu açıkça belirt; emin değilsen emin olmadığını yaz.
 
-4. searchTerms alanına 2-3 İNGİLİZCE arama terimi yaz — cümle değil, terim.
+5. searchTerms alanına 2-3 İNGİLİZCE arama terimi yaz — cümle değil, terim.
 
-5. scores alanındaki dört değeri 0-100 arasında ver.
+6. scores alanındaki dört değeri 0-100 arasında ver.
 
 Yanıtı şu JSON şemasında ver:
 { "ideas": [ {
@@ -1079,7 +1114,8 @@ Yanıtı şu JSON şemasında ver:
   "comparison": {
     "referenceExample": "Adı konmuş, aranabilir ürün/hizmet",
     "localState": "Türkiye'deki karşılığı: adı, ya da açıkça bilinmediği",
-    "structuralReason": "Farkın yapısal sebebi"
+    "structuralReason": "Farkın yapısal sebebi",
+    "howToCheck": "Kullanıcının bu iddiayı kendi başına nasıl doğrulayabileceği"
   },
   "searchTerms": ["arama terimi", "arama terimi"],
   "evidence": { "quote": "dayanak alıntı", "kind": "source" },
@@ -1596,6 +1632,8 @@ Yanıtı şu JSON şemasında ver:
         validateProjectShape,
         normalizeProject,
         safeNodeType,
+        EVIDENCE_STATUSES,
+        safeEvidenceStatus,
         pickRandomProject,
         pickUnseenProject,
         evaluateRateLimit,

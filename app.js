@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         validateProjectShape,
         normalizeProject,
         safeNodeType,
+        safeEvidenceStatus,
         pickUnseenProject,
         pickConstraintCombo,
         selectFreshIdea,
@@ -660,10 +661,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateSaveButtonUI();
 
-        // Detailed mode calls renderVerification straight after this and turns
-        // them back on. Clearing here means quick mode and the stored sample can
-        // never inherit the comparison of a previous detailed run.
-        setDetailedBlocksVisible(false);
+        // A project saved from detailed mode carries its comparison with it, so
+        // reopening it from the pool brings the measurement back rather than only
+        // the prose it produced. Anything without one clears the blocks, so quick
+        // mode and the stored sample cannot inherit a previous detailed run.
+        if (currentProject.verification) {
+            renderVerification(currentProject.verification);
+        } else {
+            setDetailedBlocksVisible(false);
+        }
 
         resultsWrapper.classList.add('visible');
         resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2222,6 +2228,10 @@ Yanıtı tam olarak şu JSON şemasında ver:
         if (c.localState) md += `**Türkiye'deki durum:** ${c.localState}\n`;
         if (c.structuralReason) md += `**Farkın yapısal sebebi:** ${c.structuralReason}\n`;
         md += `**Kıyas metodu:** ${method.label} — ${badgeText}\n`;
+        // The point of the whole block: the user should be able to go and check
+        // rather than take any of this on our word.
+        if (c.howToCheck) md += `**Kendin nasıl doğrularsın:** ${c.howToCheck}
+`;
 
         if (v.evidence && v.evidence.quote) {
             md += v.sourceBacked
@@ -2250,7 +2260,10 @@ Yanıtı tam olarak şu JSON şemasında ver:
             if (!r) continue;
 
             const item = document.createElement('div');
-            item.className = `evidence-item status-${r.status}`;
+            // Allowlisted rather than written straight through: a pooled project
+            // came out of localStorage, and this string lands in a class attribute.
+            const status = safeEvidenceStatus(r.status);
+            item.className = `evidence-item status-${status}`;
             if (r.status === 'measured' && r.supportsClaim === false) item.classList.add('refutes');
 
             const head = document.createElement('div');
@@ -2261,11 +2274,11 @@ Yanıtı tam olarak şu JSON şemasında ver:
             const known = EVIDENCE_SOURCES[r.sourceId];
             source.textContent = known ? known.label : (r.sourceId || 'Kaynak');
 
-            const status = document.createElement('span');
-            status.className = 'evidence-status';
-            status.textContent = r.status;
+            const statusTag = document.createElement('span');
+            statusTag.className = 'evidence-status';
+            statusTag.textContent = status;
 
-            head.append(source, status);
+            head.append(source, statusTag);
 
             if (r.status === 'measured' && r.supportsClaim === false) {
                 const warn = document.createElement('span');
@@ -2497,8 +2510,9 @@ Yanıtı tam olarak şu JSON şemasında ver:
         // the comparison with the project rather than alongside it.
         generated.project.verification = generated.verification;
 
+        // loadProjectIntoView renders the verification itself now that the block
+        // rides on the project.
         loadProjectIntoView(generated.project, false, false);
-        renderVerification(generated.verification);
     }
 
     // Event Listeners

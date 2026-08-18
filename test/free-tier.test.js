@@ -157,3 +157,59 @@ test('the README states the cost position', () => {
     assert.ok(/billing|faturaland/i.test(readme),
         'README faturalandırmanın kapalı kalması gerektiğini söylemiyor');
 });
+
+// ── Ayrıntılı mod ────────────────────────────────────────────────────────────
+
+test('detailed mode still costs exactly two model calls', () => {
+    // The evidence layer sits between the two passes and adds requests, but none
+    // of them is billed. If a third model call ever appeared here it would raise
+    // the cost of every generation against the free tier's quota.
+    const detailed = appSource.slice(appSource.indexOf('async function generateDetailedProject'));
+    const body = detailed.slice(0, detailed.indexOf('\n    }'));
+
+    const modelCalls = body.match(/requestModelCompletion|expandIdea/g) || [];
+    assert.strictEqual(modelCalls.length, 2,
+        `ayrıntılı mod ${modelCalls.length} model çağrısı yapıyor, 2 olmalı`);
+});
+
+test('every evidence source is free and keyless', () => {
+    // The whole layer only works on the free tier because none of these bills or
+    // authenticates. A source that needed a key would put the cost back.
+    for (const [id, source] of Object.entries(core.EVIDENCE_SOURCES)) {
+        const url = source.buildUrl('test');
+        assert.ok(!/key|token|auth/i.test(url), `${id}: URL kimlik bilgisi istiyor`);
+        assert.ok(url.startsWith('https://'), `${id}: şifresiz`);
+    }
+});
+
+test('the verification budget fits the keyless GitHub allowance', () => {
+    // Measured as X-RateLimit-Limit: 10 for unauthenticated search. A country
+    // comparison spends two per candidate, so the top-k cap is what keeps one
+    // generation inside it.
+    assert.ok(core.VERIFY_TOP_K * 2 <= 10,
+        `${core.VERIFY_TOP_K} aday × 2 istek GitHub limitini aşıyor`);
+});
+
+test('the pasted material has a ceiling, because it is billed as prompt tokens', () => {
+    // Material travels in pass 1 on every generation. Without a cap a pasted book
+    // would burn the user's quota in a single click.
+    assert.ok(core.SOURCE_MATERIAL_MAX_CHARS > 0);
+    assert.ok(core.SOURCE_MATERIAL_MAX_CHARS <= 20000,
+        'materyal tavanı ücretsiz katman için fazla yüksek');
+
+    const clamped = core.clampSourceMaterial('x'.repeat(core.SOURCE_MATERIAL_MAX_CHARS * 3));
+    assert.strictEqual(clamped.truncated, true);
+    assert.ok(clamped.chars <= core.SOURCE_MATERIAL_MAX_CHARS);
+});
+
+test('the detailed ideation budget is raised but still bounded', () => {
+    // Detailed candidates carry a comparison block, search terms, a quote and four
+    // scores each, so the quick-mode ceiling truncates the JSON mid-array. Raising
+    // it is necessary; leaving it unbounded would not be.
+    const match = appSource.match(/DETAILED_IDEA_MAX_TOKENS\s*=\s*(\d+)/);
+    assert.ok(match, 'ayrıntılı mod token tavanı tanımlı değil');
+
+    const budget = Number(match[1]);
+    assert.ok(budget > 1024, 'ayrıntılı adaylar hızlı mod tavanına sığmaz');
+    assert.ok(budget <= 4096, 'ayrıntılı üretim tavanı ücretsiz katman için fazla yüksek');
+});
