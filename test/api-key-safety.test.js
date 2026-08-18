@@ -151,15 +151,65 @@ test('CSP still restricts where requests can go', () => {
             `connect-src kullanılamayan ${provider.label} uç noktasına izin veriyor`);
     }
 
+    // The evidence sources are the second half of the allowlist. They differ
+    // from the provider origins in the way that matters here: no credential is
+    // ever attached to a request going to them, which the test below pins.
+    for (const source of Object.values(core.EVIDENCE_SOURCES)) {
+        assert.ok(connectSrc[1].includes(source.origin),
+            `connect-src ${source.label} uç noktasını içermiyor — kanıt sorgusu engellenir`);
+    }
+
     const allowed = connectSrc[1].trim().split(/\s+/).filter(Boolean);
-    const known = reachable.map(p => p.origin);
+    const known = [
+        ...reachable.map(p => p.origin),
+        ...Object.values(core.EVIDENCE_SOURCES).map(source => source.origin)
+    ];
     for (const host of allowed) {
         assert.ok(known.includes(host),
             `connect-src bilinmeyen bir hedefe izin veriyor: ${host}`);
     }
 
+    // Every origin in the policy has to be one something actually uses. An
+    // origin listed but never called is a permission granted for nothing.
+    for (const host of known) {
+        assert.ok(allowed.includes(host),
+            `${host} kullanılıyor ama connect-src içinde yok`);
+    }
+
     assert.ok(!/connect-src[^;]*\*/.test(csp[1]), 'connect-src joker karakter içeriyor');
     assert.ok(/script-src\s+'self'/.test(csp[1]), "script-src 'self' değil");
+});
+
+test('no credential can reach an evidence source', () => {
+    // The sharpest line in the whole layer. The evidence origins are public and
+    // keyless, and widening the CSP to reach them is only defensible while that
+    // stays true — so the request builder has to be structurally incapable of
+    // carrying a secret rather than merely not carrying one today.
+    const core = require('../core.js');
+
+    for (const id of Object.keys(core.EVIDENCE_SOURCES)) {
+        const request = core.buildEvidenceRequest(id, 'test query');
+
+        // A URL and nothing else: there is no headers object to put a key into.
+        assert.deepStrictEqual(Object.keys(request), ['url'],
+            `${id}: istek url dışında alan taşıyor`);
+
+        for (const marker of [/api[_-]?key/i, /authorization/i, /x-goog/i, /x-api-key/i, /bearer/i]) {
+            assert.ok(!marker.test(request.url),
+                `${id}: URL kimlik bilgisi taşıyor gibi görünüyor`);
+        }
+    }
+
+    // And the fetch call itself has to opt out of ambient credentials, or a
+    // cookie for one of these hosts would ride along without anyone writing it in.
+    const start = appSource.indexOf('async function fetchEvidence');
+    assert.ok(start !== -1, 'fetchEvidence bulunamadı');
+    const body = appSource.slice(start, appSource.indexOf('\n    }', start));
+
+    assert.ok(/credentials:\s*'omit'/.test(body), 'kanıt isteği credentials: omit kullanmıyor');
+    assert.ok(!/headers/i.test(body), 'kanıt isteğine başlık ekleniyor');
+    assert.ok(!/geminiApiKey|Authorization|x-goog-api-key|x-api-key/i.test(body),
+        'kanıt isteği anahtara dokunuyor');
 });
 
 test('core.js never receives the credential', () => {

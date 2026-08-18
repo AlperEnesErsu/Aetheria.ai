@@ -24,6 +24,7 @@ module.exports = [
                 URL: 'readonly',
                 Response: 'readonly',
                 AbortController: 'readonly',
+                AbortSignal: 'readonly',
                 setTimeout: 'readonly',
                 clearTimeout: 'readonly',
                 MutationObserver: 'readonly',
