@@ -1433,6 +1433,363 @@ body {
     to { opacity: 1; transform: scale(1); }
 }
 
+
+/* ── Ayrıntılı üretim modu ──────────────────────────────────────────────────
+   Only existing tokens are used here; the mode introduces no new colour. */
+
+.mode-selector {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    max-width: 900px;
+    margin: 0 auto 1rem;
+}
+
+.mode-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 1rem;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.mode-btn:hover {
+    border-color: var(--accent-primary);
+    background: var(--bg-secondary);
+}
+
+.mode-btn.active {
+    border-color: var(--accent-primary);
+    background: #dbeafe;
+}
+
+.mode-btn-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.mode-btn.active .mode-btn-title {
+    color: var(--accent-primary);
+}
+
+.mode-btn-sub {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* Hidden until detailed mode is selected. */
+.detailed-panel {
+    display: none;
+    max-width: 900px;
+    margin: 0 auto 1.5rem;
+    padding: 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    text-align: left;
+}
+
+.detailed-panel.visible {
+    display: block;
+}
+
+.panel-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.panel-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.panel-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.panel-optional {
+    font-weight: 400;
+    color: var(--text-tertiary);
+}
+
+.panel-textarea,
+.panel-input,
+.panel-select {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all var(--transition-normal);
+}
+
+.panel-textarea {
+    resize: vertical;
+    min-height: 96px;
+    line-height: 1.6;
+}
+
+.panel-textarea:focus,
+.panel-input:focus,
+.panel-select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.panel-textarea-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.78rem;
+}
+
+.file-pick {
+    color: var(--accent-primary);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.panel-counter {
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.panel-counter.is-over {
+    color: var(--accent-danger);
+    font-weight: 600;
+}
+
+/* Pasting your own document is a different risk class from picking a category,
+   so the warning sits next to the field rather than in the README. */
+.privacy-note {
+    margin-top: 0.5rem;
+    padding: 0.7rem 0.85rem;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: var(--radius-md);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #7c2d12;
+}
+
+.verifiability-badge {
+    display: inline-block;
+    margin-top: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-md);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.verifiability-badge.is-measurable {
+    background: #d1fae5;
+    border-color: #a7f3d0;
+    color: var(--accent-success);
+}
+
+.verifiability-badge.is-partial {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #b45309;
+}
+
+.verifiability-badge.is-unverifiable {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: var(--accent-danger);
+}
+
+.weight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.85rem;
+}
+
+.weight-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.weight-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.8rem;
+}
+
+.weight-name {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.weight-value {
+    color: var(--accent-primary);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.weight-row input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+/* ── Sonuç blokları ─────────────────────────────────────────────────────── */
+
+/* All three are detailed-mode only, and stay hidden in quick mode. */
+#verificationCard,
+#evidenceCard,
+#scoreBreakdownCard {
+    display: none;
+}
+
+#verificationCard.visible,
+#evidenceCard.visible,
+#scoreBreakdownCard.visible {
+    display: block;
+}
+
+.evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.evidence-item {
+    padding: 0.9rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--card-border);
+    border-radius: var(--radius-md);
+}
+
+/* Only the two statuses that actually found something are coloured as findings.
+   not_found, unverifiable and error stay neutral on purpose: none of them is
+   evidence of anything, and colouring them would imply otherwise. */
+.evidence-item.status-verified,
+.evidence-item.status-measured {
+    border-left-color: var(--accent-success);
+}
+
+.evidence-item.status-measured.refutes {
+    border-left-color: var(--accent-warning);
+}
+
+.evidence-item.status-not_found,
+.evidence-item.status-unverifiable,
+.evidence-item.status-error {
+    border-left-color: var(--text-tertiary);
+}
+
+.evidence-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
+
+.evidence-source {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.evidence-status {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.evidence-detail {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.evidence-link {
+    display: inline-block;
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--accent-primary);
+}
+
+.evidence-measure {
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.score-breakdown {
+    overflow-x: auto;
+}
+
+.score-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    min-width: 420px;
+}
+
+.score-table th,
+.score-table td {
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.score-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+}
+
+.score-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.score-table tr.total-row td {
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: none;
+}
+
+.score-table tr.boost-row td {
+    color: var(--accent-success);
+}
+
+@media (max-width: 768px) {
+    .mode-selector,
+    .panel-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
     .header {

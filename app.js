@@ -31,7 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
         extractProviderText,
         parseJsonResponse,
         readUsageTokens,
-        JSON_ONLY_SUFFIX
+        JSON_ONLY_SUFFIX,
+        IDEATION_ANGLES,
+        COMPARISON_METHODS,
+        SCORING_CRITERIA,
+        SOURCE_MATERIAL_MAX_CHARS,
+        normalizeWeights,
+        pickWeightedIdea,
+        clampSourceMaterial,
+        buildDetailedIdeationPrompt,
+        EVIDENCE_SOURCES,
+        EVIDENCE_TIMEOUT_MS,
+        VERIFY_TOP_K,
+        buildEvidenceQueries,
+        buildEvidenceRequest,
+        parseEvidenceResponse,
+        interpretEvidence,
+        applyVerificationBoost
     } = window.AetheriaCore;
 
     // DOM Elements
@@ -140,6 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // discard repeats without needing a second round trip.
     const IDEA_BATCH_SIZE = 8;
     const IDEA_MAX_TOKENS = 1024;
+
+    // Detailed candidates carry a comparison block, search terms, a quote and
+    // four scores each, so the quick-mode ceiling truncates the JSON mid-array.
+    const DETAILED_IDEA_MAX_TOKENS = 2048;
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
@@ -332,7 +352,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (type === 'agent') {
             statusTag += ` <span class="status-info">[AI AGENT]</span>`;
         } else if (type === 'warning') {
-            statusTag += ` <span class="status-info" style="color: var(--accent-warning);">[SECURITY GUARD]</span>`;
+            // Was [SECURITY GUARD]. None of the eleven callers is a security event —
+            // they are a failed generation, an exhausted idea batch, an unreadable
+            // file, a measurement that refutes its claim. The label named something
+            // that was not happening, which is the habit the rest of this log dropped.
+            statusTag += ` <span class="status-info" style="color: var(--accent-warning);">[UYARI]</span>`;
         } else {
             statusTag += ` <span class="status-info">[SCAN]</span>`;
         }
@@ -635,6 +659,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setStep2Visibility(Boolean(currentProject.step2) && revealStep2);
 
         updateSaveButtonUI();
+
+        // Detailed mode calls renderVerification straight after this and turns
+        // them back on. Clearing here means quick mode and the stored sample can
+        // never inherit the comparison of a previous detailed run.
+        setDetailedBlocksVisible(false);
+
         resultsWrapper.classList.add('visible');
         resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1584,7 +1614,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
     async function startStep1Simulation() {
         setButtonBusy(btnGenerateProject, true);
         try {
-            await runStep1();
+            await (activeMode === 'detailed' ? runDetailedStep1() : runStep1());
         } catch (err) {
             // Any unexpected failure used to leave the button permanently disabled,
             // making the app look frozen with no way to retry.
@@ -1775,6 +1805,700 @@ Yanıtı tam olarak şu JSON şemasında ver:
         setTimeout(() => {
             step2Container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
+    }
+
+    /* ── Ayrıntılı üretim modu ───────────────────────────────────────────────
+       Quick mode is untouched. Everything below runs only when detailed mode is
+       the active one. */
+
+    const modeSelector = document.getElementById('modeSelector');
+    const detailedPanel = document.getElementById('detailedPanel');
+    const sourceMaterialInput = document.getElementById('sourceMaterialInput');
+    const sourceMaterialFile = document.getElementById('sourceMaterialFile');
+    const sourceMaterialCounter = document.getElementById('sourceMaterialCounter');
+    const angleSelect = document.getElementById('angleSelect');
+    const methodSelect = document.getElementById('methodSelect');
+    const methodBadge = document.getElementById('methodBadge');
+    const referenceInput = document.getElementById('referenceInput');
+    const referenceLabel = document.getElementById('referenceLabel');
+    const weightGrid = document.getElementById('weightGrid');
+    const verificationCard = document.getElementById('verificationCard');
+    const verificationContent = document.getElementById('verificationContent');
+    const evidenceCard = document.getElementById('evidenceCard');
+    const evidenceContent = document.getElementById('evidenceContent');
+    const scoreBreakdownCard = document.getElementById('scoreBreakdownCard');
+    const scoreBreakdownContent = document.getElementById('scoreBreakdownContent');
+
+    let activeMode = readStoredChoice('aetheria_mode', 'quick', m => m === 'quick' || m === 'detailed');
+    let activeAngle = readStoredChoice('aetheria_angle', 'evidence', a => Boolean(IDEATION_ANGLES[a]));
+    let activeMethod = readStoredChoice('aetheria_method', 'sector', m => Boolean(COMPARISON_METHODS[m]));
+    let activeReference = readStoredChoice('aetheria_reference', '', () => true);
+
+    const activeWeights = (() => {
+        const stored = readJson('aetheria_weights', null);
+        if (stored && typeof stored === 'object') return stored;
+        const defaults = {};
+        for (const [id, c] of Object.entries(SCORING_CRITERIA)) defaults[id] = c.defaultWeight;
+        return defaults;
+    })();
+
+    // The user's own document. Deliberately a plain variable: it is never written
+    // to localStorage or sessionStorage, so closing the tab is enough to be rid of
+    // it. Everything else on this panel is a preference worth remembering; this is
+    // the one thing that is not ours to keep.
+    let sourceMaterial = '';
+
+    // The verification block rides on the project object itself, so both export
+    // paths and the pool pick it up without a second source of truth.
+
+    function populateDetailedPanel() {
+        angleSelect.innerHTML = '';
+        for (const angle of Object.values(IDEATION_ANGLES)) {
+            const opt = document.createElement('option');
+            opt.value = angle.id;
+            opt.textContent = angle.label;
+            angleSelect.appendChild(opt);
+        }
+        angleSelect.value = activeAngle;
+
+        methodSelect.innerHTML = '';
+        for (const method of Object.values(COMPARISON_METHODS)) {
+            const opt = document.createElement('option');
+            opt.value = method.id;
+            opt.textContent = method.label;
+            methodSelect.appendChild(opt);
+        }
+        methodSelect.value = activeMethod;
+
+        weightGrid.innerHTML = '';
+        for (const criterion of Object.values(SCORING_CRITERIA)) {
+            const row = document.createElement('div');
+            row.className = 'weight-row';
+
+            const head = document.createElement('div');
+            head.className = 'weight-head';
+
+            const name = document.createElement('span');
+            name.className = 'weight-name';
+            name.textContent = criterion.label;
+
+            const value = document.createElement('span');
+            value.className = 'weight-value';
+            value.id = `weightValue_${criterion.id}`;
+
+            head.append(name, value);
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = '0';
+            slider.max = '100';
+            slider.step = '5';
+            slider.id = `weight_${criterion.id}`;
+            slider.value = String(activeWeights[criterion.id] ?? criterion.defaultWeight);
+            slider.setAttribute('aria-label', criterion.label);
+
+            slider.addEventListener('input', () => {
+                activeWeights[criterion.id] = Number(slider.value);
+                persist('aetheria_weights', JSON.stringify(activeWeights));
+                renderWeightValues();
+            });
+
+            row.append(head, slider);
+            weightGrid.appendChild(row);
+        }
+
+        renderWeightValues();
+        updateMethodBadge();
+    }
+
+    // Show the normalised share rather than the raw slider position, so the four
+    // numbers always read as a share of one decision and add up to 100%.
+    function renderWeightValues() {
+        const normalized = normalizeWeights(activeWeights);
+        for (const id of Object.keys(SCORING_CRITERIA)) {
+            const el = document.getElementById(`weightValue_${id}`);
+            if (el) el.textContent = `%${Math.round(normalized[id] * 100)}`;
+        }
+    }
+
+    function updateMethodBadge() {
+        const method = COMPARISON_METHODS[activeMethod] || COMPARISON_METHODS.sector;
+        const badges = {
+            measurable: { text: '🟢 Ölçülebilir — kaynak bir sayı döndürüyor', cls: 'is-measurable' },
+            partial: {
+                text: '🟡 Kısmen — "orada var" ölçülür, "burada yok" ölçülemez',
+                cls: 'is-partial'
+            },
+            unverifiable: {
+                text: '🔴 Bu araçlarla doğrulanamaz — kanıt bölümü boş kalacak',
+                cls: 'is-unverifiable'
+            }
+        };
+        const badge = badges[method.verifiability];
+        methodBadge.textContent = badge.text;
+        methodBadge.className = `verifiability-badge ${badge.cls}`;
+
+        referenceLabel.textContent = method.referenceLabel;
+        referenceInput.disabled = !method.verifyStrategy;
+    }
+
+    function updateMaterialCounter() {
+        const length = sourceMaterial.length;
+        sourceMaterialCounter.textContent = `${length} / ${SOURCE_MATERIAL_MAX_CHARS}`;
+        sourceMaterialCounter.classList.toggle('is-over', length > SOURCE_MATERIAL_MAX_CHARS);
+    }
+
+    function setMode(mode) {
+        activeMode = mode === 'detailed' ? 'detailed' : 'quick';
+        persist('aetheria_mode', activeMode);
+
+        detailedPanel.classList.toggle('visible', activeMode === 'detailed');
+        for (const btn of modeSelector.querySelectorAll('.mode-btn')) {
+            const isActive = btn.dataset.mode === activeMode;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        }
+    }
+
+    if (modeSelector) {
+        modeSelector.addEventListener('click', (e) => {
+            const btn = e.target.closest('.mode-btn');
+            if (btn) setMode(btn.dataset.mode);
+        });
+
+        angleSelect.addEventListener('change', () => {
+            activeAngle = angleSelect.value;
+            persist('aetheria_angle', activeAngle);
+        });
+
+        methodSelect.addEventListener('change', () => {
+            activeMethod = methodSelect.value;
+            persist('aetheria_method', activeMethod);
+            updateMethodBadge();
+        });
+
+        referenceInput.addEventListener('input', () => {
+            activeReference = referenceInput.value;
+            persist('aetheria_reference', activeReference);
+        });
+
+        sourceMaterialInput.addEventListener('input', () => {
+            sourceMaterial = sourceMaterialInput.value;
+            updateMaterialCounter();
+        });
+
+        sourceMaterialFile.addEventListener('change', async () => {
+            const file = sourceMaterialFile.files && sourceMaterialFile.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                sourceMaterialInput.value = text;
+                sourceMaterial = text;
+                updateMaterialCounter();
+            } catch (err) {
+                console.warn('Dosya okunamadı:', err);
+                writeTerminalLog(`Dosya okunamadı: ${err.message || err}`, 'warning');
+            } finally {
+                // Let the same file be picked again after an edit.
+                sourceMaterialFile.value = '';
+            }
+        });
+
+        populateDetailedPanel();
+        referenceInput.value = activeReference;
+        setMode(activeMode);
+        updateMaterialCounter();
+    }
+
+    // ── Kanıt istekleri ─────────────────────────────────────────────────────
+
+    // Fetch every query at once and let each one fail on its own.
+    //
+    // No credential is attached here, and none may be: the API key is added in
+    // postToModel and nowhere else. These three services are public, keyless and
+    // read-only, and a test asserts that no Authorization, x-goog-api-key or
+    // x-api-key header ever reaches them.
+    //
+    // The timeout is EVIDENCE_TIMEOUT_MS rather than the generation timeout —
+    // the evidence layer is not allowed to hold a generation open.
+    async function fetchEvidence(queries) {
+        const settled = await Promise.allSettled((queries || []).map(async (q) => {
+            const request = buildEvidenceRequest(q.sourceId, q.query, q.options);
+            if (!request) throw new Error('sorgu kurulamadı');
+
+            const response = await fetch(request.url, {
+                method: 'GET',
+                credentials: 'omit',
+                referrerPolicy: 'no-referrer',
+                signal: AbortSignal.timeout(EVIDENCE_TIMEOUT_MS)
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = parseEvidenceResponse(q.sourceId, await response.json());
+            if (!data) throw new Error('yanıt şekli tanınmadı');
+
+            return { data, link: request.url };
+        }));
+
+        return settled.map((outcome, i) => {
+            const q = queries[i];
+            const base = { sourceId: q.sourceId, role: q.role, query: q.query };
+            if (outcome.status === 'fulfilled') {
+                return Object.assign(base, {
+                    ok: true,
+                    data: outcome.value.data,
+                    error: null,
+                    link: outcome.value.link
+                });
+            }
+            const err = outcome.reason;
+            return Object.assign(base, {
+                ok: false,
+                data: null,
+                error: (err && (err.name === 'TimeoutError' ? 'zaman aşımı' : err.message)) || 'bilinmeyen hata',
+                link: null
+            });
+        });
+    }
+
+    // Verify the top few candidates, then let the results re-rank them.
+    //
+    // Verifying one candidate could not change the order, which would reduce the
+    // evidence to decoration. Verifying all eight would exhaust GitHub's keyless
+    // search budget. VERIFY_TOP_K sits between the two.
+    async function verifyCandidates(scored, onProgress) {
+        const results = new Map();
+        const method = COMPARISON_METHODS[activeMethod] || COMPARISON_METHODS.sector;
+
+        if (!method.verifyStrategy) {
+            onProgress({ phase: 'verify-skipped', method });
+            for (const row of scored.slice(0, VERIFY_TOP_K)) {
+                results.set(row.idea.title, interpretEvidence(activeMethod, []));
+            }
+            return results;
+        }
+
+        for (const row of scored.slice(0, VERIFY_TOP_K)) {
+            const queries = buildEvidenceQueries(row.idea, activeMethod, activeReference);
+            if (queries.length === 0) {
+                onProgress({ phase: 'verify-nothing', title: row.idea.title });
+                continue;
+            }
+
+            onProgress({ phase: 'verify-start', title: row.idea.title, queries });
+            const raws = await fetchEvidence(queries);
+            const result = interpretEvidence(activeMethod, raws);
+
+            onProgress({ phase: 'verify-done', title: row.idea.title, raws, result });
+            results.set(row.idea.title, result);
+        }
+
+        return results;
+    }
+
+    async function generateDetailedProject(onProgress = () => {}) {
+        if (!geminiApiKey) throw new Error('API Key girilmedi');
+
+        const limitCheck = checkRateLimits();
+        if (!limitCheck.allowed) throw new Error(limitCheck.reason);
+        recordGeminiCall();
+
+        const categoryLabel = CATEGORY_LABELS[activeCategoryFilter] || 'yazılım';
+        const material = clampSourceMaterial(sourceMaterial);
+
+        onProgress({ phase: 'ideate', material, scope: activeScopeFilter });
+
+        // PASS 1 — candidates that already carry their comparison and their scores.
+        const prompt = buildDetailedIdeationPrompt({
+            categoryLabel,
+            count: IDEA_BATCH_SIZE,
+            scope: activeScopeFilter,
+            angle: activeAngle,
+            method: activeMethod,
+            reference: activeReference,
+            sourceMaterial: material.text,
+            avoidTitles: knownIdeaTitles()
+        });
+
+        const ideation = await requestModelCompletion(prompt, {
+            maxTokens: DETAILED_IDEA_MAX_TOKENS,
+            temperature: 1.0,
+            label: 'Ayrıntılı fikir listesi'
+        });
+
+        const parsed = parseJsonResponse(ideation.text, 'Ayrıntılı fikir listesi');
+        const ideas = Array.isArray(parsed.ideas) ? parsed.ideas : [];
+        if (ideas.length === 0) throw new Error('Fikir listesi boş döndü');
+
+        // Local pre-ranking, no requests. pickWeightedIdea rather than scoreIdeas
+        // directly, because it applies the same freshness filter quick mode uses —
+        // scoring on its own would happily hand back a project already shown.
+        const picked = pickWeightedIdea(ideas, knownIdeaTitles(), activeWeights);
+        if (!picked.idea) throw new Error('Model kullanılabilir fikir döndürmedi');
+
+        const preRanked = picked.scored;
+        onProgress({
+            phase: 'scored',
+            total: ideas.length,
+            freshCount: picked.freshCount,
+            exhausted: picked.exhausted,
+            scored: preRanked,
+            model: ideation.model,
+            tokens: ideation.tokens
+        });
+
+        // Free, keyless verification of the top few.
+        const verifications = await verifyCandidates(preRanked, onProgress);
+
+        // Re-rank. Verification only ever adds.
+        const finalRanked = applyVerificationBoost(preRanked, verifications);
+        const winner = finalRanked[0];
+        if (!winner) throw new Error('Sıralama sonrası aday kalmadı');
+
+        onProgress({ phase: 'selected', ranked: finalRanked, title: winner.idea.title });
+
+        // PASS 2 — expand the winner only. The pasted material does NOT travel
+        // again: the quote the model already pulled out of it is what stage 2
+        // needs, and resending the whole document would double its token cost for
+        // nothing.
+        onProgress({ phase: 'expand' });
+        const combo = pickConstraintCombo(Math.random, activeScopeFilter);
+        const expansion = await expandIdea(winner.idea, categoryLabel, combo, activeScopeFilter);
+
+        return {
+            project: expansion.project,
+            model: expansion.model,
+            tokens: ideation.tokens + expansion.tokens,
+            verification: {
+                method: activeMethod,
+                angle: activeAngle,
+                reference: activeReference,
+                comparison: winner.idea.comparison || {},
+                evidence: winner.idea.evidence || null,
+                sourceBacked: Boolean(material.text)
+                    && Boolean(winner.idea.evidence)
+                    && winner.idea.evidence.kind === 'source',
+                results: winner.verification ? [winner.verification] : [],
+                breakdown: winner.breakdown,
+                baseTotal: winner.baseTotal,
+                verificationBonus: winner.verificationBonus,
+                total: winner.total,
+                ranked: finalRanked.map(r => ({
+                    title: r.idea.title,
+                    total: r.total,
+                    status: r.verification ? r.verification.status : null
+                }))
+            }
+        };
+    }
+
+    // ── Ayrıntılı sonuç blokları ────────────────────────────────────────────
+
+    function setDetailedBlocksVisible(visible) {
+        for (const card of [verificationCard, evidenceCard, scoreBreakdownCard]) {
+            if (card) card.classList.toggle('visible', visible);
+        }
+    }
+
+    function renderVerification(v) {
+        if (!v) {
+            setDetailedBlocksVisible(false);
+            return;
+        }
+
+        const method = COMPARISON_METHODS[v.method] || COMPARISON_METHODS.sector;
+        const c = v.comparison || {};
+
+        const badgeText = {
+            measurable: '🟢 ölçülebilir',
+            partial: '🟡 kısmen ölçülebilir',
+            unverifiable: '🔴 bu araçlarla doğrulanamaz'
+        }[method.verifiability];
+
+        // Everything below goes through parseMarkdown, which escapes first — the
+        // model wrote these strings and they are not to be trusted as markup.
+        let md = '';
+        if (c.referenceExample) md += `**Referans örnek:** ${c.referenceExample}\n`;
+        if (c.localState) md += `**Türkiye'deki durum:** ${c.localState}\n`;
+        if (c.structuralReason) md += `**Farkın yapısal sebebi:** ${c.structuralReason}\n`;
+        md += `**Kıyas metodu:** ${method.label} — ${badgeText}\n`;
+
+        if (v.evidence && v.evidence.quote) {
+            md += v.sourceBacked
+                ? `**Kaynak materyalden alıntı:** "${v.evidence.quote}"\n`
+                : `**Modelin dayanağı (belgeye değil, kendi bilgisine dayanıyor):** "${v.evidence.quote}"\n`;
+        }
+
+        verificationContent.innerHTML = parseMarkdown(md);
+        renderEvidenceResults(v.results || []);
+        renderScoreBreakdown(v);
+        setDetailedBlocksVisible(true);
+    }
+
+    function renderEvidenceResults(results) {
+        evidenceContent.innerHTML = '';
+
+        if (results.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'evidence-detail';
+            empty.textContent = 'Bu üretim için doğrulama sorgusu çalıştırılmadı.';
+            evidenceContent.appendChild(empty);
+            return;
+        }
+
+        for (const r of results) {
+            if (!r) continue;
+
+            const item = document.createElement('div');
+            item.className = `evidence-item status-${r.status}`;
+            if (r.status === 'measured' && r.supportsClaim === false) item.classList.add('refutes');
+
+            const head = document.createElement('div');
+            head.className = 'evidence-head';
+
+            const source = document.createElement('span');
+            source.className = 'evidence-source';
+            const known = EVIDENCE_SOURCES[r.sourceId];
+            source.textContent = known ? known.label : (r.sourceId || 'Kaynak');
+
+            const status = document.createElement('span');
+            status.className = 'evidence-status';
+            status.textContent = r.status;
+
+            head.append(source, status);
+
+            if (r.status === 'measured' && r.supportsClaim === false) {
+                const warn = document.createElement('span');
+                warn.className = 'evidence-status';
+                warn.textContent = '⚠ iddiayı desteklemiyor';
+                head.appendChild(warn);
+            }
+
+            const detail = document.createElement('p');
+            detail.className = 'evidence-detail';
+            // textContent, not innerHTML: this string is partly built from model
+            // output and from what a third-party service returned.
+            detail.textContent = r.detail || '';
+
+            item.append(head, detail);
+
+            if (r.measurement) {
+                const measure = document.createElement('div');
+                measure.className = 'evidence-measure';
+                if (typeof r.measurement.reference === 'number') {
+                    measure.textContent =
+                        `referans: ${r.measurement.reference} · hedef: ${r.measurement.target}`;
+                } else if (Array.isArray(r.measurement.matches)) {
+                    measure.textContent = `eşleşen: ${r.measurement.matches.join(', ')}`;
+                } else if (typeof r.measurement.recentShare === 'number') {
+                    measure.textContent =
+                        `son üç yılın payı: %${Math.round(r.measurement.recentShare * 100)}`;
+                }
+                if (measure.textContent) item.appendChild(measure);
+            }
+
+            // The user should be able to look at the source themselves rather than
+            // taking our reading of it.
+            if (r.link && /^https:\/\//.test(r.link)) {
+                const link = document.createElement('a');
+                link.className = 'evidence-link';
+                link.href = r.link;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = 'Kaynağa kendin bak →';
+                item.appendChild(link);
+            }
+
+            evidenceContent.appendChild(item);
+        }
+    }
+
+    function renderScoreBreakdown(v) {
+        scoreBreakdownContent.innerHTML = '';
+
+        const table = document.createElement('table');
+        table.className = 'score-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        for (const label of ['Kriter', 'Puan', 'Ağırlık', 'Katkı']) {
+            const th = document.createElement('th');
+            th.textContent = label;
+            if (label !== 'Kriter') th.className = 'num';
+            headRow.appendChild(th);
+        }
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        for (const row of v.breakdown || []) {
+            const tr = document.createElement('tr');
+            const cells = [
+                { text: row.label, cls: '' },
+                { text: String(Math.round(row.score)), cls: 'num' },
+                { text: `%${Math.round(row.weight * 100)}`, cls: 'num' },
+                { text: row.contribution.toFixed(1), cls: 'num' }
+            ];
+            for (const cell of cells) {
+                const td = document.createElement('td');
+                td.textContent = cell.text;
+                if (cell.cls) td.className = cell.cls;
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+
+        // The verification contribution is its own row rather than being folded
+        // into the total, so it is visible that it only ever added.
+        if (v.verificationBonus > 0) {
+            const boost = document.createElement('tr');
+            boost.className = 'boost-row';
+            const label = document.createElement('td');
+            label.textContent = 'Doğrulama katkısı';
+            boost.appendChild(label);
+            for (const text of ['—', '—', `+${v.verificationBonus.toFixed(1)}`]) {
+                const td = document.createElement('td');
+                td.className = 'num';
+                td.textContent = text;
+                boost.appendChild(td);
+            }
+            tbody.appendChild(boost);
+        }
+
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'total-row';
+        const totalLabel = document.createElement('td');
+        totalLabel.textContent = 'Toplam';
+        totalRow.appendChild(totalLabel);
+        for (const text of ['', '', v.total.toFixed(1)]) {
+            const td = document.createElement('td');
+            td.className = 'num';
+            td.textContent = text;
+            totalRow.appendChild(td);
+        }
+        tbody.appendChild(totalRow);
+
+        table.appendChild(tbody);
+        scoreBreakdownContent.appendChild(table);
+    }
+
+    async function runDetailedStep1() {
+        resultsWrapper.classList.remove('visible');
+        step2Container.classList.remove('visible');
+        step2Container.style.display = 'none';
+        step2TriggerWrapper.style.display = 'none';
+        setDetailedBlocksVisible(false);
+
+        terminalContainer.style.display = 'block';
+        terminalBody.innerHTML = '';
+
+        if (!geminiApiKey || !useGeminiLiveMode) {
+            writeTerminalLog(
+                'Ayrıntılı üretim de anahtarınla çalışır — fikirler sıfırdan üretilir.', 'warning');
+            writeTerminalLog('Anahtar ekranı açılıyor...', 'info');
+            await sleep(1200);
+            openKeyDialog(btnFeature2Notice);
+            return;
+        }
+
+        const started = Date.now();
+        let generated = null;
+
+        try {
+            generated = await generateDetailedProject((step) => {
+                if (step.phase === 'ideate') {
+                    const provider = getProvider(activeProvider);
+                    writeTerminalLog(
+                        `Ayrıntılı üretim · ${IDEA_BATCH_SIZE} aday · ${provider.label} · ` +
+                        `model: ${provider.models[0]}`, 'agent');
+                    writeTerminalLog(`Kapsam: ${(SCOPE_PRESETS[step.scope] || SCOPE_PRESETS.all).badge}`, 'info');
+                    writeTerminalLog(
+                        `Açı: ${IDEATION_ANGLES[activeAngle].label} · ` +
+                        `Kıyas: ${COMPARISON_METHODS[activeMethod].label}`, 'info');
+                    if (step.material.chars > 0) {
+                        writeTerminalLog(
+                            `Kaynak materyal: ${step.material.chars} karakter` +
+                            (step.material.truncated ? ' (tavana göre kesildi)' : ''), 'info');
+                    } else {
+                        writeTerminalLog('Kaynak materyal verilmedi — alıntı model bilgisine dayanacak.', 'info');
+                    }
+                } else if (step.phase === 'scored') {
+                    writeTerminalLog(
+                        `${step.total} aday alındı · ${step.freshCount} tanesi yeni · ` +
+                        `${step.tokens} token`, 'info');
+                    if (step.exhausted) {
+                        writeTerminalLog('Hepsi daha önce görülmüştü; en farklı olan seçildi.', 'warning');
+                    }
+                    const top = step.scored.slice(0, VERIFY_TOP_K)
+                        .map((r, i) => `${i + 1}. "${r.idea.title}" ${r.total.toFixed(1)}`)
+                        .join(' · ');
+                    writeTerminalLog(`[SCORE] ${top}`, 'info');
+                } else if (step.phase === 'verify-skipped') {
+                    writeTerminalLog(
+                        `[EVIDENCE] ${step.method.label} bu araçlarla doğrulanamıyor — sorgu çalıştırılmadı.`,
+                        'warning');
+                } else if (step.phase === 'verify-nothing') {
+                    writeTerminalLog(
+                        `[EVIDENCE] "${step.title}" için doğrulanabilir bir sorgu kurulamadı.`, 'warning');
+                } else if (step.phase === 'verify-start') {
+                    writeTerminalLog(
+                        `[EVIDENCE] "${step.title}" · ${step.queries.length} sorgu · ` +
+                        step.queries.map(q => q.sourceId).join(', '), 'agent');
+                } else if (step.phase === 'verify-done') {
+                    // Every raw answer is reported, not just the verdict.
+                    for (const r of step.raws) {
+                        if (!r.ok) {
+                            writeTerminalLog(`[EVIDENCE] "${r.query}" → hata: ${r.error}`, 'warning');
+                        } else if (r.data.kind === 'count') {
+                            writeTerminalLog(`[EVIDENCE] "${r.query}" → ${r.data.count}`, 'info');
+                        } else if (r.data.kind === 'entities' || r.data.kind === 'repos') {
+                            const n = r.data.matches.length;
+                            writeTerminalLog(`[EVIDENCE] "${r.query}" → ${n} eşleşme`, 'info');
+                        } else if (r.data.kind === 'years') {
+                            writeTerminalLog(
+                                `[EVIDENCE] "${r.query}" → ${Object.keys(r.data.years).length} yıl`, 'info');
+                        }
+                    }
+                    const verdict = step.result;
+                    if (verdict.status === 'measured' && verdict.supportsClaim === false) {
+                        writeTerminalLog(
+                            `[EVIDENCE] ⚠ ölçüm iddiayı desteklemiyor — "${step.title}" bonus almadı`,
+                            'warning');
+                    } else {
+                        writeTerminalLog(`[EVIDENCE] sonuç: ${verdict.status}`, 'info');
+                    }
+                } else if (step.phase === 'selected') {
+                    const line = step.ranked
+                        .map(r => `"${r.idea.title}" ${r.total.toFixed(1)}`)
+                        .slice(0, VERIFY_TOP_K)
+                        .join(' · ');
+                    writeTerminalLog(`[SCORE] doğrulama sonrası: ${line}`, 'info');
+                    writeTerminalLog(`[SELECT] "${step.title}" seçildi`, 'agent');
+                } else if (step.phase === 'expand') {
+                    writeTerminalLog('Kazanan aday tam projeye genişletiliyor...', 'agent');
+                }
+            });
+
+            writeTerminalLog(
+                `Tamamlandı · ${generated.model} · ${generated.tokens} token (2 LLM çağrısı) · ` +
+                `${((Date.now() - started) / 1000).toFixed(1)} sn`, 'info');
+            writeTerminalLog('Şema doğrulandı, proje oluşturuldu.', 'success');
+        } catch (err) {
+            console.warn('Ayrıntılı üretim başarısız:', err);
+            writeTerminalLog(`Üretim başarısız: ${err.message}`, 'warning');
+            writeTerminalLog('Tekrar deneyebilir veya hızlı moda dönebilirsin.', 'info');
+            return;
+        }
+
+        await sleep(250);
+        terminalContainer.style.display = 'none';
+
+        // Attached before rendering so the exported blueprint and the pool carry
+        // the comparison with the project rather than alongside it.
+        generated.project.verification = generated.verification;
+
+        loadProjectIntoView(generated.project, false, false);
+        renderVerification(generated.verification);
     }
 
     // Event Listeners

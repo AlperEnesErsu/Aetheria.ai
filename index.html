@@ -11,7 +11,8 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src https://fonts.gstatic.com;
         img-src 'self' data:;
-        connect-src https://generativelanguage.googleapis.com https://api.anthropic.com;
+        connect-src https://generativelanguage.googleapis.com https://api.anthropic.com
+                    https://api.openalex.org https://www.wikidata.org https://api.github.com;
         base-uri 'none';
         form-action 'none'">
     <title>Aetheria.ai | Yapay Zeka Destekli Yazılım Proje Fikri Üreteci</title>
@@ -147,6 +148,71 @@
                                 <span class="scope-sub">Global SaaS • SOC2 • GDPR • Stripe</span>
                             </div>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Generation mode: quick keeps the existing flow, detailed measures its claim -->
+                <div class="mode-selector" id="modeSelector" role="tablist" aria-label="Üretim modu">
+                    <button type="button" class="mode-btn active" data-mode="quick"
+                            role="tab" aria-selected="true" aria-controls="detailedPanel">
+                        <span class="mode-btn-title">⚡ Hızlı Üretim</span>
+                        <span class="mode-btn-sub">Kategori seç, fikir üret</span>
+                    </button>
+                    <button type="button" class="mode-btn" data-mode="detailed"
+                            role="tab" aria-selected="false" aria-controls="detailedPanel">
+                        <span class="mode-btn-title">🔬 Ayrıntılı Üretim</span>
+                        <span class="mode-btn-sub">Kendi materyalin, ölçülen iddia</span>
+                    </button>
+                </div>
+
+                <div class="detailed-panel" id="detailedPanel" role="tabpanel" aria-label="Ayrıntılı üretim ayarları">
+
+                    <div class="panel-field">
+                        <label for="sourceMaterialInput" class="panel-label">
+                            📄 Kaynak materyal <span class="panel-optional">(isteğe bağlı)</span>
+                        </label>
+                        <textarea id="sourceMaterialInput" class="panel-textarea" rows="5"
+                                  placeholder="Bir rapor, makale, toplantı notu veya kendi gözlemini yapıştır. Fikirler bu metne dayanır ve alıntı birebir bu metinden gelir."
+                                  spellcheck="false"></textarea>
+                        <div class="panel-textarea-foot">
+                            <label class="file-pick">
+                                <input type="file" id="sourceMaterialFile" accept=".txt,.md,text/plain,text/markdown" hidden>
+                                <span>Dosyadan yükle (.txt / .md)</span>
+                            </label>
+                            <span id="sourceMaterialCounter" class="panel-counter">0 / 12000</span>
+                        </div>
+                        <p class="privacy-note" id="materialPrivacyNote">
+                            <span aria-hidden="true">⚠️</span>
+                            Yapıştırdığın metin seçtiğin sağlayıcıya gönderilir. Ücretsiz Gemini
+                            katmanında Google bu içeriği ürün geliştirme için kullanabilir —
+                            <strong>kurum içi veya gizli belge yapıştırma.</strong>
+                            Doğrulama sorguları ayrıca OpenAlex, Wikidata ve GitHub servislerine gider.
+                            Metin tarayıcında saklanmaz; sekmeyi kapatınca gider.
+                        </p>
+                    </div>
+
+                    <div class="panel-row">
+                        <div class="panel-field">
+                            <label for="angleSelect" class="panel-label">🎭 Fikir açısı</label>
+                            <select id="angleSelect" class="panel-select"></select>
+                        </div>
+
+                        <div class="panel-field">
+                            <label for="methodSelect" class="panel-label">⚖️ Kıyas metodu</label>
+                            <select id="methodSelect" class="panel-select"></select>
+                            <span id="methodBadge" class="verifiability-badge"></span>
+                        </div>
+                    </div>
+
+                    <div class="panel-field">
+                        <label for="referenceInput" class="panel-label" id="referenceLabel">Referans</label>
+                        <input type="text" id="referenceInput" class="panel-input"
+                               placeholder="ör. fintech" autocomplete="off">
+                    </div>
+
+                    <div class="panel-field">
+                        <span class="panel-label">🎚️ Neye göre seçilsin</span>
+                        <div class="weight-grid" id="weightGrid"></div>
                     </div>
                 </div>
 
@@ -307,6 +373,37 @@
                     <div id="descriptionContent" class="markdown-formatted-body description-content">
                         <!-- Detailed description injected here -->
                     </div>
+                </div>
+
+                <!-- Comparison, evidence and the reason this idea won. Detailed mode only. -->
+                <div class="glass-card" id="verificationCard">
+                    <div class="card-section-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        <span>Kıyas ve Doğrulama</span>
+                    </div>
+                    <div id="verificationContent" class="markdown-formatted-body"></div>
+                </div>
+
+                <div class="glass-card" id="evidenceCard">
+                    <div class="card-section-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                        <span>Kanıt</span>
+                    </div>
+                    <div id="evidenceContent" class="evidence-list"></div>
+                </div>
+
+                <div class="glass-card" id="scoreBreakdownCard">
+                    <div class="card-section-title">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
+                        </svg>
+                        <span>Bu fikir neden seçildi</span>
+                    </div>
+                    <div id="scoreBreakdownContent" class="score-breakdown"></div>
                 </div>
 
                 <!-- STEP 2 TRIGGER BUTTON -->
