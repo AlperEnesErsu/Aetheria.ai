@@ -497,3 +497,55 @@ test('buildIdeationPrompt attaches scope guidance for national and international
     assert.ok(globalPrompt.includes('ULUSLARARASI'));
     assert.ok(globalPrompt.includes('Global'));
 });
+
+test('safeEvidenceStatus allows only the five contract values', () => {
+    for (const status of core.EVIDENCE_STATUSES) {
+        assert.strictEqual(core.safeEvidenceStatus(status), status);
+    }
+    // 'error' is the honest fallback: a result we cannot read is not a finding.
+    for (const junk of ['dogrulandi', '', null, undefined, 42, 'VERIFIED']) {
+        assert.strictEqual(core.safeEvidenceStatus(junk), 'error',
+            `${JSON.stringify(junk)} kırpılmadı`);
+    }
+});
+
+test('normalizeProject clamps a verification block that came back out of storage', () => {
+    // A pooled project is read from localStorage, which a user can edit by hand,
+    // and its status ends up inside a CSS class attribute.
+    const evil = 'x" onload=alert(1) class="pwned';
+    const p = core.normalizeProject({
+        ...validProject(),
+        verification: {
+            method: 'uydurulmus-metot',
+            results: [
+                { sourceId: 'bilinmeyen', status: evil, link: 'javascript:alert(1)', detail: 'd' },
+                { sourceId: 'openalex', status: 'measured', link: 'https://api.openalex.org/x', detail: 'd' },
+                null
+            ]
+        }
+    }, 'devops');
+
+    assert.strictEqual(p.verification.method, null, 'bilinmeyen metot geçmiş');
+    assert.strictEqual(p.verification.results.length, 2, 'kayıt olmayan giriş elenmemiş');
+
+    const [bad, good] = p.verification.results;
+    assert.strictEqual(bad.status, 'error', 'enjeksiyon denemesi kırpılmamış');
+    assert.strictEqual(bad.sourceId, null);
+    assert.strictEqual(bad.link, null, 'javascript: bağlantısı geçmiş');
+
+    assert.strictEqual(good.status, 'measured', 'geçerli kayıt bozulmuş');
+    assert.strictEqual(good.link, 'https://api.openalex.org/x');
+});
+
+test('normalizeProject drops a verification block that is not one', () => {
+    for (const junk of [undefined, null, 'dogrulandi', 42]) {
+        const p = core.normalizeProject({ ...validProject(), verification: junk }, 'devops');
+        assert.ok(!('verification' in p), `${JSON.stringify(junk)} için blok kalmış`);
+    }
+});
+
+test('validateProjectShape does not require a verification block', () => {
+    // Quick mode and projects-data.js never produce one, and demanding it would
+    // reject every project the app has ever made.
+    assert.strictEqual(core.validateProjectShape(validProject()), null);
+});
