@@ -34,9 +34,45 @@ Anahtar **hiçbir sunucuya gitmiyor** — bu projede sunucu yok. Yalnızca senin
 | Terminal çıktısı **redaksiyondan** geçiyor | Hata mesajı anahtarı yansıtırsa ekran görüntüsüne/hata raporuna girmesini |
 | **Oturumluk saklama** seçeneği | Ortak bilgisayarda kalıcı iz bırakmasını |
 | **"Anahtarı Sil"** butonu | Anahtarın kaldırılamamasını |
-| CSP `connect-src` yalnızca desteklenen sağlayıcı uç noktaları | Anahtarın başka bir adrese gönderilmesini |
+| CSP `connect-src` yalnızca desteklenen sağlayıcı uç noktaları **ve üç kanıt kaynağı** | Anahtarın başka bir adrese gönderilmesini |
+| Kanıt istekleri `credentials: 'omit'`, **hiç başlık göndermiyor** | Anahtarın OpenAlex / Wikidata / GitHub'a sızmasını |
 
 `test/api-key-safety.test.js` bunların **hepsini** test ediyor; biri bozulursa CI kırılır.
+
+### `connect-src` neden beş origin
+
+| Origin | Ne için | Anahtar gider mi |
+|---|---|---|
+| `generativelanguage.googleapis.com` | Gemini üretimi | ✅ evet, başlıkta |
+| `api.anthropic.com` | Claude üretimi | ✅ evet, başlıkta |
+| `api.openalex.org` | Yayın sayımı ve yıl dağılımı | ❌ asla |
+| `www.wikidata.org` | Adı konmuş varlık araması | ❌ asla |
+| `api.github.com` | Adı konmuş depo araması | ❌ asla |
+
+Son üçü ayrıntılı üretim modunun kanıt katmanı için. Üçü de ücretsiz, anahtarsız,
+salt-okunur ve CORS-açık. Bu origin'lere giden istekler `credentials: 'omit'`
+kullanıyor ve **hiç başlık taşımıyor**; `buildEvidenceRequest` de sır koyacak bir
+alanı olmayan çıplak bir `{ url }` döndürüyor. Test hem bunu hem de listedeki her
+origin'in gerçekten kullanıldığını sabitliyor — kullanılmayan bir origin, boşuna
+verilmiş bir izindir.
+
+### Kanıt katmanı ne yapar, ne yapmaz
+
+Ayrıntılı modda uygulama, modelin kurduğu kıyas iddiasını **ölçmeye** çalışır.
+
+**Yapar:** İki sektör arasındaki yayın asimetrisini sayar. Bir alanın gerçekten
+yeni açılıp açılmadığını yıl dağılımından çıkarır. Modelin verdiği adı konmuş
+referansın Wikidata veya GitHub'da karşılığı olup olmadığına bakar.
+
+**Yapmaz:** Bir şeyin *var olmadığını* kanıtlayamaz. "Türkiye'de böyle bir çözüm
+yok" cümlesini bu araçlarla doğrulamak yapısal olarak mümkün değil — Türkçe ticari
+ürün ekosistemi bu kaynaklarda temsil edilmiyor. Bu yüzden bir sorgu boş dönerse
+sonuç `not_found` olarak gösterilir ve açıkça "bulunamaması referansın gerçek
+olmadığını göstermez" denir. Sıralamaya etkisi sıfırdır.
+
+Doğrulama **hiçbir zaman puan düşürmez.** İddiasını çürüten bir ölçüm bonus almaz
+ve ekranda ⚠ ile işaretlenir, ama ceza da almaz; rakipleri kazanırken onun
+kazanmaması geriye düşmesi için yeterlidir.
 
 **Claude seçilirse ek bir not:** Anthropic tarayıcıdan doğrudan çağrıyı varsayılan olarak **kapatır** — tam olarak anahtarın istemcide durmasının riskli olması nedeniyle. Çağrının çalışması için `anthropic-dangerous-direct-browser-access` başlığını gönderiyoruz. Bu başlık riski *yaratmıyor*; anahtarı tarayıcıya koymak yaratıyor ve bu, sunucusuz olmayı seçmiş bu projenin baştan kabul ettiği takas. Ama sessizce olmaması için seçici, Claude seçildiğinde bunu ⚠️ ile yazıyor. Sunucu koymaya razıysan doğru çözüm anahtarı orada tutmak; bu proje bilerek o yolu seçmiyor.
 
