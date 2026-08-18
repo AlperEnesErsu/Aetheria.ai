@@ -751,7 +751,7 @@ Yanıtı şu JSON şemasında ver:
         const meta = p.meta || {};
         const step1 = p.step1 || {};
         const scope = p.scope || meta.scope || 'all';
-        const scopeLabel = SCOPE_PRESETS[scope] ? SCOPE_PRESETS[scope].badge : '🌐 Hibrit Pazar';
+        const scopeLabel = (SCOPE_PRESETS[scope] || SCOPE_PRESETS.all).badge;
 
         let doc = `# ${p.title} — Technical Blueprint & Architecture\n\n`;
         doc += `> **Slogan**: ${p.tagline}\n`;
