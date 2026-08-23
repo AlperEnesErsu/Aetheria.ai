@@ -1103,7 +1103,14 @@ Her fikir için şu kurallara uy:
 4. comparison.localState alanına Türkiye'deki karşılığın adını yaz. Karşılığı olmadığını
    düşünüyorsan bunu açıkça belirt; emin değilsen emin olmadığını yaz.
 
-5. searchTerms alanına 2-3 İNGİLİZCE arama terimi yaz — cümle değil, terim.
+5. comparison.concept, comparison.referenceSector ve comparison.targetSector
+   alanlarını İNGİLİZCE doldur. Bunlar akademik literatürde aranacak:
+   - concept: çözülen teknik problem, 2-4 kelime, sektör adı İÇERMEZ
+     ("fraud detection", "credit scoring", "anomaly detection" gibi)
+   - referenceSector: çözümün olgunlaştığı sektör, TEK kelime ("fintech")
+   - targetSector: fikrin hedeflediği sektör, TEK kelime ("healthcare")
+   İkisi de aynı concept ile aranacağı için uzun ifade yazma; uzun sorgu
+   hiçbir yayınla eşleşmez ve ölçüm anlamsız çıkar.
 
 6. scores alanındaki dört değeri 0-100 arasında ver.
 
@@ -1112,12 +1119,15 @@ Yanıtı şu JSON şemasında ver:
   "title": "Kısa proje adı",
   "summary": "Tek cümlelik açıklama",
   "comparison": {
+    "concept": "İNGİLİZCE, 2-4 kelime, sektör adı İÇERMEZ",
+    "referenceSector": "İNGİLİZCE tek sektör adı",
+    "targetSector": "İNGİLİZCE tek sektör adı",
     "referenceExample": "Adı konmuş, aranabilir ürün/hizmet",
     "localState": "Türkiye'deki karşılığı: adı, ya da açıkça bilinmediği",
     "structuralReason": "Farkın yapısal sebebi",
     "howToCheck": "Kullanıcının bu iddiayı kendi başına nasıl doğrulayabileceği"
   },
-  "searchTerms": ["arama terimi", "arama terimi"],
+  "searchTerms": ["yedek arama terimi"],
   "evidence": { "quote": "dayanak alıntı", "kind": "source" },
   "scores": { "evidence": 0, "feasibility": 0, "gap": 0, "originality": 0 }
 } ] }`;
@@ -1144,6 +1154,16 @@ Yanıtı şu JSON şemasında ver:
     // per minute. Three is the cheapest number at which a measurement can still
     // overturn the order.
     const VERIFY_TOP_K = 3;
+
+    // Below this, a count is not a measurement.
+    //
+    // Measured 18 Aug 2026: a well-formed "concept + sector" query lands between
+    // 916 and 5335 works (fraud detection fintech 1044, credit scoring agriculture
+    // 1591, anomaly detection healthcare 5335). A query that did not land returns
+    // 0-9. Three orders of magnitude separate the two, so a floor anywhere between
+    // is safe; 50 sits 5x above the broken cases and well under the healthy ones,
+    // which leaves genuinely narrow fields room to still be measured.
+    const MIN_CORPUS = 50;
 
     // What a status is worth. Deliberately small relative to the 0-100 criteria
     // scores: evidence adjusts the ranking, it does not overrule what the user
@@ -1268,32 +1288,57 @@ Yanıtı şu JSON şemasında ver:
         const method = COMPARISON_METHODS[methodId];
         if (!method || !method.verifyStrategy) return [];
 
-        const terms = (idea && Array.isArray(idea.searchTerms) ? idea.searchTerms : [])
-            .filter(t => typeof t === 'string' && t.trim())
-            .map(t => t.trim().replace(/\s+/g, ' '));
+        const c = (idea && idea.comparison) || {};
+        const field = (name) => (typeof c[name] === 'string' ? c[name].trim().replace(/\s+/g, ' ') : '');
 
-        const base = terms[0] || '';
-        if (!base) return [];
+        // Query length decides whether the measurement means anything. Measured
+        // 18 Aug 2026 against OpenAlex title_and_abstract:
+        //
+        //   3 words   fraud detection fintech            1044
+        //             predictive maintenance manufacturing 8986
+        //   4 words   fraud detection supply chain         909
+        //             predictive maintenance public health 2732
+        //   5 words   machine learning credit scoring fintech  285
+        //             income share agreement platform fintech    9
+        //
+        // Four holds, five falls apart. The model handed back phrases of six and
+        // more, every one returned 0, and a zero then read as an untouched market.
+        //
+        // The sector is kept whole because it is the axis being compared; the
+        // concept takes whatever is left of the four.
+        const words = (text) => text.split(' ').filter(Boolean);
+        const pair = (concept, sector) => {
+            const s = words(sector).slice(0, 2);
+            const c = words(concept).slice(0, Math.max(1, 4 - s.length));
+            return [...c, ...s].join(' ');
+        };
 
-        const ref = typeof reference === 'string' ? reference.trim() : '';
-        const named = idea && idea.comparison && typeof idea.comparison.referenceExample === 'string'
-            ? idea.comparison.referenceExample.trim()
-            : '';
+        const concept = field('concept');
+        if (!concept) return [];
+
+        const named = field('referenceExample');
+
+        // The panel is the user saying what to compare against, so it wins over the
+        // model. The target side is the idea's own domain and only the model knows it.
+        const refSector = (typeof reference === 'string' && reference.trim())
+            ? reference.trim().replace(/\s+/g, ' ')
+            : field('referenceSector');
+        const targetSector = field('targetSector');
 
         switch (method.verifyStrategy) {
             case 'sector-asymmetry':
-                // Two counts under one base term. Without a second sector there is
-                // nothing to compare, so the pair is dropped rather than reported
-                // as a one-sided finding.
-                if (!ref || !terms[1]) return [];
+                // One concept, two sectors — that symmetry is the measurement. Pairing
+                // the concept with a second free-text term instead produced a query
+                // that shared no shape with the first and returned nothing every time.
+                if (!refSector || !targetSector) return [];
                 return [
-                    { sourceId: 'openalex', role: 'reference', query: `${base} ${ref}` },
-                    { sourceId: 'openalex', role: 'target', query: `${base} ${terms[1]}` }
+                    { sourceId: 'openalex', role: 'reference', query: pair(concept, refSector) },
+                    { sourceId: 'openalex', role: 'target', query: pair(concept, targetSector) }
                 ];
 
             case 'year-histogram':
                 return [
-                    { sourceId: 'openalex', role: 'histogram', query: base, options: { histogram: true } }
+                    { sourceId: 'openalex', role: 'histogram', query: words(concept).slice(0, 4).join(' '), options: { histogram: true } }
                 ];
 
             case 'named-entity':
@@ -1396,18 +1441,40 @@ Yanıtı şu JSON şemasında ver:
                     };
                 }
 
+                const refCount = ref.data.count;
+                const targetCount = target.data.count;
+
+                // A zero, or a corpus too small to compare against, means the query
+                // missed — not that the field is empty. Reading it as a gap is the
+                // same mistake the named-entity branch already guards against, one
+                // strategy along: measured 18 Aug 2026, every over-long query returned
+                // 0 and every candidate was then told its claim held, so all three
+                // took the same bonus and the measurement changed no ranking at all.
+                if (refCount < MIN_CORPUS || targetCount === 0) {
+                    return {
+                        sourceId,
+                        status: 'not_found',
+                        supportsClaim: null,
+                        measurement: { reference: refCount, target: targetCount },
+                        detail: `Bu sorgu ölçülebilir bir sonuç vermedi (referans ${refCount}, `
+                            + `hedef ${targetCount} yayın). Terimler literatürde tutmamış olabilir; `
+                            + 'bu, alanın boş olduğunu göstermez. Sıralamaya etkisi yok.',
+                        link
+                    };
+                }
+
                 // The claim is that the target sector is the under-served one.
-                const supportsClaim = target.data.count < ref.data.count;
+                const supportsClaim = targetCount < refCount;
                 return {
                     sourceId,
                     status: 'measured',
                     supportsClaim,
-                    measurement: { reference: ref.data.count, target: target.data.count },
+                    measurement: { reference: refCount, target: targetCount },
                     detail: supportsClaim
-                        ? `Ölçüm iddiayı destekliyor: referans alanda ${ref.data.count}, `
-                          + `hedef alanda ${target.data.count} yayın.`
-                        : `Ölçüm iddiayı desteklemiyor: hedef alanda ${target.data.count} yayın var, `
-                          + `referans alandaki ${ref.data.count} yayından az değil.`,
+                        ? `Ölçüm iddiayı destekliyor: referans alanda ${refCount}, `
+                          + `hedef alanda ${targetCount} yayın.`
+                        : `Ölçüm iddiayı desteklemiyor: hedef alanda ${targetCount} yayın var, `
+                          + `referans alandaki ${refCount} yayından az değil.`,
                     link
                 };
             }

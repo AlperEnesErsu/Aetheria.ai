@@ -513,11 +513,13 @@ const detailedIdeas = () => ({
             title: 'Dayanağı Sağlam Olan',
             summary: 'özet',
             comparison: {
+                concept: 'fraud detection',
+                referenceSector: 'fintech',
+                targetSector: 'agriculture',
                 referenceExample: 'X-Road',
                 localState: 'bilinmiyor',
                 structuralReason: 'sebep'
             },
-            searchTerms: ['fraud detection', 'agriculture'],
             evidence: { quote: 'BELGEDEN GELEN ALINTI', kind: 'source' },
             scores: { evidence: 100, feasibility: 10, gap: 50, originality: 50 }
         },
@@ -525,11 +527,13 @@ const detailedIdeas = () => ({
             title: 'Hemen Yapılabilir Olan',
             summary: 'özet',
             comparison: {
+                concept: 'fraud detection',
+                referenceSector: 'fintech',
+                targetSector: 'logistics',
                 referenceExample: 'Uydurulmuş Bir Ad',
                 localState: 'bilinmiyor',
                 structuralReason: 'sebep'
             },
-            searchTerms: ['fraud detection', 'logistics'],
             evidence: { quote: 'ikinci alıntı', kind: 'source' },
             scores: { evidence: 10, feasibility: 100, gap: 50, originality: 50 }
         }
