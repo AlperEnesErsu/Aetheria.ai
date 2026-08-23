@@ -2,38 +2,73 @@
    Aetheria.ai - Modern Minimal Design
    ========================================================================== */
 
+/* The palette was Tailwind's defaults, unmodified — blue-600, violet-600,
+   emerald-600, amber-600, red-600, gray-900/600/400/200, plus two dozen of its
+   -100 and -300 tints scattered through the file. Every value came from the
+   library at the same step, which is the same thing the old logo did with a
+   stock glyph: reach for the default and stop there.
+
+   What replaces it is built for what this app is — an instrument that measures
+   a claim against the published record. Off-white paper rather than pure white,
+   warm-biased ink, one deep spot colour, and semantics deepened until they read
+   printed instead of screen-neon. The warm ground gives the cool accent
+   something to push against, which is the whole reason the neutrals are not
+   grey.
+
+   Every pair below was measured, not eyeballed. Body and tertiary text clear
+   WCAG AA on paper (7.35:1 and 4.60:1), the accent clears it as a link (8.27:1)
+   and reversed out for buttons (8.63:1), and each semantic reads on its own
+   tint (5.16:1 to 6.15:1). --text-tertiary sat at 4.47:1 on the first pass and
+   was darkened one step; the same trap this file already fell into once. */
 :root {
-    /* Modern Neutral Palette */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8f9fb;
-    --bg-tertiary: #f0f2f6;
+    /* Ground — warm off-white, so a card lifts by being purer than the page */
+    --bg-primary: #fbfaf7;
+    --bg-secondary: #f2efe9;
+    --bg-tertiary: #ebe7df;
 
     --card-bg: #ffffff;
-    --card-border: #e5e7eb;
-    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    --card-shadow-hover: 0 8px 16px rgba(0, 0, 0, 0.12);
+    --card-border: #dcd8cf;
+    --card-shadow: 0 1px 2px rgba(26, 26, 23, 0.06);
+    --card-shadow-hover: 0 6px 18px rgba(26, 26, 23, 0.10);
 
-    /* Modern Accent Colors */
-    --accent-primary: #2563eb;    /* Modern blue */
-    --accent-secondary: #7c3aed;  /* Purple accent */
-    --accent-success: #059669;    /* Emerald */
-    --accent-warning: #d97706;    /* Amber */
-    --accent-danger: #dc2626;     /* Red */
+    /* One spot colour. A deep petrol blue: it holds at small sizes, and it is
+       far enough from the semantics below that a badge is never ambiguous. */
+    --accent-primary: #1d4e7c;
+    --accent-secondary: #16405f;   /* the same colour pressed down, for hover */
+    --accent-soft: #e8eff5;
+    --accent-line: #b9cfe0;
 
-    /* Text Colors */
-    --text-primary: #111827;
-    --text-secondary: #4b5563;
-    --text-tertiary: #9ca3af;
+    /* Semantics. Deliberately duller than the screen defaults — these mark a
+       measurement, and a measurement should not glow. */
+    --accent-success: #2f6a4a;
+    --success-soft: #e6f0ea;
+    --success-line: #b5d2c2;
 
-    /* Typography */
-    --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-mono: 'Fira Code', 'Monaco', monospace;
+    --accent-warning: #8a5a12;
+    --warning-soft: #f6efdf;
+    --warning-line: #e0cda1;
 
-    /* Spacing & Borders */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
+    --accent-danger: #9c3025;
+    --danger-soft: #f6e8e6;
+    --danger-line: #e3bdb7;
+
+    /* Ink — warm-biased near-black rather than a blue-grey */
+    --text-primary: #1a1a17;
+    --text-secondary: #56534c;
+    --text-tertiary: #767268;
+
+    /* Archivo carries the interface: a grotesque with squarer, sturdier forms
+       than the Inter/Outfit pair it replaces, both of which are the faces a
+       generated page reaches for. Fira Code stays and earns its place — every
+       count, score and status in this app is data, and data belongs in mono. */
+    --font-sans: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+    /* Tighter than before. An instrument has edges. */
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-xl: 10px;
 
     /* Transitions */
     --transition-fast: 0.15s ease;
@@ -175,29 +210,29 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    background: #fef3c7;
-    border: 1px solid #fcd34d;
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-line);
     padding: 0.5rem 0.9rem;
     border-radius: var(--radius-md);
     font-family: inherit;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #b45309;
+    color: var(--accent-warning);
     white-space: nowrap;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .feature2-pending-badge:hover {
-    background: #fed7aa;
+    background: var(--warning-line);
 }
 
 .ai-status-badge {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: #d1fae5;
-    border: 1px solid #a7f3d0;
+    background: var(--success-soft);
+    border: 1px solid var(--success-line);
     padding: 0.5rem 0.9rem;
     border-radius: var(--radius-md);
     font-size: 0.85rem;
@@ -230,8 +265,8 @@ body {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: #dbeafe;
-    border: 1px solid #93c5fd;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
     border-radius: var(--radius-xl);
     color: var(--accent-primary);
     font-size: 0.85rem;
@@ -251,10 +286,11 @@ body {
     animation: slideDownFadeIn 0.6s var(--transition-normal) 0.1s backwards;
 }
 
+/* Was a blue-to-purple gradient clipped to the text, which is the single most
+   recognisable mark of a generated page. The emphasis is carried by the spot
+   colour instead — one flat statement rather than a ramp. */
 .hero-title .gradient-text {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--accent-primary);
 }
 
 .hero-subtitle {
@@ -321,7 +357,7 @@ body {
 
 .scope-btn.active {
     border-color: var(--accent-primary);
-    background: #dbeafe;
+    background: var(--accent-soft);
     color: var(--accent-primary);
 }
 
@@ -420,7 +456,9 @@ body {
     font-size: 1rem;
     font-weight: 700;
     color: white;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    /* Flat, not a ramp. Even a same-hue gradient is still a gradient, and the
+       point of the spot colour is that it makes one statement. */
+    background: var(--accent-primary);
     border: none;
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -527,9 +565,9 @@ body {
     border-radius: 50%;
 }
 
-.dot-red { background: #ef4444; }
-.dot-yellow { background: #f59e0b; }
-.dot-green { background: #10b981; }
+.dot-red { background: var(--accent-danger); }
+.dot-yellow { background: var(--accent-warning); }
+.dot-green { background: var(--accent-success); }
 
 .terminal-title {
     font-family: var(--font-mono);
@@ -608,7 +646,7 @@ body {
 
 .project-header-card {
     border: 1px solid var(--accent-primary);
-    background: linear-gradient(135deg, #dbeafe 0%, #f3e8ff 100%);
+    background: var(--accent-soft);
 }
 
 .project-meta-top {
@@ -638,8 +676,8 @@ body {
     display: none;
     align-items: center;
     gap: 1rem;
-    background: #fef3c7;
-    border: 1px solid #fcd34d;
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-line);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     margin-bottom: 1.5rem;
@@ -651,7 +689,7 @@ body {
 
 .example-notice-text {
     font-size: 0.9rem;
-    color: #7c2d12;
+    color: var(--accent-warning);
 }
 
 .btn-notice-action {
@@ -667,7 +705,7 @@ body {
 }
 
 .btn-notice-action:hover {
-    background: #b45309;
+    background: var(--accent-warning);
 }
 
 /* Project Details */
@@ -702,9 +740,9 @@ body {
     border-radius: var(--radius-md);
     font-size: 0.8rem;
     font-weight: 600;
-    background: #dbeafe;
+    background: var(--accent-soft);
     color: var(--accent-primary);
-    border: 1px solid #93c5fd;
+    border: 1px solid var(--accent-line);
 }
 
 /* Metrics Grid */
@@ -809,13 +847,13 @@ body {
 }
 
 .gap-highlight-box {
-    background: #f0fdf4;
+    background: var(--success-soft);
     border-left: 4px solid var(--accent-success);
     padding: 1.5rem;
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
     margin-bottom: 1.5rem;
     font-size: 1rem;
-    color: #1f2937;
+    color: var(--text-primary);
     line-height: 1.8;
 }
 
@@ -1016,7 +1054,7 @@ body {
 .btn-copy-blueprint.is-copied {
     border-color: var(--accent-success);
     color: var(--accent-success);
-    background: #d1fae5;
+    background: var(--success-soft);
 }
 
 .btn-save-project svg,
@@ -1160,7 +1198,7 @@ body {
 
 .btn-saved-action.btn-delete {
     color: var(--accent-danger);
-    border-color: #fee2e2;
+    border-color: var(--danger-soft);
 }
 
 .btn-saved-action.btn-delete:hover {
@@ -1262,14 +1300,14 @@ body {
 }
 
 .key-status.is-ok {
-    background: #d1fae5;
-    border: 1px solid #a7f3d0;
+    background: var(--success-soft);
+    border: 1px solid var(--success-line);
     color: var(--accent-success);
 }
 
 .key-status.is-error {
-    background: #fee2e2;
-    border: 1px solid #fca5a5;
+    background: var(--danger-soft);
+    border: 1px solid var(--danger-line);
     color: var(--accent-danger);
 }
 
@@ -1320,7 +1358,7 @@ body {
 .btn-forget-key {
     display: none;
     background: transparent;
-    border: 1px solid #fee2e2;
+    border: 1px solid var(--danger-soft);
     color: var(--accent-danger);
 }
 
@@ -1330,7 +1368,7 @@ body {
 }
 
 .btn-forget-key:hover {
-    background: #fee2e2;
+    background: var(--danger-soft);
 }
 
 /* Footer */
@@ -1360,7 +1398,7 @@ body {
     max-width: min(600px, 92vw);
     padding: 1rem;
     background: white;
-    border: 1px solid #fee2e2;
+    border: 1px solid var(--danger-soft);
     border-radius: var(--radius-lg);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     color: var(--text-primary);
@@ -1376,10 +1414,10 @@ body {
     max-width: 900px;
     margin: 1.5rem auto;
     padding: 1rem 1.25rem;
-    background: #fef3c7;
-    border: 1px solid #fcd34d;
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-line);
     border-radius: var(--radius-md);
-    color: #92400e;
+    color: var(--accent-warning);
     font-size: 0.95rem;
     line-height: 1.6;
 }
@@ -1468,7 +1506,7 @@ body {
 
 .mode-btn.active {
     border-color: var(--accent-primary);
-    background: #dbeafe;
+    background: var(--accent-soft);
 }
 
 .mode-btn-title {
@@ -1583,12 +1621,12 @@ body {
 .privacy-note {
     margin-top: 0.5rem;
     padding: 0.7rem 0.85rem;
-    background: #fef3c7;
-    border: 1px solid #fcd34d;
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-line);
     border-radius: var(--radius-md);
     font-size: 0.78rem;
     line-height: 1.6;
-    color: #7c2d12;
+    color: var(--accent-warning);
 }
 
 .verifiability-badge {
@@ -1602,20 +1640,20 @@ body {
 }
 
 .verifiability-badge.is-measurable {
-    background: #d1fae5;
-    border-color: #a7f3d0;
+    background: var(--success-soft);
+    border-color: var(--success-line);
     color: var(--accent-success);
 }
 
 .verifiability-badge.is-partial {
-    background: #fef3c7;
-    border-color: #fcd34d;
-    color: #b45309;
+    background: var(--warning-soft);
+    border-color: var(--warning-line);
+    color: var(--accent-warning);
 }
 
 .verifiability-badge.is-unverifiable {
-    background: #fee2e2;
-    border-color: #fca5a5;
+    background: var(--danger-soft);
+    border-color: var(--danger-line);
     color: var(--accent-danger);
 }
 
@@ -1883,7 +1921,7 @@ body {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    background: #111827;
+    background: var(--text-primary);
     color: #ffffff;
     padding: 0.75rem 1.25rem;
     border-radius: var(--radius-md);
@@ -1937,15 +1975,15 @@ body {
 
     .glass-card {
         box-shadow: none !important;
-        border: 1px solid #d1d5db !important;
+        border: 1px solid var(--card-border) !important;
         page-break-inside: avoid;
         margin-bottom: 1.5rem !important;
         padding: 1.5rem !important;
     }
 
     .project-header-card {
-        background: #f9fafb !important;
-        border: 1px solid #111827 !important;
+        background: var(--bg-secondary) !important;
+        border: 1px solid var(--text-primary) !important;
     }
 
     .step2-container {
