@@ -511,3 +511,67 @@ test('the evidence timeout is well under the generation timeout', () => {
     assert.ok(core.EVIDENCE_TIMEOUT_MS <= 10000,
         'kanıt katmanı üretimi bekletecek kadar uzun süre bekliyor');
 });
+
+// ── the year histogram ───────────────────────────────────────────────────────
+
+test('a grouped request does not carry per-page', () => {
+    // Regression, and the sharper half of it: per-page truncates group_by as well
+    // as results. Sending it with a grouped request returned exactly one bucket —
+    // the largest, which is always a recent year — so the share of the last three
+    // years came out at 100% by arithmetic every single time and the comparison
+    // could only ever agree with the claim. Measured 18 Aug 2026: one bucket with
+    // per-page=1, fifty-six without it.
+    const grouped = core.buildEvidenceRequest('openalex', 'federated learning', { histogram: true }).url;
+    assert.ok(grouped.includes('group_by=publication_year'));
+    assert.ok(!/per-page/.test(grouped), 'gruplu istek per-page taşıyor — histogram tek kovaya iner');
+
+    // The plain count still needs it.
+    const counted = core.buildEvidenceRequest('openalex', 'federated learning').url;
+    assert.ok(counted.includes('per-page=1'));
+    assert.ok(!/group_by/.test(counted));
+});
+
+test('a histogram too short to show a trend is not a finding', () => {
+    // One bucket makes the recent share 100% whatever the field is, which is
+    // arithmetic dressed as evidence. It earns nothing, like the sector branch
+    // below its corpus floor.
+    const hist = years => [raw({
+        sourceId: 'openalex', role: 'histogram', query: 'x',
+        data: { kind: 'years', years }, link: 'https://api.openalex.org/x'
+    })];
+
+    assert.strictEqual(core.interpretEvidence('time', hist({ 2025: 19845 })).status, 'not_found',
+        'tek kovalı histogram ölçüm sayılmış');
+    assert.strictEqual(core.interpretEvidence('time', hist({ 2025: 900, 2024: 800 })).status, 'not_found');
+
+    // Enough years but almost no corpus behind them.
+    assert.strictEqual(core.interpretEvidence('time', hist({ 2025: 5, 2024: 4, 2023: 3 })).status, 'not_found');
+
+    const short = core.interpretEvidence('time', hist({ 2025: 19845 }));
+    assert.strictEqual(short.supportsClaim, null);
+    assert.ok(/değerlendirilemez/.test(short.detail));
+});
+
+test('a real year spread separates a new field from a mature one', () => {
+    // Measured against OpenAlex on 18 Aug 2026: "federated learning" puts 70% of
+    // its output in the last three years, "relational database" 15%. Before the
+    // per-page fix both read as 100%.
+    const hist = years => [raw({
+        sourceId: 'openalex', role: 'histogram', query: 'x',
+        data: { kind: 'years', years }, link: 'https://api.openalex.org/x'
+    })];
+
+    const fresh = core.interpretEvidence('time', hist({
+        2026: 17631, 2025: 19845, 2024: 12007, 2023: 8636, 2022: 5518, 2021: 3617, 2020: 1714
+    }));
+    assert.strictEqual(fresh.status, 'measured');
+    assert.strictEqual(fresh.supportsClaim, true, 'yeni alan yeni sayılmadı');
+
+    const mature = core.interpretEvidence('time', hist({
+        2026: 300, 2025: 400, 2024: 350, 2018: 1200, 2012: 1800, 2005: 2100, 1998: 1500
+    }));
+    assert.strictEqual(mature.status, 'measured');
+    assert.strictEqual(mature.supportsClaim, false, 'olgun alan yeni sayıldı');
+    assert.ok(/görünmüyor/.test(mature.detail), 'çürüttüğü kullanıcıya söylenmedi');
+});
+

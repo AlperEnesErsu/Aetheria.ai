@@ -1165,6 +1165,11 @@ Yanıtı şu JSON şemasında ver:
     // which leaves genuinely narrow fields room to still be measured.
     const MIN_CORPUS = 50;
 
+    // A maturity claim needs a run of years to sit on. Real fields come back with
+    // fifty-odd buckets; anything under three cannot show a trend, and a single
+    // bucket makes the recent share 100% by arithmetic rather than by evidence.
+    const MIN_YEARS = 3;
+
     // What a status is worth. Deliberately small relative to the 0-100 criteria
     // scores: evidence adjusts the ranking, it does not overrule what the user
     // said matters.
@@ -1195,8 +1200,18 @@ Yanıtı şu JSON şemasında ver:
             buildUrl(query, opts) {
                 const o = opts || {};
                 const filter = `title_and_abstract.search:${encodeURIComponent(query)}`;
-                const base = `https://api.openalex.org/works?filter=${filter}&per-page=1`;
-                return o.histogram ? `${base}&group_by=publication_year` : base;
+                const base = `https://api.openalex.org/works?filter=${filter}`;
+
+                // per-page truncates group_by as well as results. Sending it with a
+                // grouped request returned exactly one bucket — the largest, which is
+                // always a recent year — so the histogram had a single year in it and
+                // the share of the last three came out at 100% every single time.
+                // The comparison could then only ever agree with the claim, which is
+                // the failure this whole layer exists to catch. Measured 18 Aug 2026:
+                // one bucket with per-page=1, fifty-six without it.
+                return o.histogram
+                    ? `${base}&group_by=publication_year`
+                    : `${base}&per-page=1`;
             },
 
             parse(payload) {
@@ -1501,6 +1516,23 @@ Yanıtı şu JSON şemasında ver:
 
                 // A field whose output is concentrated in the last three years is a
                 // recently-opened one, which is what this comparison claims.
+                // Too little to read a trend from. Reporting a share here would be
+                // arithmetic dressed as a finding, so it goes back as not_found and
+                // earns nothing — the same call the sector branch makes below its
+                // corpus floor.
+                if (keys.length < MIN_YEARS || total < MIN_CORPUS) {
+                    return {
+                        sourceId,
+                        status: 'not_found',
+                        supportsClaim: null,
+                        measurement: { years, recentShare: share },
+                        detail: `Bu sorgu ölçülebilir bir yıl dağılımı vermedi ` +
+                            `(${keys.length} yıl, ${total} yayın). Olgunluk iddiası ` +
+                            `bu veriyle değerlendirilemez; sıralamaya etkisi yok.`,
+                        link
+                    };
+                }
+
                 const supportsClaim = share >= 0.5;
                 return {
                     sourceId,
