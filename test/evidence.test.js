@@ -27,8 +27,14 @@ const entities = (labels) => ({
 
 const idea = (over) => Object.assign({
     title: 'Test Fikri',
-    searchTerms: ['fraud detection', 'healthcare'],
-    comparison: { referenceExample: 'X-Road', localState: 'bilinmiyor', structuralReason: 'sebep' }
+    comparison: {
+        concept: 'fraud detection',
+        referenceSector: 'fintech',
+        targetSector: 'healthcare',
+        referenceExample: 'X-Road',
+        localState: 'bilinmiyor',
+        structuralReason: 'sebep'
+    }
 }, over);
 
 // ── buildEvidenceRequest ─────────────────────────────────────────────────────
@@ -138,14 +144,52 @@ test('parseEvidenceResponse returns null for a shape it does not recognise', () 
 
 // ── buildEvidenceQueries ─────────────────────────────────────────────────────
 
-test('buildEvidenceQueries produces search terms, not sentences', () => {
+test('buildEvidenceQueries compares one concept across two sectors', () => {
+    // The symmetry is the measurement. Pairing the concept with a second free
+    // -text term instead gave the two sides no shape in common, and the target
+    // returned 0 every time — which then read as an untouched market.
     const queries = core.buildEvidenceQueries(idea(), 'sector', 'fintech');
     assert.strictEqual(queries.length, 2);
-    for (const q of queries) {
-        assert.ok(q.query.split(' ').length <= 6, `sorgu cümleye dönüşmüş: ${q.query}`);
+    assert.deepStrictEqual(queries.map(q => q.role), ['reference', 'target']);
+
+    assert.strictEqual(queries[0].query, 'fraud detection fintech');
+    assert.strictEqual(queries[1].query, 'fraud detection healthcare');
+});
+
+test('buildEvidenceQueries keeps every query inside the length that measures', () => {
+    // Measured 18 Aug 2026: 3-4 word queries return 909-8986 works, 5-word
+    // queries fall to 285 and 9. Four is the ceiling that still measures.
+    const verbose = idea({
+        comparison: {
+            concept: 'income share agreement platform tuition tokenization',
+            referenceSector: 'fintech',
+            targetSector: 'education technology sector for students',
+            referenceExample: 'Pave'
+        }
+    });
+
+    for (const q of core.buildEvidenceQueries(verbose, 'sector', '')) {
+        assert.ok(q.query.split(' ').length <= 4, `sorgu ${q.query.split(' ').length} kelime: ${q.query}`);
         assert.ok(!/[.?!]/.test(q.query), `sorguda cümle noktalaması var: ${q.query}`);
     }
-    assert.deepStrictEqual(queries.map(q => q.role), ['reference', 'target']);
+});
+
+test('buildEvidenceQueries keeps the sector whole and trims the concept', () => {
+    // The sector is the axis being compared, so it survives intact; the
+    // concept gives up words to stay inside the budget.
+    const q = core.buildEvidenceQueries(idea({
+        comparison: { concept: 'fraud detection anomaly', referenceSector: 'fintech', targetSector: 'supply chain', referenceExample: 'X' }
+    }), 'sector', '');
+
+    assert.ok(q[1].query.endsWith('supply chain'), `sektör kırpılmış: ${q[1].query}`);
+    assert.ok(q[1].query.split(' ').length <= 4);
+});
+
+test('the panel reference wins over the one the model suggested', () => {
+    // The user typing a sector is the user saying what to compare against.
+    const q = core.buildEvidenceQueries(idea(), 'sector', 'insurance');
+    assert.strictEqual(q[0].query, 'fraud detection insurance');
+    assert.strictEqual(q[1].query, 'fraud detection healthcare');
 });
 
 test('buildEvidenceQueries looks up the named example for a country comparison', () => {
@@ -162,10 +206,14 @@ test('buildEvidenceQueries asks for nothing when the claim cannot be checked', (
     // not a comparison — reporting one count as a finding would be worse than
     // reporting nothing.
     assert.deepStrictEqual(core.buildEvidenceQueries(idea(), 'scale', 'kurumsal'), []);
-    assert.deepStrictEqual(core.buildEvidenceQueries(idea({ searchTerms: ['tek terim'] }), 'sector', 'fintech'), []);
-    assert.deepStrictEqual(core.buildEvidenceQueries(idea(), 'sector', ''), []);
     assert.deepStrictEqual(core.buildEvidenceQueries(idea({ comparison: {} }), 'country'), []);
-    assert.deepStrictEqual(core.buildEvidenceQueries(idea({ searchTerms: [] }), 'sector', 'fintech'), []);
+
+    // No concept, or only one side of the comparison, is nothing to measure.
+    const noConcept = idea({ comparison: { referenceSector: 'fintech', targetSector: 'healthcare' } });
+    assert.deepStrictEqual(core.buildEvidenceQueries(noConcept, 'sector', 'fintech'), []);
+
+    const noTarget = idea({ comparison: { concept: 'fraud detection', referenceSector: 'fintech' } });
+    assert.deepStrictEqual(core.buildEvidenceQueries(noTarget, 'sector', 'fintech'), []);
 });
 
 // ── interpretEvidence: the five values ───────────────────────────────────────
@@ -255,6 +303,44 @@ test('interpretEvidence reports a measurement that refutes its own claim', () =>
     assert.strictEqual(out.supportsClaim, false, 'çürüten ölçüm destekliyor sayılmış');
     assert.deepStrictEqual(out.measurement, { reference: 1028, target: 1853 });
     assert.ok(/desteklemiyor/.test(out.detail), 'çürüttüğü kullanıcıya söylenmeli');
+});
+
+test('a query that did not land is not a market gap', () => {
+    // The sharpest lesson from running this against the real model. Every
+    // over-long query it produced returned 0 works, target < reference held
+    // trivially, and all three candidates were told their claim was supported —
+    // so they took the same bonus and the measurement changed no ranking at all.
+    //
+    // A zero means the query missed. It is the §3.3 asymmetry one strategy along.
+    const count = (role, n) => raw({ sourceId: 'openalex', role, query: 'q', data: { kind: 'count', count: n } });
+
+    const emptyTarget = core.interpretEvidence('sector', [count('reference', 1044), count('target', 0)]);
+    assert.strictEqual(emptyTarget.status, 'not_found', 'sıfır hedef boşluk sayılmış');
+    assert.strictEqual(emptyTarget.supportsClaim, null);
+    assert.ok(/göstermez/.test(emptyTarget.detail), 'yokluk kanıtı olmadığı söylenmedi');
+
+    // A reference corpus too small to compare against is the same problem: a
+    // difference between 9 and 0 is phrasing, not substance.
+    const thinCorpus = core.interpretEvidence('sector', [count('reference', 9), count('target', 0)]);
+    assert.strictEqual(thinCorpus.status, 'not_found');
+
+    // A real corpus still measures.
+    const real = core.interpretEvidence('sector', [count('reference', 1044), count('target', 276)]);
+    assert.strictEqual(real.status, 'measured');
+    assert.strictEqual(real.supportsClaim, true);
+});
+
+test('a query that did not land earns no bonus either', () => {
+    // The whole failure was that it did. Pinning it at the ranking layer too.
+    const scored = [
+        { idea: { title: 'Önde' }, total: 50, breakdown: [] },
+        { idea: { title: 'Arkada' }, total: 48, breakdown: [] }
+    ];
+    const after = core.applyVerificationBoost(scored, {
+        Arkada: { status: 'not_found', supportsClaim: null }
+    });
+    assert.strictEqual(after[0].idea.title, 'Önde', 'ölçülemeyen sorgu sıralamayı değiştirmiş');
+    assert.strictEqual(after.find(r => r.idea.title === 'Arkada').verificationBonus, 0);
 });
 
 test('interpretEvidence needs both sides before it calls a sector comparison measured', () => {

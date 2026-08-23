@@ -158,9 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const IDEA_BATCH_SIZE = 8;
     const IDEA_MAX_TOKENS = 1024;
 
-    // Detailed candidates carry a comparison block, search terms, a quote and
-    // four scores each, so the quick-mode ceiling truncates the JSON mid-array.
-    const DETAILED_IDEA_MAX_TOKENS = 2048;
+    // Detailed candidates carry a comparison block, search terms, a quote and four
+    // scores each, so the quick-mode ceiling truncates the JSON mid-array.
+    //
+    // 2048 was a guess and it was wrong. Measured against gemini-flash-latest on
+    // 18 Aug 2026, eight candidates in this schema come back around 2400 output
+    // tokens and the response died on MAX_TOKENS before the array closed, taking
+    // the whole generation with it. Turkish also tokenises worse per character
+    // than the English these budgets are usually sized against.
+    const DETAILED_IDEA_MAX_TOKENS = 4096;
+
+    // Fewer candidates than quick mode, and not to save money on the ceiling.
+    // A quick-mode candidate is a title and one line, roughly 40 tokens. A
+    // detailed one carries a four-field comparison, search terms, a quote and
+    // four scores — closer to 300. Only VERIFY_TOP_K of them are ever measured,
+    // so candidates seven and eight are paying full price for a place they
+    // cannot win from. Six still leaves the weights a real choice to make.
+    const DETAILED_BATCH_SIZE = 6;
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
@@ -2117,7 +2131,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
         // PASS 1 — candidates that already carry their comparison and their scores.
         const prompt = buildDetailedIdeationPrompt({
             categoryLabel,
-            count: IDEA_BATCH_SIZE,
+            count: DETAILED_BATCH_SIZE,
             scope: activeScopeFilter,
             angle: activeAngle,
             method: activeMethod,
@@ -2422,7 +2436,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 if (step.phase === 'ideate') {
                     const provider = getProvider(activeProvider);
                     writeTerminalLog(
-                        `Ayrıntılı üretim · ${IDEA_BATCH_SIZE} aday · ${provider.label} · ` +
+                        `Ayrıntılı üretim · ${DETAILED_BATCH_SIZE} aday · ${provider.label} · ` +
                         `model: ${provider.models[0]}`, 'agent');
                     writeTerminalLog(`Kapsam: ${(SCOPE_PRESETS[step.scope] || SCOPE_PRESETS.all).badge}`, 'info');
                     writeTerminalLog(
