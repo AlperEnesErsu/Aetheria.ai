@@ -104,11 +104,10 @@ body {
     text-decoration: none;
 }
 
+/* The mark sits directly on the page. It used to be a stock Material "layers"
+   glyph reversed out of a blue-to-purple rounded square — the whole generic
+   app-icon recipe, and a glyph describing something this app does not do. */
 .logo-icon-wrapper {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -116,9 +115,12 @@ body {
 }
 
 .logo-icon-wrapper svg {
-    width: 24px;
-    height: 24px;
-    fill: white;
+    width: 32px;
+    height: 32px;
+    fill: none;
+    stroke: var(--accent-primary);
+    stroke-width: 2.8;
+    stroke-linecap: round;
 }
 
 .brand-name {
