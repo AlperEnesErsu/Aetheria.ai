@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#00f2fe"/>
-      <stop offset="1" stop-color="#7f00ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="7" fill="#07090e"/>
-  <g transform="translate(4 4) scale(1)" fill="none" stroke="url(#g)" stroke-width="2"
-     stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Aetheria">
+  <!-- An A whose apex does not close. The subject of the mark is the opening
+       between the strokes — "Alandaki Açık", the gap the app exists to find.
+
+       Flat ground, no gradient, no stock glyph. The mark reads at 16px because
+       it is three strokes and the gap is a fifth of the width. -->
+  <rect width="32" height="32" fill="#2563eb"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.9" stroke-linecap="round">
+    <path d="M8 25 L14.2 10"/>
+    <path d="M24 25 L17.8 10"/>
+    <path d="M11.9 19.4 L20.1 19.4"/>
   </g>
 </svg>
