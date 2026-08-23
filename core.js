@@ -1706,6 +1706,157 @@ Yanıtı şu JSON şemasında ver:
         return out;
     }
 
+    // ── Fikir değerlendirme ─────────────────────────────────────────────────
+    //
+    // The other two modes hand the user an idea. This one takes the idea the user
+    // already has and asks the same questions of it: is the gap it claims real,
+    // where is the opening, and what is it worth.
+    //
+    // The honesty line runs straight through the middle of this feature. The gap
+    // claim can be measured — that is what EVIDENCE_SOURCES is for. Market size,
+    // revenue, competition and timing cannot be, by anything this app can reach.
+    // So the four criteria stay what they are, the model's own read, and the
+    // measured part is reported separately rather than folded into one number.
+    // A single score would be the most trusted thing on the page and the least
+    // earned.
+
+    // The user's own idea. Shorter than SOURCE_MATERIAL_MAX_CHARS on purpose: this
+    // is a description of one project, not a document to mine, and a longer input
+    // makes the model summarise rather than characterise.
+    const IDEA_TEXT_MAX_CHARS = 2000;
+
+    // Which criteria are measured against a source and which are the model's
+    // opinion. The renderer reads this rather than hardcoding the split, so a
+    // criterion cannot quietly change sides.
+    const CRITERION_BASIS = {
+        evidence: 'measured',
+        feasibility: 'model',
+        gap: 'measured',
+        originality: 'model'
+    };
+
+    function clampIdeaText(text) {
+        const raw = typeof text === 'string' ? text.trim() : '';
+        if (raw.length <= IDEA_TEXT_MAX_CHARS) {
+            return { text: raw, chars: raw.length, truncated: false };
+        }
+        const slice = raw.slice(0, IDEA_TEXT_MAX_CHARS);
+        const lastBreak = slice.search(/\s\S*$/);
+        const cut = lastBreak > IDEA_TEXT_MAX_CHARS * 0.9 ? slice.slice(0, lastBreak) : slice;
+        return { text: cut, chars: cut.length, truncated: true };
+    }
+
+    // Ask the model to characterise an idea that already exists.
+    //
+    // Deliberately not an ideation prompt with one candidate. The model is told
+    // the idea is the user's and must not be replaced — left to its own devices it
+    // will improve the idea into a different one and then assess that, which reads
+    // as an assessment of yours and is not.
+    function buildAssessmentPrompt(opts) {
+        const o = opts || {};
+        const idea = clampIdeaText(o.ideaText);
+        if (!idea.text) return '';
+
+        const method = COMPARISON_METHODS[o.method] || COMPARISON_METHODS.sector;
+        const categoryLabel = o.categoryLabel || CATEGORY_LABELS.all;
+        const reference = typeof o.reference === 'string' ? o.reference.trim() : '';
+
+        let scopeInstruction = '';
+        if (o.scope === 'national') {
+            scopeInstruction = '\nDEĞERLENDİRME KAPSAMI: 🇹🇷 Türkiye pazarı ve şartları.';
+        } else if (o.scope === 'international') {
+            scopeInstruction = '\nDEĞERLENDİRME KAPSAMI: 🌍 Global pazar.';
+        }
+
+        const referenceLine = reference ? `\n- ${method.referenceLabel}: ${reference}` : '';
+
+        return `Aşağıdaki proje fikri KULLANICIYA AİT. Onu değerlendireceksin.${scopeInstruction}
+
+KULLANICININ FİKRİ:
+"""
+${idea.text}
+"""${idea.truncated ? '\n(Metin uzunluk sınırı nedeniyle kesildi.)' : ''}
+
+KIYAS METODU — ${method.label}: ${method.promptGuidance}${referenceLine}
+
+Alan: ${categoryLabel}
+
+Kurallar:
+
+1. FİKRİ DEĞİŞTİRME. Daha iyi bir fikir aklına gelse bile onu değerlendirme —
+   kullanıcı kendi fikrinin ne durumda olduğunu soruyor, senin fikrini değil.
+   Fikir belirsizse belirsiz haliyle değerlendir ve neyin eksik olduğunu yaz.
+
+2. comparison.concept, comparison.referenceSector ve comparison.targetSector
+   alanlarını İNGİLİZCE doldur. Bunlar akademik literatürde aranacak:
+   - concept: çözülen teknik problem, 2-4 kelime, sektör adı İÇERMEZ
+   - referenceSector: bu çözümün olgunlaştığı sektör, TEK kelime
+   - targetSector: fikrin hedeflediği sektör, TEK kelime
+   Uzun ifade yazma; uzun sorgu hiçbir yayınla eşleşmez ve ölçüm anlamsız çıkar.
+
+3. comparison.referenceExample ADI KONMUŞ, aranabilir bir ürün/hizmet olmalı.
+   Bu ad otomatik olarak aranacak ve bulunup bulunmadığı kullanıcıya gösterilecek.
+
+4. opportunities alanına 2-4 SOMUT açılım yaz. Her biri kullanıcının yarın
+   yapabileceği bir şey olsun — "pazar büyük" gibi genel cümleler değil.
+
+5. risks alanına 2-3 SOMUT risk yaz. Fikri övme; zayıf tarafını söylemek
+   bu değerlendirmenin asıl işi.
+
+6. scores alanındaki dört değeri 0-100 arasında ver. Bunların SENİN görüşün
+   olduğu kullanıcıya açıkça söylenecek, o yüzden şişirme.
+
+Yanıtı şu JSON şemasında ver:
+{
+  "title": "Fikrin kısa adı",
+  "restatement": "Fikri kendi cümlelerinle tek cümlede özetle",
+  "comparison": {
+    "concept": "İNGİLİZCE, 2-4 kelime, sektör adı İÇERMEZ",
+    "referenceSector": "İNGİLİZCE tek sektör adı",
+    "targetSector": "İNGİLİZCE tek sektör adı",
+    "referenceExample": "Adı konmuş, aranabilir ürün/hizmet",
+    "localState": "Türkiye'deki karşılığı: adı, ya da açıkça bilinmediği",
+    "structuralReason": "Açığın yapısal sebebi",
+    "howToCheck": "Kullanıcının bu iddiayı kendi başına nasıl doğrulayabileceği"
+  },
+  "opportunities": ["somut açılım", "somut açılım"],
+  "risks": ["somut risk", "somut risk"],
+  "scores": { "evidence": 0, "feasibility": 0, "gap": 0, "originality": 0 }
+}`;
+    }
+
+    // Split a scored assessment into what a source settled and what the model
+    // merely thinks, so the interface can label the two differently.
+    //
+    // Returns the same breakdown rows the scorer produced, each tagged with its
+    // basis, plus the two subtotals and the verification result. Nothing here
+    // invents a combined "your idea scores N" figure — that number would be the
+    // most trusted thing on screen and the least supported.
+    function splitAssessment(scored, verification) {
+        const rows = (scored && Array.isArray(scored.breakdown)) ? scored.breakdown : [];
+
+        const tagged = rows.map(row => Object.assign({}, row, {
+            basis: CRITERION_BASIS[row.criterion] === 'measured' ? 'measured' : 'model'
+        }));
+
+        const sumOf = basis => tagged
+            .filter(r => r.basis === basis)
+            .reduce((total, r) => total + r.contribution, 0);
+
+        const measuredStatus = verification ? verification.status : null;
+
+        return {
+            rows: tagged,
+            modelTotal: sumOf('model'),
+            claimTotal: sumOf('measured'),
+            // Only this last one rests on a source rather than on the model.
+            verification: verification || null,
+            verificationBonus: verificationBonus(verification),
+            // True when a source actually settled something either way.
+            measured: measuredStatus === 'measured' || measuredStatus === 'verified'
+        };
+    }
+
     return {
         NODE_TYPES,
         SCOPE_PRESETS,
@@ -1755,6 +1906,11 @@ Yanıtı şu JSON şemasında ver:
         parseEvidenceResponse,
         interpretEvidence,
         applyVerificationBoost,
-        buildVerificationMarkdown
+        buildVerificationMarkdown,
+        IDEA_TEXT_MAX_CHARS,
+        CRITERION_BASIS,
+        clampIdeaText,
+        buildAssessmentPrompt,
+        splitAssessment
     };
 });
