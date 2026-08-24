@@ -213,3 +213,55 @@ test('the detailed ideation budget is raised but still bounded', () => {
     assert.ok(budget > 1024, 'ayrıntılı adaylar hızlı mod tavanına sığmaz');
     assert.ok(budget <= 4096, 'ayrıntılı üretim tavanı ücretsiz katman için fazla yüksek');
 });
+
+// The free-tier data-use disclosure has to survive rewording.
+//
+// Both notes were softened once already, and rightly. The first drafts ended in
+// "paylaşmak istemediğin bir fikri buraya yazma" and "kurum içi veya gizli belge
+// yapıştırma" — prohibitions that read as "do not use this feature" and talked
+// users out of the thing these modes exist for. Softening them was the right
+// call; the risk is that the next pass at the tone takes the fact out with it.
+//
+// So this test fixes the split: the tone is free to change, and the disclosure
+// is not. It asserts the two things a user cannot find out any other way, plus
+// the reassurance that stops the note reading as a warning to stay away.
+const PRIVACY_NOTES = [
+    { id: 'ideaPrivacyNote', what: 'fikir kutusu' },
+    { id: 'materialPrivacyNote', what: 'kaynak materyal kutusu' }
+];
+
+test('both text boxes still disclose free-tier data use', () => {
+    const markup = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+    for (const { id, what } of PRIVACY_NOTES) {
+        // [^] rather than [\s\S]: inside a template literal the backslashes would
+        // be eaten before RegExp ever saw them, leaving a pattern that matches
+        // nothing — which is a test that passes for the wrong reason.
+        const note = markup.match(new RegExp(`id="${id}"[^]*?</p>`));
+        assert.ok(note, `${what}: gizlilik notu kaybolmuş`);
+
+        const text = note[0].replace(/<[^>]+>/g, ' ');
+
+        assert.match(text, /ücretsiz Gemini/i, `${what}: hangi katmanı ilgilendirdiği yazmıyor`);
+        assert.match(text, /ürün geliştirme/i, `${what}: içeriğin ne için kullanılabildiği yazmıyor`);
+        assert.match(text, /sekmeyi kapatınca gider/i, `${what}: metnin saklanmadığı yazmıyor`);
+    }
+});
+
+test('neither note tells the user not to use the feature', () => {
+    // The failure mode these notes had. A disclosure states a fact and leaves the
+    // decision with the user; an instruction not to type takes the decision away,
+    // and it took it away on the exact screen whose whole purpose is typing.
+    const markup = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+    for (const { id, what } of PRIVACY_NOTES) {
+        // [^] rather than [\s\S]: inside a template literal the backslashes would
+        // be eaten before RegExp ever saw them, leaving a pattern that matches
+        // nothing — which is a test that passes for the wrong reason.
+        const note = markup.match(new RegExp(`id="${id}"[^]*?</p>`));
+        const text = note[0].replace(/<[^>]+>/g, ' ');
+
+        assert.ok(!/yazma\.|yapıştırma\./i.test(text),
+            `${what}: not hâlâ bir yasak cümlesiyle bitiyor`);
+    }
+});

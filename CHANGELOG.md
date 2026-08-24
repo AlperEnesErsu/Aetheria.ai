@@ -6,6 +6,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir.
 ## [Yayınlanmamış]
 
 ### Eklendi
+- **🎯 Fikrimi Değerlendir modu**: Elindeki fikri yapıştır, uygulama onu değiştirmeden değerlendirsin — piyasadaki açığa uygunluk, 2-4 somut fırsat, 2-3 somut risk ve dört kriter üzerinden puanlar. Ölçüm için ayrıntılı modun kanıt katmanı (OpenAlex / Wikidata / GitHub) aynen kullanılır.
+  - Modele fikri **değiştirmemesi** açıkça söylenir; kendi daha iyi fikrini değerlendirmesi bu modun tek anlamlı hata biçimiydi
+  - Puanlar **dayanağına göre etiketlenir**: "ölçülebilir iddia" ve "model görüşü" ayrı ayrı gösterilir, iki alt toplam verilir
+  - **Tek bir toplam puan bilerek verilmez** — pazar büyüklüğü, rekabet ve zamanlama bu araçlarla ölçülemiyor, ikisini tek sayıda toplamak görüşü ölçüm gibi gösterirdi. Nedeni puan tablosunun altında yazılı
+  - Değerlendirmeyi Markdown olarak panoya kopyalama; ayrım kopyalanan metinde de korunur
+  - Fikir metni tarayıcıda saklanmaz; sekme kapanınca gider
 - **Tek tıkla Markdown panoya kopyalama**: Teknik mimari ve blueprint çıktısını panoya kopyalayan `Panoya Kopyala` butonu ve görsel toast bildirimi
 - **Yazdırma ve PDF desteği**: `@media print` stilleri ile teknik şartnameyi doğrudan tarayıcıdan temiz PDF/yazıcı çıktısı olarak alabilme
 - **12 yeni proje**: veritabanı 6 → 18 projeye çıktı; her kategoride artık en az 3 proje var

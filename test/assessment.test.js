@@ -176,3 +176,118 @@ test('splitAssessment survives a missing breakdown', () => {
         assert.strictEqual(out.claimTotal, 0);
     }
 });
+
+// ── normalizeAssessment ──────────────────────────────────────────────────────
+
+const RAW = {
+    title: 'Hasar Tarayıcı',
+    restatement: 'Hasar dosyalarını tarar.',
+    comparison: {
+        concept: 'anomaly detection claims',
+        referenceSector: 'fintech',
+        targetSector: 'agriculture',
+        referenceExample: 'Shift Technology',
+        localState: 'bilinmiyor',
+        structuralReason: 'hacim küçük',
+        howToCheck: 'TARSİM raporuna bak'
+    },
+    opportunities: ['pilot', 'mobil'],
+    risks: ['veri erişimi'],
+    scores: { evidence: 70, feasibility: 60, gap: 80, originality: 50 }
+};
+
+test('normalizeAssessment keeps a well-formed answer intact', () => {
+    const out = core.normalizeAssessment(RAW);
+    assert.strictEqual(out.title, RAW.title);
+    assert.deepStrictEqual(out.opportunities, RAW.opportunities);
+    assert.deepStrictEqual(out.risks, RAW.risks);
+    assert.deepStrictEqual(out.scores, RAW.scores);
+    assert.strictEqual(out.comparison.concept, 'anomaly detection claims');
+});
+
+test('normalizeAssessment caps the lists the prompt asked to be short', () => {
+    // "2-4 openings" and "2-3 risks" is the instruction. Twelve of either is a way
+    // of saying nothing while looking thorough.
+    const out = core.normalizeAssessment(Object.assign({}, RAW, {
+        opportunities: Array.from({ length: 12 }, (_, i) => `açılım ${i}`),
+        risks: Array.from({ length: 9 }, (_, i) => `risk ${i}`)
+    }));
+    assert.strictEqual(out.opportunities.length, core.ASSESSMENT_LIMITS.maxOpportunities);
+    assert.strictEqual(out.risks.length, core.ASSESSMENT_LIMITS.maxRisks);
+});
+
+test('normalizeAssessment never invents a field the model left out', () => {
+    // An absent risk list means the model named no risk, and the interface has to
+    // be able to say that rather than showing a plausible default.
+    const out = core.normalizeAssessment({ title: 'Sadece başlık' });
+    assert.deepStrictEqual(out.opportunities, []);
+    assert.deepStrictEqual(out.risks, []);
+    assert.strictEqual(out.restatement, '');
+    for (const field of Object.keys(core.SCORING_CRITERIA)) {
+        assert.strictEqual(out.scores[field], 0, `${field} uydurulmuş`);
+    }
+});
+
+test('normalizeAssessment clamps scores into range', () => {
+    const out = core.normalizeAssessment(Object.assign({}, RAW, {
+        scores: { evidence: 5000, feasibility: -20, gap: 'çok', originality: null }
+    }));
+    assert.strictEqual(out.scores.evidence, 100);
+    assert.strictEqual(out.scores.feasibility, 0);
+    assert.strictEqual(out.scores.gap, 0);
+    assert.strictEqual(out.scores.originality, 0);
+});
+
+test('normalizeAssessment returns nothing when there is nothing to show', () => {
+    // A card that renders headings over blanks reads as a result and is not one.
+    for (const junk of [null, undefined, 'metin', 42, [], {}, { scores: { evidence: 90 } }]) {
+        assert.strictEqual(core.normalizeAssessment(junk), null,
+            `${JSON.stringify(junk)} değerlendirme sayıldı`);
+    }
+});
+
+test('normalizeAssessment drops junk entries out of the lists', () => {
+    const out = core.normalizeAssessment(Object.assign({}, RAW, {
+        opportunities: ['gerçek', '', '   ', null, 42, { a: 1 }, 'ikinci'],
+        risks: 'liste değil'
+    }));
+    assert.deepStrictEqual(out.opportunities, ['gerçek', 'ikinci']);
+    assert.deepStrictEqual(out.risks, []);
+});
+
+// ── buildAssessmentMarkdown ──────────────────────────────────────────────────
+
+test('buildAssessmentMarkdown carries the split into the exported text', () => {
+    // A pasted report that merged the measured half into the opinion half would
+    // launder the model's guesses into findings the moment it left the page.
+    const assessment = core.normalizeAssessment(RAW);
+    const split = core.splitAssessment(scored(), { status: 'measured', supportsClaim: true });
+    const md = core.buildAssessmentMarkdown(assessment, split, 'sector');
+
+    assert.ok(md.includes('ölçülebilir iddia'), 'ölçülen taraf etiketsiz');
+    assert.ok(md.includes('model görüşü'), 'görüş tarafı etiketsiz');
+    assert.ok(/İddia tarafı alt toplam/.test(md));
+    assert.ok(/Model görüşü alt toplam/.test(md));
+});
+
+test('buildAssessmentMarkdown explains the missing total rather than supplying one', () => {
+    const split = core.splitAssessment(scored(), null);
+    const md = core.buildAssessmentMarkdown(core.normalizeAssessment(RAW), split, 'sector');
+
+    assert.ok(/Tek bir toplam puan bilinçli olarak verilmiyor/.test(md),
+        'toplamın neden yok olduğu yazılmamış');
+    // The subtotals are in there; their sum must not also be, presented as a score.
+    const combined = (split.modelTotal + split.claimTotal).toFixed(1);
+    assert.ok(!md.includes(`**Toplam**: ${combined}`), 'birleşik puan yine de yazılmış');
+});
+
+test('buildAssessmentMarkdown includes the openings and the risks', () => {
+    const md = core.buildAssessmentMarkdown(core.normalizeAssessment(RAW), null, 'sector');
+    assert.ok(md.includes('## Fırsatlar'));
+    assert.ok(md.includes('## Riskler'));
+    assert.ok(md.includes('- veri erişimi'));
+});
+
+test('buildAssessmentMarkdown returns nothing without an assessment', () => {
+    assert.strictEqual(core.buildAssessmentMarkdown(null, null, 'sector'), '');
+});

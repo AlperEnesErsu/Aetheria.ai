@@ -48,7 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
         buildEvidenceRequest,
         parseEvidenceResponse,
         interpretEvidence,
-        applyVerificationBoost
+        applyVerificationBoost,
+        scoreIdeas,
+        IDEA_TEXT_MAX_CHARS,
+        clampIdeaText,
+        buildAssessmentPrompt,
+        splitAssessment,
+        normalizeAssessment,
+        buildAssessmentMarkdown
     } = window.AetheriaCore;
 
     // DOM Elements
@@ -131,6 +138,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeScopeFilter = readStoredChoice(
         'aetheria_scope_filter', 'all', id => Object.hasOwn(SCOPE_PRESETS, id));
 
+    // Declared here rather than next to the rest of the panel state because
+    // updateKeyHint runs during boot and now reads it: a `let` read from above its
+    // own declaration throws, so the app died before painting anything.
+    const MODES = ['quick', 'detailed', 'assess'];
+    let activeMode = readStoredChoice('aetheria_mode', 'quick', m => MODES.includes(m));
+
     function readStoredChoice(key, fallback, isValid) {
         try {
             const stored = localStorage.getItem(key);
@@ -175,6 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // so candidates seven and eight are paying full price for a place they
     // cannot win from. Six still leaves the weights a real choice to make.
     const DETAILED_BATCH_SIZE = 6;
+
+    // One idea in, one assessment out — no candidate array to fit. The ceiling is
+    // still well above the schema because the four prose fields (restatement,
+    // structural reason, how-to-check, plus up to four openings and three risks)
+    // are the whole product here, and truncating the risk list would quietly turn
+    // an assessment back into a pitch.
+    const ASSESSMENT_MAX_TOKENS = 2048;
 
     let lastGeminiCallTimestamp = Number(localStorage.getItem('aetheria_last_gemini_call') || 0);
     let hourlyCallHistory = readJson('aetheria_gemini_call_history', []);
@@ -418,10 +438,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const live = useGeminiLiveMode && geminiApiKey;
 
         keyHint.classList.toggle('is-live', Boolean(live));
-        // The label no longer changes with key state: the button does one thing —
-        // generate. "PROJE BUL" described looking something up, which is what the
-        // button used to do without a key and no longer does.
-        generateButtonLabel.textContent = 'PROJE ÜRET';
+        // The label does not change with key state: the button does one thing per
+        // mode. "PROJE BUL" described looking something up, which is what the
+        // button used to do without a key and no longer does. It does change with
+        // mode, because in assessment mode it produces no project at all and a
+        // button reading "PROJE ÜRET" would be describing the wrong outcome.
+        generateButtonLabel.textContent = activeMode === 'assess'
+            ? 'FİKRİMİ DEĞERLENDİR'
+            : 'PROJE ÜRET';
 
         if (live) {
             // Naming the provider matters once more than one is possible: it is the
@@ -684,6 +708,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             setDetailedBlocksVisible(false);
         }
+
+        // A project card and an assessment of a different idea on screen together
+        // would read as an assessment of the project.
+        if (assessmentWrapper) assessmentWrapper.classList.remove('visible');
 
         resultsWrapper.classList.add('visible');
         resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1634,7 +1662,13 @@ Yanıtı tam olarak şu JSON şemasında ver:
     async function startStep1Simulation() {
         setButtonBusy(btnGenerateProject, true);
         try {
-            await (activeMode === 'detailed' ? runDetailedStep1() : runStep1());
+            if (activeMode === 'assess') {
+                await runAssessment();
+            } else if (activeMode === 'detailed') {
+                await runDetailedStep1();
+            } else {
+                await runStep1();
+            }
         } catch (err) {
             // Any unexpected failure used to leave the button permanently disabled,
             // making the app look frozen with no way to retry.
@@ -1646,6 +1680,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
     }
 
     async function runStep1() {
+        if (assessmentWrapper) assessmentWrapper.classList.remove('visible');
         resultsWrapper.classList.remove('visible');
         step2Container.classList.remove('visible');
         step2Container.style.display = 'none';
@@ -1849,7 +1884,25 @@ Yanıtı tam olarak şu JSON şemasında ver:
     const scoreBreakdownCard = document.getElementById('scoreBreakdownCard');
     const scoreBreakdownContent = document.getElementById('scoreBreakdownContent');
 
-    let activeMode = readStoredChoice('aetheria_mode', 'quick', m => m === 'quick' || m === 'detailed');
+    const assessPanel = document.getElementById('assessPanel');
+    const ideaTextInput = document.getElementById('ideaTextInput');
+    const ideaTextCounter = document.getElementById('ideaTextCounter');
+    const assessMethodSelect = document.getElementById('assessMethodSelect');
+    const assessMethodBadge = document.getElementById('assessMethodBadge');
+    const assessReferenceInput = document.getElementById('assessReferenceInput');
+    const assessReferenceLabel = document.getElementById('assessReferenceLabel');
+    const assessWeightGrid = document.getElementById('assessWeightGrid');
+    const assessmentWrapper = document.getElementById('assessmentWrapper');
+    const assessTitle = document.getElementById('assessTitle');
+    const assessRestatement = document.getElementById('assessRestatement');
+    const assessScopeBadge = document.getElementById('assessScopeBadge');
+    const assessFitContent = document.getElementById('assessFitContent');
+    const assessEvidenceContent = document.getElementById('assessEvidenceContent');
+    const assessOpportunities = document.getElementById('assessOpportunities');
+    const assessRisks = document.getElementById('assessRisks');
+    const assessScoreContent = document.getElementById('assessScoreContent');
+    const btnCopyAssessment = document.getElementById('btnCopyAssessment');
+
     let activeAngle = readStoredChoice('aetheria_angle', 'evidence', a => Boolean(IDEATION_ANGLES[a]));
     let activeMethod = readStoredChoice('aetheria_method', 'sector', m => Boolean(COMPARISON_METHODS[m]));
     let activeReference = readStoredChoice('aetheria_reference', '', () => true);
@@ -1867,6 +1920,20 @@ Yanıtı tam olarak şu JSON şemasında ver:
     // it. Everything else on this panel is a preference worth remembering; this is
     // the one thing that is not ours to keep.
     let sourceMaterial = '';
+
+    // The user's own idea, held the same way and for the same reason: it is theirs,
+    // not a preference of ours worth keeping. The comparison method and reference
+    // are preferences and are remembered; they are stored under their own keys
+    // rather than shared with the detailed panel, because the two answer different
+    // questions — there, the method decides which candidate wins; here, it decides
+    // what the user's existing idea gets compared against.
+    let ideaText = '';
+    let activeAssessMethod = readStoredChoice(
+        'aetheria_assess_method', 'sector', m => Boolean(COMPARISON_METHODS[m]));
+    let activeAssessReference = readStoredChoice('aetheria_assess_reference', '', () => true);
+
+    // The rendered assessment, kept so the copy button has something to serialise.
+    let currentAssessment = null;
 
     // The verification block rides on the project object itself, so both export
     // paths and the pool pick it up without a second source of truth.
@@ -1890,7 +1957,27 @@ Yanıtı tam olarak şu JSON şemasında ver:
         }
         methodSelect.value = activeMethod;
 
-        weightGrid.innerHTML = '';
+        buildWeightGrid(weightGrid, 'weight');
+
+        renderWeightValues();
+        updateMethodBadge();
+    }
+
+    // Every grid that exists, so a slider moved on one repaints the other. Both
+    // read and write the same activeWeights object; leaving the second grid stale
+    // would show two different answers to "what share does evidence have".
+    const WEIGHT_GRID_PREFIXES = ['weight', 'assessWeight'];
+
+    // Build one weight grid into `container`, with element ids under `prefix`.
+    //
+    // The prefix is not cosmetic. Two grids sharing `weight_evidence` would make
+    // getElementById return whichever parsed first, so the assessment panel's
+    // readouts would update the detailed panel's numbers and its own would never
+    // move.
+    function buildWeightGrid(container, prefix) {
+        if (!container) return;
+        container.innerHTML = '';
+
         for (const criterion of Object.values(SCORING_CRITERIA)) {
             const row = document.createElement('div');
             row.className = 'weight-row';
@@ -1904,7 +1991,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
 
             const value = document.createElement('span');
             value.className = 'weight-value';
-            value.id = `weightValue_${criterion.id}`;
+            value.id = `${prefix}Value_${criterion.id}`;
 
             head.append(name, value);
 
@@ -1913,48 +2000,68 @@ Yanıtı tam olarak şu JSON şemasında ver:
             slider.min = '0';
             slider.max = '100';
             slider.step = '5';
-            slider.id = `weight_${criterion.id}`;
+            slider.id = `${prefix}_${criterion.id}`;
             slider.value = String(activeWeights[criterion.id] ?? criterion.defaultWeight);
             slider.setAttribute('aria-label', criterion.label);
 
             slider.addEventListener('input', () => {
                 activeWeights[criterion.id] = Number(slider.value);
                 persist('aetheria_weights', JSON.stringify(activeWeights));
+                syncWeightSliders();
                 renderWeightValues();
             });
 
             row.append(head, slider);
-            weightGrid.appendChild(row);
+            container.appendChild(row);
         }
+    }
 
-        renderWeightValues();
-        updateMethodBadge();
+    // Push the stored weights back into every slider.
+    //
+    // Without this, moving a slider in one mode and switching to the other showed
+    // the old position next to the new percentage — the control contradicting its
+    // own readout.
+    function syncWeightSliders() {
+        for (const prefix of WEIGHT_GRID_PREFIXES) {
+            for (const id of Object.keys(SCORING_CRITERIA)) {
+                const slider = document.getElementById(`${prefix}_${id}`);
+                if (slider && Number(slider.value) !== activeWeights[id]) {
+                    slider.value = String(activeWeights[id]);
+                }
+            }
+        }
     }
 
     // Show the normalised share rather than the raw slider position, so the four
     // numbers always read as a share of one decision and add up to 100%.
     function renderWeightValues() {
         const normalized = normalizeWeights(activeWeights);
-        for (const id of Object.keys(SCORING_CRITERIA)) {
-            const el = document.getElementById(`weightValue_${id}`);
-            if (el) el.textContent = `%${Math.round(normalized[id] * 100)}`;
+        for (const prefix of WEIGHT_GRID_PREFIXES) {
+            for (const id of Object.keys(SCORING_CRITERIA)) {
+                const el = document.getElementById(`${prefix}Value_${id}`);
+                if (el) el.textContent = `%${Math.round(normalized[id] * 100)}`;
+            }
         }
     }
 
+    // Lifted out of updateMethodBadge because the assessment panel shows the same
+    // badge. Two copies would let one panel keep calling a method measurable after
+    // the other had learned better.
+    const VERIFIABILITY_BADGES = {
+        measurable: { text: '🟢 Ölçülebilir — kaynak bir sayı döndürüyor', cls: 'is-measurable' },
+        partial: {
+            text: '🟡 Kısmen — "orada var" ölçülür, "burada yok" ölçülemez',
+            cls: 'is-partial'
+        },
+        unverifiable: {
+            text: '🔴 Bu araçlarla doğrulanamaz — kanıt bölümü boş kalacak',
+            cls: 'is-unverifiable'
+        }
+    };
+
     function updateMethodBadge() {
         const method = COMPARISON_METHODS[activeMethod] || COMPARISON_METHODS.sector;
-        const badges = {
-            measurable: { text: '🟢 Ölçülebilir — kaynak bir sayı döndürüyor', cls: 'is-measurable' },
-            partial: {
-                text: '🟡 Kısmen — "orada var" ölçülür, "burada yok" ölçülemez',
-                cls: 'is-partial'
-            },
-            unverifiable: {
-                text: '🔴 Bu araçlarla doğrulanamaz — kanıt bölümü boş kalacak',
-                cls: 'is-unverifiable'
-            }
-        };
-        const badge = badges[method.verifiability];
+        const badge = VERIFIABILITY_BADGES[method.verifiability];
         methodBadge.textContent = badge.text;
         methodBadge.className = `verifiability-badge ${badge.cls}`;
 
@@ -1969,15 +2076,21 @@ Yanıtı tam olarak şu JSON şemasında ver:
     }
 
     function setMode(mode) {
-        activeMode = mode === 'detailed' ? 'detailed' : 'quick';
+        activeMode = MODES.includes(mode) ? mode : 'quick';
         persist('aetheria_mode', activeMode);
 
         detailedPanel.classList.toggle('visible', activeMode === 'detailed');
+        if (assessPanel) assessPanel.classList.toggle('visible', activeMode === 'assess');
+
         for (const btn of modeSelector.querySelectorAll('.mode-btn')) {
             const isActive = btn.dataset.mode === activeMode;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-selected', String(isActive));
         }
+
+        // The button's label is part of the mode. Repainting the hint is what
+        // updates it.
+        updateKeyHint();
     }
 
     if (modeSelector) {
@@ -2025,9 +2138,69 @@ Yanıtı tam olarak şu JSON şemasında ver:
         });
 
         populateDetailedPanel();
+        populateAssessPanel();
         referenceInput.value = activeReference;
         setMode(activeMode);
         updateMaterialCounter();
+        updateIdeaCounter();
+    }
+
+    function populateAssessPanel() {
+        if (!assessPanel) return;
+
+        assessMethodSelect.innerHTML = '';
+        for (const method of Object.values(COMPARISON_METHODS)) {
+            const opt = document.createElement('option');
+            opt.value = method.id;
+            opt.textContent = method.label;
+            assessMethodSelect.appendChild(opt);
+        }
+        assessMethodSelect.value = activeAssessMethod;
+        assessReferenceInput.value = activeAssessReference;
+
+        buildWeightGrid(assessWeightGrid, 'assessWeight');
+        renderWeightValues();
+        updateAssessMethodBadge();
+    }
+
+    // The same badge the detailed panel shows, against the same table. Told before
+    // the request rather than after it: a user who picks the unverifiable method
+    // should know the measurement card will be empty before spending a call on it.
+    function updateAssessMethodBadge() {
+        if (!assessMethodBadge) return;
+
+        const method = COMPARISON_METHODS[activeAssessMethod] || COMPARISON_METHODS.sector;
+        const badge = VERIFIABILITY_BADGES[method.verifiability];
+
+        assessMethodBadge.textContent = badge.text;
+        assessMethodBadge.className = `verifiability-badge ${badge.cls}`;
+
+        assessReferenceLabel.textContent = method.referenceLabel;
+        assessReferenceInput.disabled = !method.verifyStrategy;
+    }
+
+    function updateIdeaCounter() {
+        if (!ideaTextCounter) return;
+        ideaTextCounter.textContent = `${ideaText.length} / ${IDEA_TEXT_MAX_CHARS}`;
+        ideaTextCounter.classList.toggle('is-over', ideaText.length > IDEA_TEXT_MAX_CHARS);
+    }
+
+    if (assessPanel) {
+        assessMethodSelect.addEventListener('change', () => {
+            activeAssessMethod = assessMethodSelect.value;
+            persist('aetheria_assess_method', activeAssessMethod);
+            updateAssessMethodBadge();
+        });
+
+        assessReferenceInput.addEventListener('input', () => {
+            activeAssessReference = assessReferenceInput.value;
+            persist('aetheria_assess_reference', activeAssessReference);
+        });
+
+        ideaTextInput.addEventListener('input', () => {
+            ideaText = ideaTextInput.value;
+            updateIdeaCounter();
+        });
     }
 
     // ── Kanıt istekleri ─────────────────────────────────────────────────────
@@ -2259,14 +2432,16 @@ Yanıtı tam olarak şu JSON şemasında ver:
         setDetailedBlocksVisible(true);
     }
 
-    function renderEvidenceResults(results) {
-        evidenceContent.innerHTML = '';
+    function renderEvidenceResults(results, container = evidenceContent, emptyText =
+        'Bu üretim için doğrulama sorgusu çalıştırılmadı.') {
+        if (!container) return;
+        container.innerHTML = '';
 
         if (results.length === 0) {
             const empty = document.createElement('p');
             empty.className = 'evidence-detail';
-            empty.textContent = 'Bu üretim için doğrulama sorgusu çalıştırılmadı.';
-            evidenceContent.appendChild(empty);
+            empty.textContent = emptyText;
+            container.appendChild(empty);
             return;
         }
 
@@ -2336,7 +2511,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
                 item.appendChild(link);
             }
 
-            evidenceContent.appendChild(item);
+            container.appendChild(item);
         }
     }
 
@@ -2410,6 +2585,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
     }
 
     async function runDetailedStep1() {
+        if (assessmentWrapper) assessmentWrapper.classList.remove('visible');
         resultsWrapper.classList.remove('visible');
         step2Container.classList.remove('visible');
         step2Container.style.display = 'none';
@@ -2529,7 +2705,434 @@ Yanıtı tam olarak şu JSON şemasında ver:
         loadProjectIntoView(generated.project, false, false);
     }
 
+    /* ── Fikir değerlendirme modu ────────────────────────────────────────────
+       One LLM call and one round of measurement against the user's own idea. The
+       other two modes hand the user an idea; this one takes the one they already
+       have and asks the same questions of it.
+
+       There is no second pass. Detailed mode expands its winner into architecture
+       and security because the user asked for a project; here they asked what
+       their idea is worth, and generating an architecture for it would answer a
+       question nobody put. */
+
+    async function generateAssessment(onProgress = () => {}) {
+        if (!geminiApiKey) throw new Error('API Key girilmedi');
+
+        const idea = clampIdeaText(ideaText);
+        if (!idea.text) throw new Error('Değerlendirilecek bir fikir yazılmadı');
+
+        const limitCheck = checkRateLimits();
+        if (!limitCheck.allowed) throw new Error(limitCheck.reason);
+        recordGeminiCall();
+
+        const categoryLabel = CATEGORY_LABELS[activeCategoryFilter] || 'yazılım';
+        const method = COMPARISON_METHODS[activeAssessMethod] || COMPARISON_METHODS.sector;
+
+        onProgress({ phase: 'assess', idea, scope: activeScopeFilter, method });
+
+        const prompt = buildAssessmentPrompt({
+            ideaText: idea.text,
+            scope: activeScopeFilter,
+            method: activeAssessMethod,
+            reference: activeAssessReference,
+            categoryLabel
+        });
+
+        // Cooler than ideation on purpose. Temperature 1.0 is what makes eight
+        // candidates differ from each other; here there is one idea and the job is
+        // to characterise it, so variety is just noise in the verdict.
+        const answer = await requestModelCompletion(prompt, {
+            maxTokens: ASSESSMENT_MAX_TOKENS,
+            temperature: 0.4,
+            label: 'Fikir değerlendirmesi'
+        });
+
+        const assessment = normalizeAssessment(
+            parseJsonResponse(answer.text, 'Fikir değerlendirmesi'));
+        if (!assessment) throw new Error('Model kullanılabilir bir değerlendirme döndürmedi');
+
+        // Same scorer the detailed mode ranks with, over a list of one. Reusing it
+        // is what makes the four criteria mean the same thing in both modes.
+        const scored = scoreIdeas([assessment], activeWeights)[0];
+
+        onProgress({
+            phase: 'scored',
+            assessment,
+            scored,
+            model: answer.model,
+            tokens: answer.tokens
+        });
+
+        // Measurement. Exactly the same free, keyless sources the detailed mode
+        // uses, and with the same rule: nothing here can lower a score.
+        let verification;
+        if (!method.verifyStrategy) {
+            onProgress({ phase: 'verify-skipped', method });
+            verification = interpretEvidence(activeAssessMethod, []);
+        } else {
+            const queries = buildEvidenceQueries(
+                assessment, activeAssessMethod, activeAssessReference);
+
+            if (queries.length === 0) {
+                onProgress({ phase: 'verify-nothing' });
+                verification = interpretEvidence(activeAssessMethod, []);
+            } else {
+                onProgress({ phase: 'verify-start', queries });
+                const raws = await fetchEvidence(queries);
+                verification = interpretEvidence(activeAssessMethod, raws);
+                onProgress({ phase: 'verify-done', raws, result: verification });
+            }
+        }
+
+        return {
+            assessment,
+            split: splitAssessment(scored, verification),
+            method: activeAssessMethod,
+            scope: activeScopeFilter,
+            truncated: idea.truncated,
+            model: answer.model,
+            tokens: answer.tokens
+        };
+    }
+
+    // ── Değerlendirme sonucu ────────────────────────────────────────────────
+
+    function renderAssessment(result) {
+        if (!assessmentWrapper || !result) return;
+
+        currentAssessment = result;
+        const { assessment, split } = result;
+        const method = COMPARISON_METHODS[result.method] || COMPARISON_METHODS.sector;
+        const c = assessment.comparison || {};
+
+        assessTitle.textContent = assessment.title || 'Adsız fikir';
+        assessRestatement.textContent = assessment.restatement || '';
+
+        const preset = SCOPE_PRESETS[result.scope] || SCOPE_PRESETS.all;
+        assessScopeBadge.textContent = preset.badge;
+        assessScopeBadge.className = result.scope === 'all'
+            ? 'project-scope-badge'
+            : `project-scope-badge scope-${result.scope}`;
+
+        // parseMarkdown escapes before it formats. The model wrote every string
+        // below and none of them is trusted as markup.
+        let md = '';
+        if (c.referenceExample) md += `**Referans örnek:** ${c.referenceExample}\n`;
+        if (c.localState) md += `**Türkiye'deki durum:** ${c.localState}\n`;
+        if (c.structuralReason) md += `**Açığın yapısal sebebi:** ${c.structuralReason}\n`;
+        md += `**Kıyas metodu:** ${method.label} — `
+            + `${VERIFIABILITY_BADGES[method.verifiability].text}\n`;
+        // The point of the block: the user should be able to go and check rather
+        // than take any of this on our word.
+        if (c.howToCheck) md += `**Kendin nasıl doğrularsın:** ${c.howToCheck}\n`;
+        if (result.truncated) {
+            md += '\n_Fikir metni uzunluk sınırına göre kesildi; değerlendirme '
+                + 'kesilmiş haline dayanıyor._\n';
+        }
+        assessFitContent.innerHTML = parseMarkdown(md);
+
+        renderEvidenceResults(
+            split.verification ? [split.verification] : [],
+            assessEvidenceContent,
+            'Bu kıyas metodu için doğrulama sorgusu çalıştırılmadı.');
+
+        renderAssessList(assessOpportunities, assessment.opportunities,
+            'Model somut bir açılım yazmadı. Bu bir sonuç değil — fikri biraz daha '
+            + 'ayrıntılı anlatıp tekrar dene.');
+        renderAssessList(assessRisks, assessment.risks,
+            'Model somut bir risk yazmadı. Risksiz bir fikir olduğu anlamına gelmez; '
+            + 'değerlendirmenin bu tarafı boş kaldı.');
+
+        renderAssessScores(split);
+
+        assessmentWrapper.classList.add('visible');
+        assessmentWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderAssessList(container, items, emptyText) {
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!items || items.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'assess-item is-empty';
+            li.textContent = emptyText;
+            container.appendChild(li);
+            return;
+        }
+
+        for (const item of items) {
+            const li = document.createElement('li');
+            li.className = 'assess-item';
+            // textContent: model output, and an opportunity is not a place markup
+            // needs to be honoured.
+            li.textContent = item;
+            container.appendChild(li);
+        }
+    }
+
+    // What a source settled, what the model merely thinks, and no single number
+    // combining the two.
+    //
+    // The missing total is the feature. Market size, competition and timing cannot
+    // be reached by anything this app talks to, so two of the four criteria are
+    // opinion. Adding them into one "your idea scores N" would make that figure the
+    // most trusted thing on the page and the least earned — and it is the one
+    // number a reader would quote afterwards, stripped of everything around it.
+    const BASIS_LABELS = {
+        measured: 'ölçülebilir iddia',
+        model: 'model görüşü'
+    };
+
+    function renderAssessScores(split) {
+        if (!assessScoreContent) return;
+        assessScoreContent.innerHTML = '';
+
+        const table = document.createElement('table');
+        table.className = 'score-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        for (const label of ['Kriter', 'Dayanak', 'Puan', 'Ağırlık', 'Katkı']) {
+            const th = document.createElement('th');
+            th.textContent = label;
+            if (label !== 'Kriter' && label !== 'Dayanak') th.className = 'num';
+            headRow.appendChild(th);
+        }
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        // Measured-basis rows first, so the two groups read as two groups rather
+        // than as one list with a label column.
+        const ordered = [
+            ...split.rows.filter(r => r.basis === 'measured'),
+            ...split.rows.filter(r => r.basis !== 'measured')
+        ];
+
+        for (const row of ordered) {
+            const tr = document.createElement('tr');
+            tr.className = `basis-${row.basis === 'measured' ? 'measured' : 'model'}`;
+
+            const nameCell = document.createElement('td');
+            nameCell.textContent = row.label;
+            tr.appendChild(nameCell);
+
+            const basisCell = document.createElement('td');
+            const basisTag = document.createElement('span');
+            basisTag.className = `basis-tag is-${row.basis === 'measured' ? 'measured' : 'model'}`;
+            basisTag.textContent = BASIS_LABELS[row.basis] || BASIS_LABELS.model;
+            basisCell.appendChild(basisTag);
+            tr.appendChild(basisCell);
+
+            for (const text of [
+                String(Math.round(row.score)),
+                `%${Math.round(row.weight * 100)}`,
+                row.contribution.toFixed(1)
+            ]) {
+                const td = document.createElement('td');
+                td.className = 'num';
+                td.textContent = text;
+                tr.appendChild(td);
+            }
+
+            tbody.appendChild(tr);
+        }
+
+        // Two subtotals, never summed.
+        for (const [label, value] of [
+            ['İddia tarafı alt toplam', split.claimTotal],
+            ['Model görüşü alt toplam', split.modelTotal]
+        ]) {
+            const tr = document.createElement('tr');
+            tr.className = 'total-row';
+            const name = document.createElement('td');
+            name.textContent = label;
+            tr.appendChild(name);
+            for (const text of ['', '', '', value.toFixed(1)]) {
+                const td = document.createElement('td');
+                td.className = 'num';
+                td.textContent = text;
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+
+        if (split.verificationBonus > 0) {
+            const tr = document.createElement('tr');
+            tr.className = 'boost-row';
+            const name = document.createElement('td');
+            name.textContent = 'Doğrulama katkısı';
+            tr.appendChild(name);
+            for (const text of ['', '', '', `+${split.verificationBonus.toFixed(1)}`]) {
+                const td = document.createElement('td');
+                td.className = 'num';
+                td.textContent = text;
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        assessScoreContent.appendChild(table);
+
+        // Said on screen, next to the place the number would have been. A user
+        // looking for "so what is my score" has to find the reason there is not
+        // one, not hunt for it in a README.
+        const note = document.createElement('p');
+        note.className = 'score-note';
+        note.textContent = split.measured
+            ? 'Tek bir toplam puan verilmiyor. Dört kriterden ikisi ücretsiz '
+                + 'kaynaklarla ölçülebilir, ikisi yalnızca modelin görüşü — '
+                + 'ikisini tek sayıda toplamak görüşü ölçüm gibi gösterirdi.'
+            : 'Tek bir toplam puan verilmiyor, ve bu üretimde hiçbir kriter '
+                + 'gerçekten ölçülemedi: dört puan da modelin görüşü. Fikir '
+                + 'hakkında bir bulgu değil, bir okumadır.';
+        assessScoreContent.appendChild(note);
+    }
+
+    async function copyCurrentAssessmentToClipboard() {
+        if (!currentAssessment) return;
+
+        const markdown = buildAssessmentMarkdown(
+            currentAssessment.assessment, currentAssessment.split, currentAssessment.method);
+
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(markdown);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = markdown;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+            showCopyToast('✓ Değerlendirme panoya kopyalandı!');
+        } catch (err) {
+            console.warn('Panoya kopyalama başarısız:', err);
+            showCopyToast('✗ Panoya kopyalanamadı.');
+        }
+    }
+
+    async function runAssessment() {
+        assessmentWrapper.classList.remove('visible');
+        resultsWrapper.classList.remove('visible');
+        step2Container.classList.remove('visible');
+        step2Container.style.display = 'none';
+        step2TriggerWrapper.style.display = 'none';
+        setDetailedBlocksVisible(false);
+
+        terminalContainer.style.display = 'block';
+        terminalBody.innerHTML = '';
+
+        // Checked before the key, because an empty box is the user's to fix and
+        // sending them to the key dialog for it would be answering the wrong
+        // question.
+        if (!clampIdeaText(ideaText).text) {
+            writeTerminalLog('Değerlendirilecek bir fikir yazılmadı.', 'warning');
+            writeTerminalLog(
+                'Fikrini yukarıdaki alana kendi cümlelerinle anlat — ne yapıyor, '
+                + 'kimin işine yarıyor, neyi farklı yapıyor.', 'info');
+            ideaTextInput.focus();
+            return;
+        }
+
+        if (!geminiApiKey || !useGeminiLiveMode) {
+            writeTerminalLog(
+                'Değerlendirme de anahtarınla çalışır — fikrin modele senin '
+                + 'anahtarınla gider.', 'warning');
+            writeTerminalLog('Anahtar ekranı açılıyor...', 'info');
+            await sleep(1200);
+            openKeyDialog(btnFeature2Notice);
+            return;
+        }
+
+        const started = Date.now();
+        let result = null;
+
+        try {
+            result = await generateAssessment((step) => {
+                if (step.phase === 'assess') {
+                    const provider = getProvider(activeProvider);
+                    writeTerminalLog(
+                        `Fikir değerlendirmesi · ${provider.label} · `
+                        + `model: ${provider.models[0]}`, 'agent');
+                    writeTerminalLog(
+                        `Kapsam: ${(SCOPE_PRESETS[step.scope] || SCOPE_PRESETS.all).badge} · `
+                        + `Kıyas: ${step.method.label}`, 'info');
+                    writeTerminalLog(
+                        `Fikir metni: ${step.idea.chars} karakter`
+                        + (step.idea.truncated ? ' (tavana göre kesildi)' : ''), 'info');
+                    writeTerminalLog('Fikir değiştirilmeyecek — modele açıkça söylendi.', 'info');
+                } else if (step.phase === 'scored') {
+                    writeTerminalLog(`Değerlendirme alındı · ${step.tokens} token`, 'info');
+                    const line = step.scored.breakdown
+                        .map(r => `${r.label} ${Math.round(r.score)}`)
+                        .join(' · ');
+                    writeTerminalLog(`[SCORE] ${line}`, 'info');
+                } else if (step.phase === 'verify-skipped') {
+                    writeTerminalLog(
+                        `[EVIDENCE] ${step.method.label} bu araçlarla doğrulanamıyor — `
+                        + 'sorgu çalıştırılmadı.', 'warning');
+                } else if (step.phase === 'verify-nothing') {
+                    writeTerminalLog(
+                        '[EVIDENCE] Doğrulanabilir bir sorgu kurulamadı — modelin '
+                        + 'kıyas alanları boş geldi.', 'warning');
+                } else if (step.phase === 'verify-start') {
+                    writeTerminalLog(
+                        `[EVIDENCE] ${step.queries.length} sorgu · `
+                        + step.queries.map(q => q.sourceId).join(', '), 'agent');
+                } else if (step.phase === 'verify-done') {
+                    // Every raw answer, not just the verdict.
+                    for (const r of step.raws) {
+                        if (!r.ok) {
+                            writeTerminalLog(`[EVIDENCE] "${r.query}" → hata: ${r.error}`, 'warning');
+                        } else if (r.data.kind === 'count') {
+                            writeTerminalLog(`[EVIDENCE] "${r.query}" → ${r.data.count}`, 'info');
+                        } else if (r.data.kind === 'entities' || r.data.kind === 'repos') {
+                            writeTerminalLog(
+                                `[EVIDENCE] "${r.query}" → ${r.data.matches.length} eşleşme`, 'info');
+                        } else if (r.data.kind === 'years') {
+                            writeTerminalLog(
+                                `[EVIDENCE] "${r.query}" → `
+                                + `${Object.keys(r.data.years).length} yıl`, 'info');
+                        }
+                    }
+                    if (step.result.status === 'measured' && step.result.supportsClaim === false) {
+                        writeTerminalLog(
+                            '[EVIDENCE] ⚠ ölçüm iddiayı desteklemiyor — puan düşmedi, '
+                            + 'ama bonus da yok', 'warning');
+                    } else {
+                        writeTerminalLog(`[EVIDENCE] sonuç: ${step.result.status}`, 'info');
+                    }
+                }
+            });
+
+            writeTerminalLog(
+                `Tamamlandı · ${result.model} · ${result.tokens} token (1 LLM çağrısı) · `
+                + `${((Date.now() - started) / 1000).toFixed(1)} sn`, 'info');
+            writeTerminalLog('Değerlendirme hazır.', 'success');
+        } catch (err) {
+            console.warn('Fikir değerlendirmesi başarısız:', err);
+            writeTerminalLog(`Değerlendirme başarısız: ${err.message}`, 'warning');
+            writeTerminalLog('Tekrar deneyebilir veya fikri biraz daha açabilirsin.', 'info');
+            return;
+        }
+
+        await sleep(250);
+        terminalContainer.style.display = 'none';
+
+        renderAssessment(result);
+    }
+
     // Event Listeners
     btnGenerateProject.addEventListener('click', startStep1Simulation);
     btnTriggerStep2.addEventListener('click', startStep2Simulation);
+    if (btnCopyAssessment) {
+        btnCopyAssessment.addEventListener('click', copyCurrentAssessmentToClipboard);
+    }
 });

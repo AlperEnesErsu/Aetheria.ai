@@ -168,6 +168,11 @@
                         <span class="mode-btn-title">🔬 Ayrıntılı Üretim</span>
                         <span class="mode-btn-sub">Kendi materyalin, ölçülen iddia</span>
                     </button>
+                    <button type="button" class="mode-btn" data-mode="assess"
+                            role="tab" aria-selected="false" aria-controls="assessPanel">
+                        <span class="mode-btn-title">🎯 Fikrimi Değerlendir</span>
+                        <span class="mode-btn-sub">Fikir sende, ölçüm bizde</span>
+                    </button>
                 </div>
 
                 <div class="detailed-panel" id="detailedPanel" role="tabpanel" aria-label="Ayrıntılı üretim ayarları">
@@ -187,12 +192,16 @@
                             <span id="sourceMaterialCounter" class="panel-counter">0 / 12000</span>
                         </div>
                         <p class="privacy-note" id="materialPrivacyNote">
-                            <span aria-hidden="true">⚠️</span>
-                            Yapıştırdığın metin seçtiğin sağlayıcıya gönderilir. Ücretsiz Gemini
-                            katmanında Google bu içeriği ürün geliştirme için kullanabilir —
-                            <strong>kurum içi veya gizli belge yapıştırma.</strong>
-                            Doğrulama sorguları ayrıca OpenAlex, Wikidata ve GitHub servislerine gider.
-                            Metin tarayıcında saklanmaz; sekmeyi kapatınca gider.
+                            <span aria-hidden="true">ℹ️</span>
+                            Yapıştırdığın metin <strong>yalnızca senin seçtiğin sağlayıcıya</strong>
+                            gider — bu projede sunucu yok, bize hiç uğramıyor. Tarayıcında da
+                            tutulmaz; sekmeyi kapatınca gider. Ücretsiz Gemini katmanında Google,
+                            gönderilen içeriği ürün geliştirme için kullanabiliyor (ücretli
+                            katmanlarda sağlayıcının şartları farklı). Belgenin tamamını vermen
+                            gerekmiyor: paylaşmakta serbest olmadığın bir kaynak varsa ilgili
+                            bölümü kendi cümlelerinle özetlemen de aynı işi görür. Doğrulama
+                            sorguları ayrıca OpenAlex, Wikidata ve GitHub'a gider — oraya
+                            anahtarın değil, yalnızca arama terimleri gider.
                         </p>
                     </div>
 
@@ -218,6 +227,60 @@
                     <div class="panel-field">
                         <span class="panel-label">🎚️ Neye göre seçilsin</span>
                         <div class="weight-grid" id="weightGrid"></div>
+                    </div>
+                </div>
+
+                <!-- Assessment mode. The other two hand the user an idea; this one
+                     takes the idea they already have and asks the same questions of
+                     it. -->
+                <div class="detailed-panel assess-panel" id="assessPanel" role="tabpanel"
+                     aria-label="Fikir değerlendirme ayarları">
+
+                    <div class="panel-field">
+                        <label for="ideaTextInput" class="panel-label">💡 Fikrin</label>
+                        <textarea id="ideaTextInput" class="panel-textarea" rows="5"
+                                  placeholder="Fikrini kendi cümlelerinle anlat: ne yapıyor, kimin işine yarıyor, neyi bugünkünden farklı yapıyor. Değerlendirme bu metne dayanır — fikir değiştirilmez."
+                                  spellcheck="false"></textarea>
+                        <div class="panel-textarea-foot">
+                            <span class="panel-optional">Fikir senin; model onu daha iyisiyle değiştirmez.</span>
+                            <span id="ideaTextCounter" class="panel-counter">0 / 2000</span>
+                        </div>
+                        <p class="privacy-note" id="ideaPrivacyNote">
+                            <span aria-hidden="true">ℹ️</span>
+                            Fikrin <strong>yalnızca senin seçtiğin sağlayıcıya</strong> gider —
+                            bu projede sunucu yok, bize hiç uğramıyor. Tarayıcında da tutulmaz;
+                            sekmeyi kapatınca gider. Bilmen gereken tek şey: ücretsiz Gemini
+                            katmanında Google, gönderilen içeriği ürün geliştirme için
+                            kullanabiliyor (ücretli katmanlarda sağlayıcının şartları farklı).
+                            Fikrini anlatmak için patent ya da ticari sır seviyesinde ayrıntı
+                            vermen gerekmiyor — değerlendirme, fikrin <strong>ne yaptığını</strong>
+                            bilmekle çalışır.
+                        </p>
+                    </div>
+
+                    <div class="panel-row">
+                        <div class="panel-field">
+                            <label for="assessMethodSelect" class="panel-label">⚖️ Kıyas metodu</label>
+                            <select id="assessMethodSelect" class="panel-select"></select>
+                            <span id="assessMethodBadge" class="verifiability-badge"></span>
+                        </div>
+
+                        <div class="panel-field">
+                            <label for="assessReferenceInput" class="panel-label" id="assessReferenceLabel">Referans</label>
+                            <input type="text" id="assessReferenceInput" class="panel-input"
+                                   placeholder="ör. fintech" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="panel-field">
+                        <span class="panel-label">🎚️ Kriterlerin ağırlığı</span>
+                        <div class="weight-grid" id="assessWeightGrid"></div>
+                        <p class="privacy-note">
+                            <span aria-hidden="true">ℹ️</span>
+                            Ağırlıklar iki alt toplamın nasıl hesaplandığını belirler.
+                            <strong>Tek bir toplam puan verilmiyor</strong> — nedeni sonuç
+                            bölümünde yazılı.
+                        </p>
                     </div>
                 </div>
 
@@ -471,6 +534,70 @@
         </main>
 
         <!-- SHARED COMMUNITY PROJECT POOL SIDE DRAWER -->
+        <!-- Fikir değerlendirme sonucu. Deliberately not the project card: this
+             mode produces an assessment of the user's idea, not a project, and
+             reusing the card would file it under "projects we generated". -->
+        <div id="assessmentWrapper" class="results-wrapper">
+
+            <div class="glass-card">
+                <div class="project-card-header">
+                    <div class="header-badges-group">
+                        <span class="card-header-badge badge-step1">🎯 Fikir Değerlendirmesi</span>
+                        <span id="assessScopeBadge" class="project-scope-badge"></span>
+                    </div>
+                    <div class="header-actions-group">
+                        <button type="button" id="btnCopyAssessment" class="btn-copy-blueprint"
+                                title="Değerlendirmeyi Markdown olarak panoya kopyala">
+                            <span>Panoya Kopyala</span>
+                        </button>
+                    </div>
+                </div>
+
+                <h2 id="assessTitle" class="project-title">Fikir</h2>
+                <p id="assessRestatement" class="project-tagline"></p>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-section-title">
+                    <span class="section-icon">🧭</span>
+                    <h3>Piyasadaki Açığa Uygunluk</h3>
+                </div>
+                <div id="assessFitContent" class="markdown-formatted-body"></div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-section-title">
+                    <span class="section-icon">🔍</span>
+                    <h3>Ölçüm (ücretsiz, anahtarsız kaynaklar)</h3>
+                </div>
+                <div id="assessEvidenceContent" class="evidence-list"></div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-section-title">
+                    <span class="section-icon">🚀</span>
+                    <h3>Fırsatlar</h3>
+                </div>
+                <ul id="assessOpportunities" class="assess-list"></ul>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-section-title">
+                    <span class="section-icon">⚠️</span>
+                    <h3>Riskler</h3>
+                </div>
+                <ul id="assessRisks" class="assess-list"></ul>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-section-title">
+                    <span class="section-icon">📊</span>
+                    <h3>Puanlar</h3>
+                </div>
+                <div id="assessScoreContent" class="score-breakdown"></div>
+            </div>
+        </div>
+
         <div id="savedDrawerOverlay" class="drawer-overlay">
             <div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
                 <div class="drawer-header">

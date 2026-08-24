@@ -17,7 +17,8 @@ Aetheria.ai, kendi API anahtarınla çalışan, tarayıcıda koşan bir proje fi
 - **🗂️ Proje Havuzum**: Beğendiğiniz projeleri tarayıcınızda saklayan kişisel kütüphane. *(Backend olmadığı için havuz `localStorage`'da tutulur ve cihazlar arasında paylaşılmaz; paylaşmak için `.md` raporunu indirin.)*
 - **📄 Blueprint (.MD) İndirme**: Üretilen teknik mimariyi ve proje açıklamasını tek tıkla Markdown raporu olarak indirme.
 - **🛡️ Açık Kaynak Güvenlik Korumaları**: İstemci tarafı Cooldown (20s), Saatlik Sorgu Limiti (15/saat) ve Max Output Token sınırlamaları ile kota koruması.
-- **🎯 Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik, DevOps, **Web & Ürün Tasarımı** ve **Mobil Uygulama** — ayrıca 🇹🇷 Ulusal / 🌍 Uluslararası pazar kapsamı. Üretilen başlıklar hatırlanır ve bir sonraki istekte modele “bunları tekrarlama” diye verilir.
+- **🎯 Fikrimi Değerlendir**: Fikir sende olduğunda uygulama yeni bir fikir üretmez — seninkini değerlendirir. Piyasadaki açığa uygunluk, somut fırsatlar, somut riskler ve dört kriter üzerinden puanlar. Ayrıntısı [aşağıda](#fikrimi-değerlendir-neden-tek-bir-puan-yok).
+- **🗂️ Kategori Filtreleri**: Sağlık & AI, Web3 & Güvenlik, Cloud & Altyapı, EdTech, Sürdürülebilirlik, DevOps, **Web & Ürün Tasarımı** ve **Mobil Uygulama** — ayrıca 🇹🇷 Ulusal / 🌍 Uluslararası pazar kapsamı. Üretilen başlıklar hatırlanır ve bir sonraki istekte modele “bunları tekrarlama” diye verilir.
 
 ---
 
@@ -73,6 +74,35 @@ olmadığını göstermez" denir. Sıralamaya etkisi sıfırdır.
 Doğrulama **hiçbir zaman puan düşürmez.** İddiasını çürüten bir ölçüm bonus almaz
 ve ekranda ⚠ ile işaretlenir, ama ceza da almaz; rakipleri kazanırken onun
 kazanmaması geriye düşmesi için yeterlidir.
+
+### Fikrimi Değerlendir: neden tek bir puan yok
+
+Diğer iki mod sana bir fikir verir. Bu mod, **zaten sende olan** fikri alır ve ona
+aynı soruları sorar: iddia ettiği açık gerçek mi, açılım nerede, ne değerde.
+
+Modele fikri **değiştirmemesi** açıkça söylenir. Kendi haline bırakılan model,
+fikri daha iyisine çevirip *onu* değerlendirir — ekranda seninkinin
+değerlendirmesi gibi görünür, değildir.
+
+Dört kriterin ikisi (kanıt gücü, pazar boşluğu) ayrıntılı moddaki kanıt
+katmanıyla **ölçülebilir**. Diğer ikisi (uygulanabilirlik, teknik özgünlük)
+ölçülemez: pazar büyüklüğü, gelir, rekabet ve zamanlama, bu uygulamanın
+erişebildiği hiçbir ücretsiz kaynakta yok. Bu yüzden:
+
+| | Ne oluyor |
+|---|---|
+| Her puan satırı | Dayanağına göre etiketleniyor: **ölçülebilir iddia** / **model görüşü** |
+| Alt toplamlar | İki taraf ayrı ayrı toplanıyor |
+| **Birleşik puan** | **Verilmiyor** |
+
+Birleşik puan verilmemesi bir eksik değil, modun asıl iddiası. "Fikrin 74 aldı"
+cümlesi sayfadaki **en çok güvenilen** ve **en az hak edilmiş** şey olurdu — ve
+insanların sonradan aktardığı tek şey o sayı olurdu, etrafındaki her şeyden
+soyulmuş halde. Nedeni puan tablosunun hemen altında, sayının duracağı yerde
+yazılı.
+
+Doğrulanamayan bir kıyas metodu seçersen dört puanın dördü de model görüşü olur
+ve tablo bunu ayrıca söyler.
 
 **Claude seçilirse ek bir not:** Anthropic tarayıcıdan doğrudan çağrıyı varsayılan olarak **kapatır** — tam olarak anahtarın istemcide durmasının riskli olması nedeniyle. Çağrının çalışması için `anthropic-dangerous-direct-browser-access` başlığını gönderiyoruz. Bu başlık riski *yaratmıyor*; anahtarı tarayıcıya koymak yaratıyor ve bu, sunucusuz olmayı seçmiş bu projenin baştan kabul ettiği takas. Ama sessizce olmaması için seçici, Claude seçildiğinde bunu ⚠️ ile yazıyor. Sunucu koymaya razıysan doğru çözüm anahtarı orada tutmak; bu proje bilerek o yolu seçmiyor.
 
