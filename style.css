@@ -1479,7 +1479,7 @@ body {
 
 .mode-selector {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
     max-width: 900px;
     margin: 0 auto 1rem;
@@ -1821,6 +1821,98 @@ body {
 
 .score-table tr.boost-row td {
     color: var(--accent-success);
+}
+
+/* ── Fikir değerlendirme ─────────────────────────────────────────────────── */
+
+/* Openings and risks. A list, not prose: each entry is meant to be something the
+   user can act on tomorrow, and running them together as a paragraph is how a
+   list of concrete steps turns back into a pitch. */
+.assess-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.assess-item {
+    position: relative;
+    padding: 0.65rem 0.8rem 0.65rem 1.9rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.assess-item::before {
+    content: '→';
+    position: absolute;
+    left: 0.75rem;
+    color: var(--accent-primary);
+    font-family: var(--font-mono);
+}
+
+/* An empty list is a state worth showing rather than hiding: "the model named no
+   risk" is information, and a collapsed card would read as "no risks". */
+.assess-item.is-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+    background: transparent;
+    border-style: dashed;
+}
+
+.assess-item.is-empty::before {
+    content: '—';
+    color: var(--text-tertiary);
+}
+
+/* Which side of the honesty line a score sits on. The tag carries the whole
+   claim of this mode, so it is legible at a glance rather than a footnote. */
+.basis-tag {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.basis-tag.is-measured {
+    background: var(--success-soft);
+    border: 1px solid var(--success-line);
+    color: var(--accent-success);
+}
+
+.basis-tag.is-model {
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-line);
+    color: var(--accent-warning);
+}
+
+/* The model-opinion rows are deliberately not dimmed into decoration — they are
+   half the assessment. The left rule is enough to group them. */
+.score-table tr.basis-model td:first-child {
+    box-shadow: inset 2px 0 0 var(--warning-line);
+}
+
+.score-table tr.basis-measured td:first-child {
+    box-shadow: inset 2px 0 0 var(--success-line);
+}
+
+/* Why there is no single total. Sits where the total would have been. */
+.score-note {
+    margin: 0.9rem 0 0;
+    padding: 0.7rem 0.85rem;
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--accent-line);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.6;
 }
 
 @media (max-width: 768px) {

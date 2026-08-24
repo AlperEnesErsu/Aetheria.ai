@@ -1857,6 +1857,155 @@ Yanıtı şu JSON şemasında ver:
         };
     }
 
+    // How much of the model's assessment is kept. The prompt asks for 2-4
+    // openings and 2-3 risks; these ceilings are what happens when it ignores
+    // that. Cutting rather than rendering everything matters because a list of
+    // twelve "opportunities" is a way of saying nothing while looking thorough.
+    const ASSESSMENT_LIMITS = {
+        maxOpportunities: 4,
+        maxRisks: 3,
+        lineChars: 400,
+        titleChars: 120
+    };
+
+    const COMPARISON_FIELDS = [
+        'concept',
+        'referenceSector',
+        'targetSector',
+        'referenceExample',
+        'localState',
+        'structuralReason',
+        'howToCheck'
+    ];
+
+    // Bring the model's assessment down to a shape the renderer can rely on.
+    //
+    // Returns null when there is nothing to show, rather than an object full of
+    // empty strings — a card that renders headings over blanks reads as a result
+    // and is not one.
+    //
+    // Note what this does NOT do: it never fills a missing field with a plausible
+    // default. An absent risk list means the model did not name a risk, and the
+    // interface has to be able to say that.
+    function normalizeAssessment(raw) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+        const str = (value, max) => {
+            if (typeof value !== 'string') return '';
+            const trimmed = value.trim().replace(/\s+/g, ' ');
+            return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+        };
+
+        const list = (value, cap) => (Array.isArray(value) ? value : [])
+            .map(item => str(item, ASSESSMENT_LIMITS.lineChars))
+            .filter(Boolean)
+            .slice(0, cap);
+
+        const comparison = {};
+        const rawComparison = (raw.comparison && typeof raw.comparison === 'object')
+            ? raw.comparison
+            : {};
+        for (const field of COMPARISON_FIELDS) {
+            comparison[field] = str(rawComparison[field], ASSESSMENT_LIMITS.lineChars);
+        }
+
+        const scores = {};
+        const rawScores = (raw.scores && typeof raw.scores === 'object') ? raw.scores : {};
+        for (const id of Object.keys(SCORING_CRITERIA)) {
+            const value = Number(rawScores[id]);
+            scores[id] = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
+        }
+
+        const assessment = {
+            title: str(raw.title, ASSESSMENT_LIMITS.titleChars),
+            restatement: str(raw.restatement, ASSESSMENT_LIMITS.lineChars),
+            comparison,
+            opportunities: list(raw.opportunities, ASSESSMENT_LIMITS.maxOpportunities),
+            risks: list(raw.risks, ASSESSMENT_LIMITS.maxRisks),
+            scores
+        };
+
+        // Nothing worth rendering: no name, no summary, no comparison and no
+        // prose. Scores alone are not an assessment.
+        const hasProse = assessment.title
+            || assessment.restatement
+            || assessment.opportunities.length
+            || assessment.risks.length
+            || COMPARISON_FIELDS.some(f => comparison[f]);
+
+        return hasProse ? assessment : null;
+    }
+
+    // The assessment as a markdown document, for the copy button.
+    //
+    // The split is preserved in the text exactly as it is on screen. A pasted
+    // report that merges the measured part into the opinion part would launder
+    // the model's guesses into findings the moment it left the page.
+    function buildAssessmentMarkdown(assessment, split, methodId) {
+        if (!assessment) return '';
+
+        const method = COMPARISON_METHODS[methodId] || COMPARISON_METHODS.sector;
+        const c = assessment.comparison || {};
+
+        let md = `# Fikir değerlendirmesi: ${assessment.title || 'Adsız fikir'}\n\n`;
+        if (assessment.restatement) md += `> ${assessment.restatement}\n\n`;
+
+        md += '## Piyasadaki açığa uygunluk\n\n';
+        if (c.referenceExample) md += `- **Referans örnek**: ${c.referenceExample}\n`;
+        if (c.localState) md += `- **Türkiye'deki durum**: ${c.localState}\n`;
+        if (c.structuralReason) md += `- **Açığın yapısal sebebi**: ${c.structuralReason}\n`;
+        md += `- **Kıyas metodu**: ${method.label} (${method.verifiability})\n`;
+        if (c.howToCheck) md += `- **Kendin nasıl doğrularsın**: ${c.howToCheck}\n`;
+        md += '\n';
+
+        if (assessment.opportunities.length) {
+            md += '## Fırsatlar\n\n';
+            for (const item of assessment.opportunities) md += `- ${item}\n`;
+            md += '\n';
+        }
+
+        if (assessment.risks.length) {
+            md += '## Riskler\n\n';
+            for (const item of assessment.risks) md += `- ${item}\n`;
+            md += '\n';
+        }
+
+        if (split && Array.isArray(split.rows) && split.rows.length) {
+            md += '## Puanlar\n\n';
+            md += '| Kriter | Dayanak | Puan | Ağırlık | Katkı |\n';
+            md += '|---|---|---:|---:|---:|\n';
+            for (const row of split.rows) {
+                const basis = row.basis === 'measured' ? 'ölçülebilir iddia' : 'model görüşü';
+                md += `| ${row.label} | ${basis} | ${Math.round(row.score)} `
+                    + `| %${Math.round(row.weight * 100)} | ${row.contribution.toFixed(1)} |\n`;
+            }
+            md += '\n';
+            md += `- **İddia tarafı alt toplam**: ${split.claimTotal.toFixed(1)}\n`;
+            md += `- **Model görüşü alt toplam**: ${split.modelTotal.toFixed(1)}\n`;
+            if (split.verificationBonus > 0) {
+                md += `- **Doğrulama katkısı**: +${split.verificationBonus.toFixed(1)}\n`;
+            }
+            md += '\n';
+            // Said in the document, not only in the interface. This is the one
+            // number a reader will look for, and its absence has to be explained
+            // wherever the report is read.
+            md += 'Tek bir toplam puan bilinçli olarak verilmiyor: dört kriterden '
+                + 'ikisi ücretsiz kaynaklarla ölçülebilir, ikisi yalnızca modelin '
+                + 'görüşü. İkisini tek sayıda toplamak, görüşü ölçüm gibi '
+                + 'gösterirdi.\n\n';
+        }
+
+        if (split && split.verification) {
+            md += buildVerificationMarkdown({
+                method: methodId,
+                comparison: c,
+                results: [split.verification]
+            });
+        }
+
+        return md;
+    }
+
     return {
         NODE_TYPES,
         SCOPE_PRESETS,
@@ -1911,6 +2060,9 @@ Yanıtı şu JSON şemasında ver:
         CRITERION_BASIS,
         clampIdeaText,
         buildAssessmentPrompt,
-        splitAssessment
+        splitAssessment,
+        ASSESSMENT_LIMITS,
+        normalizeAssessment,
+        buildAssessmentMarkdown
     };
 });
