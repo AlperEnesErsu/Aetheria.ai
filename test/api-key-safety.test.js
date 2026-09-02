@@ -26,7 +26,8 @@ test('the key travels in a header, never in the URL', () => {
     const EXPECTED_HEADER = {
         gemini: 'x-goog-api-key',
         anthropic: 'x-api-key',
-        openai: 'Authorization'
+        openai: 'Authorization',
+        openrouter: 'Authorization'
     };
 
     for (const id of Object.keys(core.PROVIDERS)) {
@@ -257,6 +258,7 @@ test('every vendor key format is redacted from the terminal', () => {
     for (const [name, pattern] of [
         ['Google', /AIza\[0-9A-Za-z_-\]/],
         ['Anthropic', /sk-ant-\[0-9A-Za-z_-\]/],
+        ['OpenRouter', /sk-or-v1-\[0-9A-Za-z_-\]/],
         ['OpenAI', /sk-\[0-9A-Za-z_-\]/]
     ]) {
         assert.ok(pattern.test(redact), `${name} anahtar biçimi redaksiyondan geçmiyor`);

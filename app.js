@@ -380,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return out
             .replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
             .replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-or-v1-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
             .replace(/sk-[0-9A-Za-z_-]{20,}/g, '[ANAHTAR GİZLENDİ]');
     }
 

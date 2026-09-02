@@ -416,6 +416,24 @@
             browserBlocked: true,
             blockedReason: 'OpenAI tarayıcıdan doğrudan çağrıya izin vermiyor (CORS). '
                 + 'Bu proje sunucusuz olduğu için aradan geçecek bir servis yok.'
+        },
+        openrouter: {
+            id: 'openrouter',
+            label: 'OpenRouter',
+            free: false,
+            costNote: 'Ücretli sağlayıcı — seçilen modelin tarifesine göre kredinden düşer.',
+            keyPlaceholder: 'sk-or-v1-...',
+            consoleUrl: 'https://openrouter.ai/keys',
+            consoleLabel: 'OpenRouter Dashboard',
+            origin: 'https://openrouter.ai',
+            models: [
+                'deepseek/deepseek-chat',
+                'deepseek/deepseek-r1',
+                'meta-llama/llama-3.3-70b-instruct',
+                'mistralai/mistral-large-2411',
+                'openai/gpt-4o-mini'
+            ],
+            nativeJsonMode: true
         }
     };
 
@@ -472,11 +490,17 @@
             };
         }
 
-        if (providerId === 'openai') {
+        if (providerId === 'openai' || providerId === 'openrouter') {
+            const isRouter = providerId === 'openrouter';
             return {
-                url: `${PROVIDERS.openai.origin}/v1/chat/completions`,
+                url: isRouter
+                    ? `${PROVIDERS.openrouter.origin}/api/v1/chat/completions`
+                    : `${PROVIDERS.openai.origin}/v1/chat/completions`,
                 authHeader: { name: 'Authorization', prefix: 'Bearer ' },
-                extraHeaders: {},
+                extraHeaders: isRouter ? {
+                    'HTTP-Referer': 'https://alperenesersu.github.io/Aetheria.ai/',
+                    'X-Title': 'Aetheria.ai'
+                } : {},
                 body: {
                     model,
                     messages: [{ role: 'user', content: prompt }],
@@ -530,7 +554,7 @@
             return text;
         }
 
-        if (providerId === 'openai') {
+        if (providerId === 'openai' || providerId === 'openrouter') {
             const choice = Array.isArray(data.choices) ? data.choices[0] : null;
             if (!choice) throw new Error(`${what}: boş yanıt döndü`);
             if (choice.finish_reason === 'length') {
@@ -600,7 +624,7 @@
             const u = data.usage || {};
             return (u.input_tokens || 0) + (u.output_tokens || 0);
         }
-        if (providerId === 'openai') {
+        if (providerId === 'openai' || providerId === 'openrouter') {
             return (data.usage && data.usage.total_tokens) || 0;
         }
         return (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0;
