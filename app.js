@@ -103,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnExportPool = document.getElementById('btnExportPool');
     const importPoolFile = document.getElementById('importPoolFile');
     const savedFilterCount = document.getElementById('savedFilterCount');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
 
     // Feature 2: Gemini API Elements
     const btnFeature2Notice = document.getElementById('btnFeature2Notice');
@@ -357,6 +358,64 @@ document.addEventListener('DOMContentLoaded', () => {
             `Havuzdan birkaç projeyi çıkarmayı deneyin; raporu .md olarak indirmek her zaman çalışır.`;
         storageWarning.classList.add('visible');
     }
+
+    // ---------------------------------------------------- Tema yönetimi (Dark Mode)
+    function getStoredTheme() {
+        try {
+            return localStorage.getItem('aetheria_theme');
+        } catch {
+            return null;
+        }
+    }
+
+    function getSystemTheme() {
+        if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return 'light';
+    }
+
+    function applyTheme(theme, save = true) {
+        const root = document.documentElement;
+        const normalized = theme === 'dark' ? 'dark' : 'light';
+        root.setAttribute('data-theme', normalized);
+
+        if (save) {
+            persist('aetheria_theme', normalized);
+        }
+
+        if (themeToggleBtn) {
+            const isDark = normalized === 'dark';
+            themeToggleBtn.setAttribute('aria-pressed', String(isDark));
+            themeToggleBtn.title = isDark ? 'Aydınlık moda geç' : 'Karanlık moda geç';
+            themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
+        }
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next, true);
+    }
+
+    function initTheme() {
+        const stored = getStoredTheme();
+        const effectiveTheme = (stored === 'dark' || stored === 'light') ? stored : getSystemTheme();
+        applyTheme(effectiveTheme, false);
+
+        if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            if (mediaQuery && typeof mediaQuery.addEventListener === 'function') {
+                mediaQuery.addEventListener('change', e => {
+                    if (!getStoredTheme()) {
+                        applyTheme(e.matches ? 'dark' : 'light', false);
+                    }
+                });
+            }
+        }
+    }
+
+    initTheme();
 
     // Helper: single place that owns the disabled/opacity pair, so no early return can
     // leave a button stuck in its busy state
@@ -1817,6 +1876,9 @@ Yanıtı tam olarak şu JSON şemasında ver:
     }
     if (btnCopyMermaid) {
         btnCopyMermaid.addEventListener('click', copyMermaidToClipboard);
+    }
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
     }
 
     // ==========================================

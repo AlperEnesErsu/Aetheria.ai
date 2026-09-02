@@ -899,3 +899,37 @@ test('searching and filtering in the saved pool filters rendered cards', async (
 
     assert.deepStrictEqual(app.errors, []);
 });
+
+test('themeToggleBtn toggles data-theme on root and persists to localStorage', async () => {
+    const app = await bootApp({
+        storage: {
+            aetheria_theme: 'light'
+        }
+    });
+
+    const root = app.document.documentElement;
+    const btn = app.id('themeToggleBtn');
+    assert.ok(btn, 'themeToggleBtn DOM içinde bulunamadı');
+
+    // Initially light based on storage
+    assert.strictEqual(root.getAttribute('data-theme'), 'light');
+    assert.strictEqual(btn.getAttribute('aria-pressed'), 'false');
+
+    // Click to toggle to dark
+    btn.click();
+    await app.flush(50);
+
+    assert.strictEqual(root.getAttribute('data-theme'), 'dark');
+    assert.strictEqual(btn.getAttribute('aria-pressed'), 'true');
+    assert.strictEqual(app.window.localStorage.getItem('aetheria_theme'), 'dark');
+
+    // Click again to toggle back to light
+    btn.click();
+    await app.flush(50);
+
+    assert.strictEqual(root.getAttribute('data-theme'), 'light');
+    assert.strictEqual(btn.getAttribute('aria-pressed'), 'false');
+    assert.strictEqual(app.window.localStorage.getItem('aetheria_theme'), 'light');
+
+    assert.deepStrictEqual(app.errors, []);
+});

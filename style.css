@@ -76,6 +76,82 @@
     --transition-slow: 0.5s ease;
 }
 
+:root,
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+/* Dark Palette: Premium charcoal ground, high-contrast ink, and accessible semantics */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg-primary: #121316;
+    --bg-secondary: #181a20;
+    --bg-tertiary: #20232a;
+
+    --card-bg: #1a1d24;
+    --card-border: #2e333d;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.40);
+    --card-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.55);
+
+    --accent-primary: #5294d4;
+    --accent-secondary: #3b7bb8;
+    --accent-soft: rgba(82, 148, 212, 0.15);
+    --accent-line: #2d5a88;
+
+    --accent-success: #4ade80;
+    --success-soft: rgba(74, 222, 128, 0.14);
+    --success-line: #1e5233;
+
+    --accent-warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.14);
+    --warning-line: #6e5015;
+
+    --accent-danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.14);
+    --danger-line: #742525;
+
+    --text-primary: #f3f4f6;
+    --text-secondary: #a3a8b4;
+    --text-tertiary: #717784;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+
+        --bg-primary: #121316;
+        --bg-secondary: #181a20;
+        --bg-tertiary: #20232a;
+
+        --card-bg: #1a1d24;
+        --card-border: #2e333d;
+        --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.40);
+        --card-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.55);
+
+        --accent-primary: #5294d4;
+        --accent-secondary: #3b7bb8;
+        --accent-soft: rgba(82, 148, 212, 0.15);
+        --accent-line: #2d5a88;
+
+        --accent-success: #4ade80;
+        --success-soft: rgba(74, 222, 128, 0.14);
+        --success-line: #1e5233;
+
+        --accent-warning: #fbbf24;
+        --warning-soft: rgba(251, 191, 36, 0.14);
+        --warning-line: #6e5015;
+
+        --accent-danger: #f87171;
+        --danger-soft: rgba(248, 113, 113, 0.14);
+        --danger-line: #742525;
+
+        --text-primary: #f3f4f6;
+        --text-secondary: #a3a8b4;
+        --text-tertiary: #717784;
+    }
+}
+
 /* Reset & Base Styles */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -204,6 +280,30 @@ body {
     background: var(--bg-secondary);
     border-color: var(--accent-primary);
     color: var(--accent-primary);
+}
+
+.theme-toggle-btn {
+    padding: 0.5rem;
+    min-width: 36px;
+    height: 36px;
+    justify-content: center;
+}
+
+[data-theme="dark"] .icon-theme-sun {
+    display: none !important;
+}
+
+[data-theme="dark"] .icon-theme-moon {
+    display: inline-block !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .icon-theme-sun {
+        display: none !important;
+    }
+    :root:not([data-theme="light"]) .icon-theme-moon {
+        display: inline-block !important;
+    }
 }
 
 .feature2-pending-badge {
@@ -774,7 +874,7 @@ body {
 
 .metric-card-pill:hover {
     border-color: var(--accent-primary);
-    background: white;
+    background: var(--card-bg);
     box-shadow: var(--card-shadow-hover);
     transform: translateY(-2px);
 }
@@ -1065,14 +1165,14 @@ body {
 .btn-save-project:hover {
     border-color: var(--accent-secondary);
     color: var(--accent-secondary);
-    background: white;
+    background: var(--card-bg);
 }
 
 .btn-export-blueprint:hover,
 .btn-copy-blueprint:hover {
     border-color: var(--accent-primary);
     color: var(--accent-primary);
-    background: white;
+    background: var(--card-bg);
 }
 
 .btn-save-project.is-saved,
@@ -1506,7 +1606,7 @@ body {
     gap: 1rem;
     max-width: min(600px, 92vw);
     padding: 1rem;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--danger-soft);
     border-radius: var(--radius-lg);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
