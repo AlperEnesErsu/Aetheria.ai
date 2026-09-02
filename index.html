@@ -605,9 +605,30 @@
                     <button type="button" id="btnCloseDrawer" class="btn-icon-close" aria-label="Havuzu kapat">✕</button>
                 </div>
                 <p class="drawer-note">
-                    Havuz yalnızca bu tarayıcıda saklanır; tarayıcı verilerini temizlerseniz silinir.
-                    Paylaşmak için projeyi <strong>.md</strong> olarak indirebilirsiniz.
+                    Havuz bu tarayıcıda saklanır. Paylaşmak veya yedeklemek için havuzu
+                    <strong>JSON</strong> olarak dışa aktarabilir ya da içe aktarabilirsiniz.
                 </p>
+                <div class="drawer-toolbar">
+                    <div class="drawer-search-wrap">
+                        <input type="search" id="savedSearchInput" class="drawer-search-input"
+                               placeholder="Havuzda ara (başlık, etiket, kategori)..." autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="drawer-actions-bar">
+                        <select id="savedCategoryFilter" class="drawer-filter-select" aria-label="Kategoriye göre filtrele">
+                            <option value="all">Tüm Kategoriler</option>
+                        </select>
+                        <div class="drawer-btn-group">
+                            <button type="button" id="btnExportPool" class="drawer-tool-btn" title="Havuzu JSON olarak indir">
+                                ⬇ Dışa Aktar
+                            </button>
+                            <label class="drawer-tool-btn drawer-file-btn" title="JSON dosyasından havuzu geri yükle">
+                                ⬆ İçe Aktar
+                                <input type="file" id="importPoolFile" accept=".json,application/json" hidden>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div id="savedFilterCount" class="saved-filter-count" style="display: none;"></div>
                 <div id="savedProjectsList" class="saved-projects-list">
                     <!-- Shared community cards rendered via JS -->
                 </div>

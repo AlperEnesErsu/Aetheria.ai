@@ -1131,7 +1131,91 @@ body {
     color: var(--text-tertiary);
     font-size: 0.8rem;
     line-height: 1.5;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.drawer-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.drawer-search-input {
+    width: 100%;
+    padding: 0.45rem 0.65rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    transition: border-color var(--transition-fast);
+}
+
+.drawer-search-input:focus {
+    border-color: var(--accent-primary);
+    outline: none;
+}
+
+.drawer-actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.drawer-filter-select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.35rem 0.45rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-family: var(--font-sans);
+}
+
+.drawer-btn-group {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.drawer-tool-btn {
+    padding: 0.35rem 0.55rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+}
+
+.drawer-tool-btn:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+}
+
+.drawer-file-btn {
+    position: relative;
+    cursor: pointer;
+}
+
+.saved-filter-count {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
 }
 
 .saved-projects-list {

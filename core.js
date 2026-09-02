@@ -2006,6 +2006,55 @@ Yanıtı şu JSON şemasında ver:
         return md;
     }
 
+    // ── Proje Havuzu: Dışa ve İçe Aktarma Mantığı ─────────────────────────
+
+    function exportPoolToJson(pool) {
+        if (!Array.isArray(pool)) return '[]';
+        return JSON.stringify(pool, null, 2);
+    }
+
+    function validateAndMergePool(existingPool, importedInput) {
+        const base = Array.isArray(existingPool) ? [...existingPool] : [];
+        let items = importedInput;
+        if (typeof importedInput === 'string') {
+            try {
+                items = JSON.parse(importedInput);
+            } catch {
+                return { error: 'Geçersiz JSON formatı', merged: base, addedCount: 0, skippedCount: 0 };
+            }
+        }
+        if (!Array.isArray(items)) {
+            return { error: 'İçe aktarılan veri bir proje listesi (dizi) değil', merged: base, addedCount: 0, skippedCount: 0 };
+        }
+
+        const existingIds = new Set(base.map(p => (p && typeof p.id === 'string' ? p.id.trim() : '')).filter(Boolean));
+        const existingTitles = new Set(base.map(p => (p && typeof p.title === 'string' ? normalizeTitle(p.title) : '')).filter(Boolean));
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        for (const raw of items) {
+            if (validateProjectShape(raw) !== null) {
+                skippedCount++;
+                continue;
+            }
+            const norm = normalizeProject(raw, 'all');
+            const titleKey = normalizeTitle(norm.title);
+
+            if (existingIds.has(norm.id) || (titleKey && existingTitles.has(titleKey))) {
+                skippedCount++;
+                continue;
+            }
+
+            base.push(norm);
+            existingIds.add(norm.id);
+            if (titleKey) existingTitles.add(titleKey);
+            addedCount++;
+        }
+
+        return { error: null, merged: base, addedCount, skippedCount };
+    }
+
     return {
         NODE_TYPES,
         SCOPE_PRESETS,
@@ -2063,6 +2112,8 @@ Yanıtı şu JSON şemasında ver:
         splitAssessment,
         ASSESSMENT_LIMITS,
         normalizeAssessment,
-        buildAssessmentMarkdown
+        buildAssessmentMarkdown,
+        exportPoolToJson,
+        validateAndMergePool
     };
 });
