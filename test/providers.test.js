@@ -43,6 +43,12 @@ test('each provider gets its own endpoint, auth header and body shape', () => {
     assert.match(openai.url, /api\.openai\.com/);
     assert.strictEqual(openai.authHeader.name, 'Authorization');
     assert.strictEqual(openai.authHeader.prefix, 'Bearer ');
+
+    const openrouter = core.buildProviderRequest('openrouter', 'deepseek/deepseek-chat', 'merhaba', { maxTokens: 100 });
+    assert.match(openrouter.url, /openrouter\.ai/);
+    assert.strictEqual(openrouter.authHeader.name, 'Authorization');
+    assert.strictEqual(openrouter.authHeader.prefix, 'Bearer ');
+    assert.strictEqual(openrouter.extraHeaders['HTTP-Referer'], 'https://alperenesersu.github.io/Aetheria.ai/');
 });
 
 test('anthropic requests carry the headers the browser call needs', () => {
@@ -81,6 +87,10 @@ test('extractProviderText reads each provider envelope', () => {
     assert.strictEqual(core.extractProviderText('openai', {
         choices: [{ finish_reason: 'stop', message: { content: 'merhaba' } }]
     }), 'merhaba');
+
+    assert.strictEqual(core.extractProviderText('openrouter', {
+        choices: [{ finish_reason: 'stop', message: { content: 'merhaba router' } }]
+    }), 'merhaba router');
 });
 
 test('extractProviderText ignores non-text blocks from Anthropic', () => {
@@ -174,11 +184,12 @@ test('readUsageTokens normalises each provider accounting shape', () => {
     assert.strictEqual(core.readUsageTokens('gemini', { usageMetadata: { totalTokenCount: 900 } }), 900);
     assert.strictEqual(core.readUsageTokens('anthropic', { usage: { input_tokens: 10, output_tokens: 5 } }), 15);
     assert.strictEqual(core.readUsageTokens('openai', { usage: { total_tokens: 42 } }), 42);
+    assert.strictEqual(core.readUsageTokens('openrouter', { usage: { total_tokens: 42 } }), 42);
 });
 
 test('readUsageTokens returns zero rather than NaN when usage is absent', () => {
     // The terminal prints this number; NaN there reads like a bug in the app
-    for (const providerId of ['gemini', 'anthropic', 'openai']) {
+    for (const providerId of ['gemini', 'anthropic', 'openai', 'openrouter']) {
         for (const payload of [null, undefined, {}, { usage: {} }]) {
             const value = core.readUsageTokens(providerId, payload);
             assert.strictEqual(typeof value, 'number');

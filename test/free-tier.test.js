@@ -57,7 +57,7 @@ test('the default provider is the free one', () => {
 test('every provider declares whether it costs money, honestly', () => {
     // Anthropic and OpenAI have no free API tier. Marking either one free would
     // put a user on a metered vendor while the UI told them it was free.
-    const KNOWN_PAID = ['anthropic', 'openai'];
+    const KNOWN_PAID = ['anthropic', 'openai', 'openrouter'];
 
     for (const [id, provider] of Object.entries(core.PROVIDERS)) {
         assert.strictEqual(typeof provider.free, 'boolean', `${id}: free alanı yok`);
