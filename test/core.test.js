@@ -549,3 +549,44 @@ test('validateProjectShape does not require a verification block', () => {
     // reject every project the app has ever made.
     assert.strictEqual(core.validateProjectShape(validProject()), null);
 });
+
+test('exportPoolToJson outputs formatted JSON string and handles empty/bad inputs', () => {
+    assert.strictEqual(core.exportPoolToJson(null), '[]');
+    assert.strictEqual(core.exportPoolToJson('not an array'), '[]');
+    const sample = [validProject()];
+    const exported = core.exportPoolToJson(sample);
+    assert.ok(typeof exported === 'string');
+    const parsed = JSON.parse(exported);
+    assert.strictEqual(parsed.length, 1);
+    assert.strictEqual(parsed[0].title, sample[0].title);
+});
+
+test('validateAndMergePool rejects invalid JSON or non-array inputs', () => {
+    const base = [validProject()];
+    const badJson = core.validateAndMergePool(base, '{ invalid json');
+    assert.ok(badJson.error);
+    assert.strictEqual(badJson.merged.length, 1);
+
+    const nonArray = core.validateAndMergePool(base, JSON.stringify({ not: 'an array' }));
+    assert.ok(nonArray.error);
+    assert.strictEqual(nonArray.merged.length, 1);
+});
+
+test('validateAndMergePool validates project shapes and deduplicates by id and title', () => {
+    const existing = [
+        { ...validProject(), id: 'proj-1', title: 'Mevcut Proje 1' }
+    ];
+    const incoming = [
+        { ...validProject(), id: 'proj-1', title: 'Mevcut Proje 1 Farkli' }, // same id
+        { ...validProject(), id: 'proj-2', title: 'mevcut proje 1' }, // same title normalized
+        { ...validProject(), id: 'proj-3', title: 'Yeni Benzersiz Proje' }, // valid & new
+        { title: 'Eksik proje' } // invalid shape
+    ];
+
+    const res = core.validateAndMergePool(existing, incoming);
+    assert.strictEqual(res.error, null);
+    assert.strictEqual(res.addedCount, 1);
+    assert.strictEqual(res.skippedCount, 3);
+    assert.strictEqual(res.merged.length, 2);
+    assert.strictEqual(res.merged[1].id, 'proj-3');
+});

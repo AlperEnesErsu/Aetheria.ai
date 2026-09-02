@@ -28,6 +28,7 @@ module.exports = [
                 setTimeout: 'readonly',
                 clearTimeout: 'readonly',
                 MutationObserver: 'readonly',
+                FileReader: 'readonly',
                 module: 'writable'
             }
         },

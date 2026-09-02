@@ -860,3 +860,42 @@ test('a hand-edited pool entry cannot write into the evidence class attribute', 
     }
     assert.deepStrictEqual(app.errors, []);
 });
+
+test('searching and filtering in the saved pool filters rendered cards', async () => {
+    const proj1 = { ...validProject(), id: 'p1', title: 'Sağlık Asistanı', categoryKey: 'health-ai', category: 'Sağlık & AI' };
+    const proj2 = { ...validProject(), id: 'p2', title: 'Web3 Güvenlik', categoryKey: 'web3', category: 'Web3 & Güvenlik' };
+
+    const app = await bootApp({
+        storage: {
+            aetheria_community_pool: JSON.stringify([proj1, proj2])
+        }
+    });
+
+    app.id('btnSavedProjects').click();
+    await app.flush(100);
+
+    let items = app.$$('.saved-card-item');
+    assert.strictEqual(items.length, 2, 'başlangıçta 2 proje görünmeli');
+
+    // Search for "Sağlık"
+    app.id('savedSearchInput').value = 'sağlık';
+    app.id('savedSearchInput').dispatchEvent(new app.window.Event('input'));
+    await app.flush(100);
+
+    items = app.$$('.saved-card-item');
+    assert.strictEqual(items.length, 1, 'arama sonrası 1 proje kalmalı');
+    assert.ok(items[0].textContent.includes('Sağlık Asistanı'));
+
+    // Category filter "web3"
+    app.id('savedSearchInput').value = '';
+    app.id('savedSearchInput').dispatchEvent(new app.window.Event('input'));
+    app.id('savedCategoryFilter').value = 'web3';
+    app.id('savedCategoryFilter').dispatchEvent(new app.window.Event('change'));
+    await app.flush(100);
+
+    items = app.$$('.saved-card-item');
+    assert.strictEqual(items.length, 1, 'kategori filtresi sonrası 1 proje kalmalı');
+    assert.ok(items[0].textContent.includes('Web3 Güvenlik'));
+
+    assert.deepStrictEqual(app.errors, []);
+});

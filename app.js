@@ -55,7 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
         buildAssessmentPrompt,
         splitAssessment,
         normalizeAssessment,
-        buildAssessmentMarkdown
+        buildAssessmentMarkdown,
+        exportPoolToJson,
+        validateAndMergePool
     } = window.AetheriaCore;
 
     // DOM Elements
@@ -94,6 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedDrawerOverlay = document.getElementById('savedDrawerOverlay');
     const btnCloseDrawer = document.getElementById('btnCloseDrawer');
     const savedProjectsList = document.getElementById('savedProjectsList');
+    const savedSearchInput = document.getElementById('savedSearchInput');
+    const savedCategoryFilter = document.getElementById('savedCategoryFilter');
+    const btnExportPool = document.getElementById('btnExportPool');
+    const importPoolFile = document.getElementById('importPoolFile');
+    const savedFilterCount = document.getElementById('savedFilterCount');
 
     // Feature 2: Gemini API Elements
     const btnFeature2Notice = document.getElementById('btnFeature2Notice');
@@ -536,18 +543,61 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSavedProjectsList();
     }
 
+    let currentSavedSearch = '';
+    let currentSavedCategory = 'all';
+
+    function populateSavedCategoryFilter() {
+        if (!savedCategoryFilter) return;
+        const currentVal = savedCategoryFilter.value || 'all';
+        savedCategoryFilter.innerHTML = '<option value="all">Tüm Kategoriler</option>';
+        Object.entries(CATEGORY_LABELS).forEach(([key, label]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = label;
+            savedCategoryFilter.appendChild(opt);
+        });
+        savedCategoryFilter.value = currentVal;
+    }
+
     // Render Shared Community Pool Drawer List
     function renderSavedProjectsList() {
         savedProjectsList.innerHTML = '';
         if (communityPool.length === 0) {
-            savedProjectsList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">Ortak havuzda henüz kaydedilmiş proje bulunmuyor.</div>`;
+            savedProjectsList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">Havuzda henüz kaydedilmiş proje bulunmuyor.</div>`;
+            if (savedFilterCount) savedFilterCount.style.display = 'none';
             return;
         }
 
-        // Built with DOM APIs rather than an innerHTML template: pool entries are
-        // untrusted (Gemini output, or hand-edited localStorage) and interpolating
-        // proj.title / proj.category into markup was directly injectable.
-        communityPool.forEach(proj => {
+        const query = (currentSavedSearch || '').trim().toLowerCase();
+        const filtered = communityPool.filter(proj => {
+            if (currentSavedCategory !== 'all') {
+                const catKey = proj.categoryKey || '';
+                if (catKey !== currentSavedCategory) return false;
+            }
+            if (!query) return true;
+            const titleMatch = (proj.title || '').toLowerCase().includes(query);
+            const taglineMatch = (proj.tagline || '').toLowerCase().includes(query);
+            const catMatch = (proj.category || '').toLowerCase().includes(query);
+            const tagMatch = Array.isArray(proj.step1 && proj.step1.tags)
+                && proj.step1.tags.some(t => typeof t === 'string' && t.toLowerCase().includes(query));
+            return titleMatch || taglineMatch || catMatch || tagMatch;
+        });
+
+        if (savedFilterCount) {
+            if (query || currentSavedCategory !== 'all') {
+                savedFilterCount.textContent = `${filtered.length} / ${communityPool.length} proje listeleniyor`;
+                savedFilterCount.style.display = 'block';
+            } else {
+                savedFilterCount.style.display = 'none';
+            }
+        }
+
+        if (filtered.length === 0) {
+            savedProjectsList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">Aramanızla eşleşen proje bulunamadı.</div>`;
+            return;
+        }
+
+        filtered.forEach(proj => {
             const card = document.createElement('div');
             card.className = 'saved-card-item';
 
@@ -613,6 +663,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderSavedProjectsList();
             });
         });
+    }
+
+    // Export Community Pool as JSON
+    function exportPoolAsJson() {
+        if (communityPool.length === 0) {
+            showCopyToast('⚠️ Dışa aktarılacak kayıtlı proje bulunmuyor.');
+            return;
+        }
+        const jsonStr = exportPoolToJson(communityPool);
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `aetheria-havuz-${dateStr}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        showCopyToast('✓ Proje havuzu JSON olarak indirildi!');
+    }
+
+    // Import Community Pool from JSON file
+    function handleImportPoolFile(e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const content = evt.target && evt.target.result;
+            const res = validateAndMergePool(communityPool, content);
+            if (res.error) {
+                showCopyToast(`⚠️ İçe aktarma hatası: ${res.error}`);
+                return;
+            }
+            if (res.addedCount === 0) {
+                showCopyToast('ℹ️ Yeni proje eklenmedi (zaten mevcut veya geçersiz).');
+                return;
+            }
+            communityPool = res.merged;
+            persistOrWarn('aetheria_community_pool', JSON.stringify(communityPool), 'Proje havuzu');
+            updateSavedBadge();
+            updateSaveButtonUI();
+            renderSavedProjectsList();
+            showCopyToast(`✓ ${res.addedCount} yeni proje havuza eklendi!`);
+        };
+        reader.readAsText(file);
+        e.target.value = '';
     }
 
     // Render the Aşama 2 payload (diagram + architecture + security) for the active project
@@ -1346,6 +1443,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
 
     // Drawer Open / Close Handlers
     btnSavedProjects.addEventListener('click', () => {
+        populateSavedCategoryFilter();
         renderSavedProjectsList();
         openDialogOverlay(savedDrawerOverlay, btnSavedProjects, 'flex');
     });
@@ -1353,6 +1451,25 @@ Yanıtı tam olarak şu JSON şemasında ver:
     savedDrawerOverlay.addEventListener('click', (e) => {
         if (e.target === savedDrawerOverlay) closeDialogOverlay();
     });
+
+    if (savedSearchInput) {
+        savedSearchInput.addEventListener('input', (e) => {
+            currentSavedSearch = e.target.value;
+            renderSavedProjectsList();
+        });
+    }
+    if (savedCategoryFilter) {
+        savedCategoryFilter.addEventListener('change', (e) => {
+            currentSavedCategory = e.target.value;
+            renderSavedProjectsList();
+        });
+    }
+    if (btnExportPool) {
+        btnExportPool.addEventListener('click', exportPoolAsJson);
+    }
+    if (importPoolFile) {
+        importPoolFile.addEventListener('change', handleImportPoolFile);
+    }
 
     // Save Project Button Handler
     btnSaveProject.addEventListener('click', toggleSaveCurrentProject);
