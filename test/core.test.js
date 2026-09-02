@@ -590,3 +590,36 @@ test('validateAndMergePool validates project shapes and deduplicates by id and t
     assert.strictEqual(res.merged.length, 2);
     assert.strictEqual(res.merged[1].id, 'proj-3');
 });
+
+test('buildMermaidDiagram generates valid flowchart and handles empty input', () => {
+    assert.strictEqual(core.buildMermaidDiagram(null), '');
+    assert.strictEqual(core.buildMermaidDiagram([]), '');
+
+    const nodes = [
+        { name: 'Gateway API', sub: 'FastAPI', type: 'service' },
+        { name: 'DB Cluster', sub: 'PostgreSQL', type: 'storage' }
+    ];
+    const code = core.buildMermaidDiagram(nodes);
+    assert.ok(code.includes('flowchart LR'));
+    assert.ok(code.includes('Gateway API'));
+    assert.ok(code.includes('FastAPI'));
+    assert.ok(code.includes('N0 --> N1'));
+    assert.ok(code.includes(':::service'));
+    assert.ok(code.includes(':::storage'));
+});
+
+test('buildBlueprintMarkdown includes mermaid diagram when diagramNodes are present', () => {
+    const proj = {
+        ...validProject(),
+        id: 'x',
+        step2: { architecture: 'mimari', security: 'guvenlik' },
+        diagramNodes: [
+            { name: 'Client UI', sub: 'React', type: 'client' },
+            { name: 'AI Server', sub: 'Python', type: 'ai' }
+        ]
+    };
+    const md = core.buildBlueprintMarkdown(proj);
+    assert.ok(md.includes('```mermaid'));
+    assert.ok(md.includes('Client UI'));
+    assert.ok(md.includes('flowchart LR'));
+});
