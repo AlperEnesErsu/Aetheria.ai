@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         normalizeAssessment,
         buildAssessmentMarkdown,
         exportPoolToJson,
-        validateAndMergePool
+        validateAndMergePool,
+        buildMermaidDiagram
     } = window.AetheriaCore;
 
     // DOM Elements
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnTriggerStep2 = document.getElementById('btnTriggerStep2');
     const btnExportBlueprint = document.getElementById('btnExportBlueprint');
     const btnCopyBlueprint = document.getElementById('btnCopyBlueprint');
+    const btnCopyMermaid = document.getElementById('btnCopyMermaid');
     const copyToast = document.getElementById('copyToast');
     const btnSaveProject = document.getElementById('btnSaveProject');
     const terminalContainer = document.getElementById('terminalContainer');
@@ -1299,6 +1301,46 @@ Yanıtı tam olarak şu JSON şemasında ver:
         }
     }
 
+    async function copyMermaidToClipboard() {
+        if (!currentProject || !Array.isArray(currentProject.diagramNodes) || currentProject.diagramNodes.length === 0) {
+            showCopyToast('⚠️ Kopyalanacak mimari diyagramı bulunmuyor.');
+            return;
+        }
+        const mermaidCode = buildMermaidDiagram(currentProject.diagramNodes);
+        if (!mermaidCode) return;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(mermaidCode);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = mermaidCode;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            if (btnCopyMermaid) {
+                btnCopyMermaid.classList.add('is-copied');
+                const span = btnCopyMermaid.querySelector('span');
+                const prevText = span ? span.textContent : '';
+                if (span) span.textContent = '✓ Kopyalandı';
+                setTimeout(() => {
+                    btnCopyMermaid.classList.remove('is-copied');
+                    if (span) span.textContent = prevText || 'Mermaid Kodu Kopyala';
+                }, 2000);
+            }
+
+            showCopyToast('✓ Mermaid diyagramı panoya kopyalandı!');
+        } catch (err) {
+            console.warn('Mermaid kopyalama başarısız:', err);
+            showCopyToast('✗ Panoya kopyalanamadı.');
+        }
+    }
+
     // Scope & Ecosystem Selector.
     //
     // The markup promises role="radiogroup" with role="radio" children. That is a
@@ -1771,6 +1813,9 @@ Yanıtı tam olarak şu JSON şemasında ver:
     btnExportBlueprint.addEventListener('click', () => exportBlueprintMarkdown());
     if (btnCopyBlueprint) {
         btnCopyBlueprint.addEventListener('click', copyCurrentBlueprintToClipboard);
+    }
+    if (btnCopyMermaid) {
+        btnCopyMermaid.addEventListener('click', copyMermaidToClipboard);
     }
 
     // ==========================================

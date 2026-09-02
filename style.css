@@ -911,11 +911,36 @@ body {
 }
 
 .diagram-header-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 0.85rem;
     font-family: var(--font-mono);
     color: var(--accent-primary);
     margin-bottom: 1.25rem;
     font-weight: 600;
+}
+
+.btn-copy-mermaid {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-copy-mermaid:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
 }
 
 .node-flow-container {

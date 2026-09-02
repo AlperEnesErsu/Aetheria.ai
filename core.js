@@ -777,6 +777,44 @@ Yanıtı şu JSON şemasında ver:
         return { allowed: true, history: recent };
     }
 
+    // Build Mermaid.js flowchart code from diagram nodes.
+    function buildMermaidDiagram(nodes) {
+        if (!Array.isArray(nodes) || nodes.length === 0) return '';
+
+        const clean = str => String(str || '').replace(/["[\]{}()]/g, '').trim();
+
+        const lines = [
+            'flowchart LR',
+            '    subgraph Mimari ["Sistem Mimarisi Akışı"]',
+            '        direction LR'
+        ];
+
+        const nodeIds = [];
+        nodes.forEach((node, idx) => {
+            const nodeId = `N${idx}`;
+            nodeIds.push(nodeId);
+            const name = clean(node.name || `Bileşen ${idx + 1}`);
+            const sub = clean(node.sub || '');
+            const type = safeNodeType(node.type);
+            const label = sub ? `${name}\\n(${sub})` : name;
+            lines.push(`        ${nodeId}["${label}"]:::${type}`);
+        });
+
+        if (nodeIds.length > 1) {
+            const flow = nodeIds.join(' --> ');
+            lines.push(`        ${flow}`);
+        }
+
+        lines.push('    end');
+        lines.push('    classDef source fill:#e8eff5,stroke:#1d4e7c,stroke-width:1.5px');
+        lines.push('    classDef service fill:#e6f0ea,stroke:#2f6a4a,stroke-width:1.5px');
+        lines.push('    classDef ai fill:#f6efdf,stroke:#8a5a12,stroke-width:1.5px');
+        lines.push('    classDef storage fill:#f6e8e6,stroke:#9c3025,stroke-width:1.5px');
+        lines.push('    classDef client fill:#fbfaf7,stroke:#56534c,stroke-width:1.5px');
+
+        return lines.join('\n');
+    }
+
     // Render a project as a Markdown blueprint document.
     function buildBlueprintMarkdown(p) {
         if (!p) return '';
@@ -812,6 +850,12 @@ Yanıtı şu JSON şemasında ver:
 
         if (p.step2) {
             doc += `## ${section}. KOD MİMARİSİ VE SİSTEM KATMANLARI\n\n${p.step2.architecture}\n\n`;
+            if (Array.isArray(p.diagramNodes) && p.diagramNodes.length > 0) {
+                const mermaid = buildMermaidDiagram(p.diagramNodes);
+                if (mermaid) {
+                    doc += `### Sistem Mimarisi Akış Şeması (Mermaid)\n\n\`\`\`mermaid\n${mermaid}\n\`\`\`\n\n`;
+                }
+            }
             doc += `---\n\n`;
             section += 1;
             doc += `## ${section}. GÜVENLİK YAPISI & RISK ÖNLEME TEDBİRLERİ\n\n${p.step2.security}\n\n`;
@@ -2114,6 +2158,7 @@ Yanıtı şu JSON şemasında ver:
         normalizeAssessment,
         buildAssessmentMarkdown,
         exportPoolToJson,
-        validateAndMergePool
+        validateAndMergePool,
+        buildMermaidDiagram
     };
 });
