@@ -25,4 +25,4 @@ jobs:
         run: npm test
 
       - name: Syntax check browser sources
-        run: node --check app.js && node --check core.js && node --check projects-data.js
+        run: node --check app.js && node --check core.js && node --check ui.js && node --check projects-data.js

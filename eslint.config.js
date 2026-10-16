@@ -7,7 +7,7 @@ module.exports = [
     js.configs.recommended,
     {
         // Browser sources: plain scripts sharing a global scope, no bundler
-        files: ['app.js', 'core.js', 'projects-data.js'],
+        files: ['app.js', 'core.js', 'ui.js', 'projects-data.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',

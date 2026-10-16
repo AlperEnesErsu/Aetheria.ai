@@ -26,7 +26,7 @@ const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
 // the harness dispatched a synthetic one — and then jsdom fired its own, running
 // the whole initialiser a second time against a DOM the first run had already
 // rewritten. Every test was booting a double-initialised app.
-const INLINE = ['core.js', 'projects-data.js', 'app.js']
+const INLINE = ['core.js', 'ui.js', 'projects-data.js', 'app.js']
     .map(file => `<script>${read(file).replace(/<\/script/gi, '<\\/script')}</script>`)
     .join('\n');
 
