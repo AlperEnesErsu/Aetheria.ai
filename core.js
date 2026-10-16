@@ -2123,7 +2123,26 @@ Yanıtı şu JSON şemasında ver:
         return { error: null, merged: base, addedCount, skippedCount };
     }
 
+    // Strip the live key and anything shaped like a vendor API key out of text that
+    // is about to be displayed. Users paste terminal output into bug reports.
+    function redactSecrets(text, liveKey) {
+        let out = String(text);
+        if (liveKey && liveKey.length > 8) {
+            out = out.split(liveKey).join('[ANAHTAR GİZLENDİ]');
+        }
+        // Belt and braces: a key can appear in an error body without matching the
+        // one currently in memory (a stale paste, a second provider). One pattern
+        // per vendor key format — Google's AIza..., Anthropic's sk-ant-..., and
+        // OpenAI's sk-... (listed last so the longer Anthropic prefix wins).
+        return out
+            .replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-or-v1-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
+            .replace(/sk-[0-9A-Za-z_-]{20,}/g, '[ANAHTAR GİZLENDİ]');
+    }
+
     return {
+        redactSecrets,
         NODE_TYPES,
         SCOPE_PRESETS,
         CONSTRAINT_AXES,

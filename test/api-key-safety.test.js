@@ -68,14 +68,24 @@ test('the key input does not leak through autofill or spellcheck', () => {
     assert.ok(/spellcheck="false"/.test(field[0]), 'spellcheck kapalı değil — metin sunucuya gidebilir');
 });
 
-test('terminal output is redacted before display', () => {
+test('terminal output is redacted and escaped before display', () => {
     // Error text can echo request data, and users paste terminal output into bug
-    // reports and screenshots.
-    assert.ok(/redactSecrets/.test(appSource), 'redactSecrets yok');
-    assert.ok(/escapeHtml\(redactSecrets\(/.test(appSource),
-        'terminal log redaksiyondan geçmiyor');
-    assert.ok(/AIza\[0-9A-Za-z_-\]/.test(appSource),
-        'Google anahtar biçimi için desen yok');
+    // reports and screenshots. Driven through the real writer, not a source grep.
+    const { JSDOM } = require('jsdom');
+    const { createTerminalLog } = require('../ui.js');
+    const core = require('../core.js');
+    const { document } = new JSDOM('<div id="t"></div>').window;
+    const body = document.getElementById('t');
+    const write = createTerminalLog(body, {
+        escapeHtml: core.escapeHtml,
+        redact: text => core.redactSecrets(text, TEST_KEY)
+    });
+
+    write(`upstream said: ${TEST_KEY} <img src=x>`, 'warning');
+
+    assert.ok(!body.innerHTML.includes(TEST_KEY), 'anahtar terminale sızdı');
+    assert.ok(body.textContent.includes('[ANAHTAR GİZLENDİ]'));
+    assert.strictEqual(body.querySelector('img'), null, 'mesaj kaçışlanmadan HTML oldu');
 });
 
 test('the user can delete the key outright', async () => {
@@ -253,16 +263,19 @@ test('each provider key is stored under its own name', () => {
 });
 
 test('every vendor key format is redacted from the terminal', () => {
-    const redact = appSource.slice(appSource.indexOf('function redactSecrets'),
-        appSource.indexOf('function redactSecrets') + 1200);
-    for (const [name, pattern] of [
-        ['Google', /AIza\[0-9A-Za-z_-\]/],
-        ['Anthropic', /sk-ant-\[0-9A-Za-z_-\]/],
-        ['OpenRouter', /sk-or-v1-\[0-9A-Za-z_-\]/],
-        ['OpenAI', /sk-\[0-9A-Za-z_-\]/]
+    const { redactSecrets } = require('../core.js');
+    for (const [name, key] of [
+        ['Google', 'AIzaSyD0123456789abcdefghij'],
+        ['Anthropic', 'sk-ant-api03-abcdefghijklmnop'],
+        ['OpenRouter', 'sk-or-v1-abcdefghijklmnop0123'],
+        ['OpenAI', 'sk-proj0123456789abcdefghijkl']
     ]) {
-        assert.ok(pattern.test(redact), `${name} anahtar biçimi redaksiyondan geçmiyor`);
+        const out = redactSecrets(`error: ${key} rejected`, '');
+        assert.ok(!out.includes(key), `${name} anahtar biçimi redaksiyondan geçmiyor`);
+        assert.ok(out.includes('[ANAHTAR GİZLENDİ]'), name);
     }
+    // The live key is removed even when it matches no known vendor shape
+    assert.strictEqual(redactSecrets('x custom-key-123456 y', 'custom-key-123456'), 'x [ANAHTAR GİZLENDİ] y');
 });
 
 test('no key-shaped literal is committed in the sources', () => {

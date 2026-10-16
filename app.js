@@ -58,8 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
         buildAssessmentMarkdown,
         exportPoolToJson,
         validateAndMergePool,
-        buildMermaidDiagram
+        buildMermaidDiagram,
+        redactSecrets: redactWithKey
     } = window.AetheriaCore;
+
+    // Self-contained DOM pieces (theme, terminal log, diagram, clipboard, downloads)
+    const {
+        createThemeController,
+        createTerminalLog,
+        renderArchitectureDiagram: drawArchitectureDiagram,
+        copyText,
+        flashCopied,
+        downloadTextFile
+    } = window.AetheriaUI;
 
     // DOM Elements
     const btnGenerateProject = document.getElementById('btnGenerateProject');
@@ -359,62 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
         storageWarning.classList.add('visible');
     }
 
-    // ---------------------------------------------------- Tema yönetimi (Dark Mode)
-    function getStoredTheme() {
-        try {
-            return localStorage.getItem('aetheria_theme');
-        } catch {
-            return null;
-        }
-    }
-
-    function getSystemTheme() {
-        if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        return 'light';
-    }
-
-    function applyTheme(theme, save = true) {
-        const root = document.documentElement;
-        const normalized = theme === 'dark' ? 'dark' : 'light';
-        root.setAttribute('data-theme', normalized);
-
-        if (save) {
-            persist('aetheria_theme', normalized);
-        }
-
-        if (themeToggleBtn) {
-            const isDark = normalized === 'dark';
-            themeToggleBtn.setAttribute('aria-pressed', String(isDark));
-            themeToggleBtn.title = isDark ? 'Aydınlık moda geç' : 'Karanlık moda geç';
-            themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
-        }
-    }
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || getSystemTheme();
-        const next = current === 'dark' ? 'light' : 'dark';
-        applyTheme(next, true);
-    }
-
-    function initTheme() {
-        const stored = getStoredTheme();
-        const effectiveTheme = (stored === 'dark' || stored === 'light') ? stored : getSystemTheme();
-        applyTheme(effectiveTheme, false);
-
-        if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-            if (mediaQuery && typeof mediaQuery.addEventListener === 'function') {
-                mediaQuery.addEventListener('change', e => {
-                    if (!getStoredTheme()) {
-                        applyTheme(e.matches ? 'dark' : 'light', false);
-                    }
-                });
-            }
-        }
-    }
-
+    const { toggleTheme, initTheme } = createThemeController({
+        document, window, toggleButton: themeToggleBtn, persist
+    });
     initTheme();
 
     // Helper: single place that owns the disabled/opacity pair, so no early return can
@@ -425,55 +383,9 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-busy', busy ? 'true' : 'false');
     }
 
-    // Strip the live key and anything shaped like a Google API key out of text that
-    // is about to be displayed. Users paste terminal output into bug reports.
-    function redactSecrets(text) {
-        let out = String(text);
-        if (geminiApiKey && geminiApiKey.length > 8) {
-            out = out.split(geminiApiKey).join('[ANAHTAR GİZLENDİ]');
-        }
-        // Belt and braces: a key can appear in an error body without matching the
-        // one currently in memory (a stale paste, a second provider). One pattern
-        // per vendor key format — Google's AIza..., Anthropic's sk-ant-..., and
-        // OpenAI's sk-... (listed last so the longer Anthropic prefix wins).
-        return out
-            .replace(/AIza[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
-            .replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
-            .replace(/sk-or-v1-[0-9A-Za-z_-]{10,}/g, '[ANAHTAR GİZLENDİ]')
-            .replace(/sk-[0-9A-Za-z_-]{20,}/g, '[ANAHTAR GİZLENDİ]');
-    }
-
-    // Terminal Log Writer
-    function writeTerminalLog(message, type = 'info') {
-        const line = document.createElement('div');
-        line.className = 'terminal-line';
-        
-        const timestamp = new Date().toLocaleTimeString('tr-TR', { hour12: false });
-        let statusTag = `<span class="prefix">[${timestamp}]</span>`;
-
-        if (type === 'success') {
-            statusTag += ` <span class="status-success">[SUCCESS]</span>`;
-        } else if (type === 'agent') {
-            statusTag += ` <span class="status-info">[AI AGENT]</span>`;
-        } else if (type === 'warning') {
-            // Was [SECURITY GUARD]. None of the eleven callers is a security event —
-            // they are a failed generation, an exhausted idea batch, an unreadable
-            // file, a measurement that refutes its claim. The label named something
-            // that was not happening, which is the habit the rest of this log dropped.
-            statusTag += ` <span class="status-info" style="color: var(--accent-warning);">[UYARI]</span>`;
-        } else {
-            statusTag += ` <span class="status-info">[SCAN]</span>`;
-        }
-
-        // `message` can carry a raw upstream error body (see describeHttpError), so it
-        // is escaped before it becomes markup — and redacted first, in case an error
-        // ever echoes the key back. Defence in depth: nothing today is known to do
-        // that, but a log line is the easiest place for a secret to end up in a
-        // screenshot or a pasted bug report.
-        line.innerHTML = `${statusTag} <span>${escapeHtml(redactSecrets(message))}</span>`;
-        terminalBody.appendChild(line);
-        terminalBody.scrollTop = terminalBody.scrollHeight;
-    }
+    // Reads geminiApiKey at call time: the key can change while the page is open.
+    const redactSecrets = text => redactWithKey(text, geminiApiKey);
+    const writeTerminalLog = createTerminalLog(terminalBody, { escapeHtml, redact: redactSecrets });
 
     // Rate Limiter Enforcement Check — the decision itself is pure (core.js);
     // this wrapper supplies the clock and persists the pruned history.
@@ -735,15 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const jsonStr = exportPoolToJson(communityPool);
         const dateStr = new Date().toISOString().slice(0, 10);
-        const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `aetheria-havuz-${dateStr}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 0);
+        downloadTextFile(document, `aetheria-havuz-${dateStr}.json`, jsonStr, 'application/json;charset=utf-8;');
         showCopyToast('✓ Proje havuzu JSON olarak indirildi!');
     }
 
@@ -1266,35 +1170,8 @@ Yanıtı tam olarak şu JSON şemasında ver:
         }
     }
 
-    // Render Visual Architecture Flow Graph
     function renderArchitectureDiagram(nodes) {
-        architectureDiagramNodes.innerHTML = '';
-        if (!nodes || nodes.length === 0) return;
-
-        nodes.forEach((node, idx) => {
-            const card = document.createElement('div');
-            // node.type lands in a class name, so restrict it to the known palette
-            const type = safeNodeType(node.type);
-            card.className = `diagram-node-card node-${type}`;
-
-            const name = document.createElement('div');
-            name.className = 'node-name';
-            name.textContent = node.name;
-
-            const sub = document.createElement('div');
-            sub.className = 'node-sub';
-            sub.textContent = node.sub || '';
-
-            card.append(name, sub);
-            architectureDiagramNodes.appendChild(card);
-
-            if (idx < nodes.length - 1) {
-                const arrow = document.createElement('div');
-                arrow.className = 'flow-arrow';
-                arrow.innerHTML = '➔';
-                architectureDiagramNodes.appendChild(arrow);
-            }
-        });
+        drawArchitectureDiagram(architectureDiagramNodes, nodes, safeNodeType);
     }
 
     // Export Blueprint as Markdown
@@ -1302,17 +1179,7 @@ Yanıtı tam olarak şu JSON şemasında ver:
         const p = projToExport || currentProject;
         if (!p) return;
 
-        const blob = new Blob([buildBlueprintMarkdown(p)], { type: 'text/markdown;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${p.id}-blueprint.md`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        // The blob stays alive for the whole document lifetime unless revoked, so every
-        // export leaked its payload. Deferred one tick so the download has started.
-        setTimeout(() => URL.revokeObjectURL(url), 0);
+        downloadTextFile(document, `${p.id}-blueprint.md`, buildBlueprintMarkdown(p), 'text/markdown;charset=utf-8;');
     }
 
     let copyToastTimeout = null;
@@ -1330,29 +1197,8 @@ Yanıtı tam olarak şu JSON şemasında ver:
         if (!currentProject) return;
         const markdown = buildBlueprintMarkdown(currentProject);
         try {
-            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                await navigator.clipboard.writeText(markdown);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = markdown;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
-
-            if (btnCopyBlueprint) {
-                btnCopyBlueprint.classList.add('is-copied');
-                const span = btnCopyBlueprint.querySelector('span');
-                const prevText = span ? span.textContent : '';
-                if (span) span.textContent = '✓ Kopyalandı';
-                setTimeout(() => {
-                    btnCopyBlueprint.classList.remove('is-copied');
-                    if (span) span.textContent = prevText || 'Panoya Kopyala';
-                }, 2000);
-            }
+            await copyText(document, markdown);
+            flashCopied(btnCopyBlueprint, 'Panoya Kopyala');
 
             showCopyToast('✓ Markdown panoya kopyalandı!');
         } catch (err) {
@@ -1370,29 +1216,8 @@ Yanıtı tam olarak şu JSON şemasında ver:
         if (!mermaidCode) return;
 
         try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(mermaidCode);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = mermaidCode;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
-
-            if (btnCopyMermaid) {
-                btnCopyMermaid.classList.add('is-copied');
-                const span = btnCopyMermaid.querySelector('span');
-                const prevText = span ? span.textContent : '';
-                if (span) span.textContent = '✓ Kopyalandı';
-                setTimeout(() => {
-                    btnCopyMermaid.classList.remove('is-copied');
-                    if (span) span.textContent = prevText || 'Mermaid Kodu Kopyala';
-                }, 2000);
-            }
+            await copyText(document, mermaidCode);
+            flashCopied(btnCopyMermaid, 'Mermaid Kodu Kopyala');
 
             showCopyToast('✓ Mermaid diyagramı panoya kopyalandı!');
         } catch (err) {
